@@ -810,10 +810,14 @@ impl WorkspaceAction {
                 | OpenSettingsFile
                 | FixSettingsWithOz { .. }
                 | OpenNetworkLogPane
-                | ShowHoaOnboardingFlow
         );
 
         if is_blocked {
+            return true;
+        }
+
+        #[cfg(debug_assertions)]
+        if matches!(self, ShowHoaOnboardingFlow) {
             return true;
         }
 
