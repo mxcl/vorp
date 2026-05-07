@@ -17,9 +17,10 @@ use crate::{
     ChannelState,
 };
 use ::channel_versions::{ParsedVersion, VersionInfo};
-use anyhow::{anyhow, Context as _, Result};
+use anyhow::{anyhow, bail, Context as _, Result};
 use chrono::{DateTime, FixedOffset, NaiveDate};
 use rand::Rng as _;
+use serde::Deserialize;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Duration;
@@ -36,6 +37,8 @@ use warpui::{Entity, ModelContext, SingletonEntity, ViewContext};
 
 pub use self::changelog::get_current_changelog;
 use self::channel_versions::fetch_channel_versions;
+
+const VORP_RELEASES_API_URL: &str = "https://api.github.com/repos/mxcl/vorp/releases?per_page=20";
 
 /// A successfully downloaded and unpacked target update.
 #[derive(Clone, Debug)]
@@ -301,7 +304,7 @@ impl AutoupdateState {
             download.version.update_by = version.update_by;
         }
 
-        if version.version == current_version {
+        if versions_equivalent(&version.version, current_version) {
             log::info!("Already up to date with {}", version.version);
             UpdateReady::No
         } else {
@@ -354,8 +357,15 @@ impl AutoupdateState {
         new_version: &VersionInfo,
         current_version: &str,
     ) -> Result<bool> {
-        let current_version = ParsedVersion::try_from(current_version)?;
-        let new_version = ParsedVersion::try_from(new_version.version.as_str())?;
+        if let (Ok(current_version), Ok(new_version)) = (
+            ParsedVersion::try_from(current_version),
+            ParsedVersion::try_from(new_version.version.as_str()),
+        ) {
+            return Ok(current_version > new_version);
+        }
+
+        let current_version = parse_semver(current_version)?;
+        let new_version = parse_semver(&new_version.version)?;
         Ok(current_version > new_version)
     }
 
@@ -732,6 +742,40 @@ fn get_curr_parsed_version() -> Option<ParsedVersion> {
     curr_version.and_then(|v| ParsedVersion::try_from(v).ok())
 }
 
+fn versions_equivalent(a: &str, b: &str) -> bool {
+    match (parse_semver(a), parse_semver(b)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => a == b,
+    }
+}
+
+fn parse_semver(version: &str) -> Result<(u64, u64, u64)> {
+    let version = version.strip_prefix('v').unwrap_or(version);
+    let version = version
+        .split(['-', '+'])
+        .next()
+        .ok_or_else(|| anyhow!("Invalid semantic version"))?;
+    let mut parts = version.split('.');
+
+    let major = parts
+        .next()
+        .ok_or_else(|| anyhow!("Missing major version"))?
+        .parse()?;
+    let minor = parts
+        .next()
+        .ok_or_else(|| anyhow!("Missing minor version"))?
+        .parse()?;
+    let patch = parts
+        .next()
+        .ok_or_else(|| anyhow!("Missing patch version"))?
+        .parse()?;
+    if parts.next().is_some() {
+        bail!("Too many semantic version components");
+    }
+
+    Ok((major, minor, patch))
+}
+
 /// Generate a new random update ID.
 fn new_update_id() -> String {
     let mut rng = rand::thread_rng();
@@ -749,6 +793,10 @@ async fn fetch_version(
     update_id: &str,
     server_api: Arc<ServerApi>,
 ) -> Result<VersionInfo> {
+    if matches!(channel, Channel::Oss) {
+        return fetch_vorp_release_version(server_api).await;
+    }
+
     let versions = fetch_channel_versions(update_id, server_api.clone(), false, is_daily).await?;
 
     let channel_version = match channel {
@@ -770,6 +818,75 @@ async fn fetch_version(
     };
     let version_info = channel_version.version_info();
     Ok(version_info)
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubRelease {
+    tag_name: String,
+    draft: bool,
+    prerelease: bool,
+    assets: Vec<GitHubReleaseAsset>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubReleaseAsset {
+    name: String,
+    browser_download_url: String,
+}
+
+async fn fetch_vorp_release_version(server_api: Arc<ServerApi>) -> Result<VersionInfo> {
+    let asset_name = current_platform_update_asset_name(Channel::Oss)?;
+    log::info!("Checking Vorp GitHub releases for asset {asset_name}");
+
+    let releases: Vec<GitHubRelease> = server_api
+        .http_client()
+        .get(VORP_RELEASES_API_URL)
+        .header("Accept", "application/vnd.github+json")
+        .header("User-Agent", "WarpOss")
+        .timeout(crate::server::server_api::FETCH_CHANNEL_VERSIONS_TIMEOUT)
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+
+    for release in releases
+        .into_iter()
+        .filter(|release| !release.draft && !release.prerelease)
+    {
+        let Some(asset) = release
+            .assets
+            .into_iter()
+            .find(|asset| asset.name == asset_name)
+        else {
+            log::info!(
+                "Skipping release {} because it does not include {}",
+                release.tag_name,
+                asset_name
+            );
+            continue;
+        };
+
+        let mut version_info = VersionInfo::new(release.tag_name);
+        version_info.update_asset_url = Some(asset.browser_download_url);
+        return Ok(version_info);
+    }
+
+    bail!("No Vorp release found with update asset {asset_name}");
+}
+
+fn current_platform_update_asset_name(channel: Channel) -> Result<String> {
+    cfg_if::cfg_if! {
+        if #[cfg(target_os = "macos")] {
+            Ok(mac::update_asset_name(channel))
+        } else if #[cfg(target_os = "linux")] {
+            linux::update_asset_name()
+        } else if #[cfg(windows)] {
+            windows::update_asset_name()
+        } else {
+            bail!("Autoupdate is not implemented for this platform")
+        }
+    }
 }
 
 // This method is unimplemented on wasm, so we allow unused variables.
@@ -1127,10 +1244,21 @@ fn release_assets_directory_url(channel: Channel, version: &str) -> String {
             format!("{releases_base_url}/preview/{version}")
         }
         Channel::Dev => format!("{releases_base_url}/dev/{version}"),
-        Channel::Local | Channel::Integration | Channel::Oss => {
-            unreachable!("local/integration/oss autoupdate not supported");
+        Channel::Oss => format!("{releases_base_url}/{version}"),
+        Channel::Local | Channel::Integration => {
+            unreachable!("local/integration autoupdate not supported");
         }
     }
+}
+
+fn update_asset_url(channel: Channel, version_info: &VersionInfo, asset_name: &str) -> String {
+    version_info.update_asset_url.clone().unwrap_or_else(|| {
+        format!(
+            "{}/{}",
+            release_assets_directory_url(channel, &version_info.version),
+            asset_name
+        )
+    })
 }
 
 #[cfg(test)]

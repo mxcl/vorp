@@ -4,12 +4,16 @@
 
 use anyhow::Result;
 use warp_core::{
-    channel::{Channel, ChannelConfig, ChannelState, OzConfig, WarpServerConfig},
+    channel::{AutoupdateConfig, Channel, ChannelConfig, ChannelState, OzConfig, WarpServerConfig},
     AppId,
 };
 
 // Simple wrapper around warp::run() for Warp OSS builds.
 fn main() -> Result<()> {
+    ChannelState::set_app_version(
+        option_env!("GIT_RELEASE_TAG").or(Some(env!("CARGO_PKG_VERSION"))),
+    );
+
     let mut state = ChannelState::new(
         Channel::Oss,
         ChannelConfig {
@@ -19,7 +23,10 @@ fn main() -> Result<()> {
             oz_config: OzConfig::production(),
             telemetry_config: None,
             crash_reporting_config: None,
-            autoupdate_config: None,
+            autoupdate_config: Some(AutoupdateConfig {
+                releases_base_url: "https://github.com/mxcl/vorp/releases/download".into(),
+                show_autoupdate_menu_items: true,
+            }),
             mcp_static_config: None,
         },
     );
@@ -53,7 +60,7 @@ embed_plist::embed_info_plist_bytes!(r#"
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
+    <string>1.0.0</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.developer-tools</string>
     <key>NSHighResolutionCapable</key>

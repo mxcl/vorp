@@ -24,6 +24,11 @@ lazy_static! {
     static ref APP_VERSION: Mutex<Option<&'static str>> = Mutex::new(None);
 }
 
+#[cfg(not(feature = "test-util"))]
+lazy_static! {
+    static ref APP_VERSION: Mutex<Option<&'static str>> = Mutex::new(None);
+}
+
 #[derive(Debug)]
 pub struct ChannelState {
     channel: Channel,
@@ -332,7 +337,14 @@ impl ChannelState {
 
     #[cfg(not(feature = "test-util"))]
     pub fn app_version() -> Option<&'static str> {
-        option_env!("GIT_RELEASE_TAG")
+        let version = APP_VERSION.lock();
+
+        version.or_else(|| option_env!("GIT_RELEASE_TAG"))
+    }
+
+    #[cfg(not(feature = "test-util"))]
+    pub fn set_app_version(version: Option<&'static str>) {
+        *APP_VERSION.lock() = version;
     }
 
     pub fn sentry_url() -> Cow<'static, str> {

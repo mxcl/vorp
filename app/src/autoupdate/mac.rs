@@ -29,7 +29,7 @@ use crate::{
     safe_info,
 };
 
-use super::{release_assets_directory_url, DownloadReady};
+use super::DownloadReady;
 
 // Relative path to the directory containing old executables from before an autoupdate.
 //
@@ -79,7 +79,7 @@ pub(super) fn manually_download_version(
     version_info: &VersionInfo,
     ctx: &mut AppContext,
 ) {
-    let url = update_url(*channel, version_info.version.as_str());
+    let url = update_url(*channel, version_info);
     ctx.open_url(&url);
 }
 
@@ -640,7 +640,7 @@ async fn download_dmg(
     client: &http_client::Client,
 ) -> Result<PathBuf> {
     // TODO: Use a streaming fetch and and provide an api for tracking progress
-    let update_url = update_url(*channel, &version_info.version);
+    let update_url = update_url(*channel, version_info);
     log::info!("Fetching new dmg at {update_url}");
     let res = client
         .get(&update_url)
@@ -700,12 +700,12 @@ async fn mount_dmg(dmg_dir: &Path, update_id: &str) -> Result<PathBuf> {
     Ok(volume)
 }
 
-fn update_url(channel: Channel, version: &str) -> String {
-    format!(
-        "{}/{}",
-        release_assets_directory_url(channel, version),
-        dmg_name(channel)
-    )
+fn update_url(channel: Channel, version_info: &VersionInfo) -> String {
+    super::update_asset_url(channel, version_info, &dmg_name(channel))
+}
+
+pub(super) fn update_asset_name(channel: Channel) -> String {
+    dmg_name(channel)
 }
 
 fn app_name(channel: Channel) -> String {

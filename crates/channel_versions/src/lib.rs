@@ -117,6 +117,10 @@ impl ChannelVersion {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct VersionInfo {
     pub version: String,
+    /// Direct URL for downloading the update asset. When omitted, callers construct the asset URL
+    /// from the channel release directory and the platform-specific asset name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub update_asset_url: Option<String>,
     /// The version to download for new users from the download page. This is not used on the client
     /// other than in the `apply_overrides` binary used from the `channel-versions` repo.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -144,6 +148,7 @@ impl VersionInfo {
     pub fn new(version: String) -> Self {
         Self {
             version,
+            update_asset_url: None,
             update_by: None,
             soft_cutoff: None,
             last_prominent_update: None,

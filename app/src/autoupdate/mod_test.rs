@@ -273,6 +273,7 @@ fn set_last_successful_daily_update_check(
 fn make_version_info(version_string: impl Into<String>, is_rollback: bool) -> VersionInfo {
     VersionInfo {
         version: version_string.into(),
+        update_asset_url: None,
         update_by: None,
         soft_cutoff: None,
         last_prominent_update: None,
@@ -534,7 +535,34 @@ fn test_should_update() {
                 "Should not update when already on the latest version"
             );
 
-            // Test 3: Current version ahead of server version (no rollback)
+            // Test 3: Semver tags should compare with or without a v prefix.
+            ChannelState::set_app_version(Some("1.0.0"));
+            let version = make_version_info("v1.0.0", false /* is_rollback */);
+            let result = autoupdate.should_update(version, "update2_semver".to_string());
+            assert!(
+                matches!(result, UpdateReady::No),
+                "Should not update when semver versions are equivalent"
+            );
+
+            // Test 4: Current semver ahead of server version (no rollback)
+            ChannelState::set_app_version(Some("1.0.1"));
+            let version = make_version_info("1.0.0", false /* is_rollback */);
+            let result = autoupdate.should_update(version, "update3_semver".to_string());
+            assert!(
+                matches!(result, UpdateReady::No),
+                "Should not update when current semver is ahead and no rollback"
+            );
+
+            // Test 5: New semver update available for download
+            ChannelState::set_app_version(Some("1.0.0"));
+            let version = make_version_info("v1.0.1", false /* is_rollback */);
+            let result = autoupdate.should_update(version, "update4_semver".to_string());
+            assert!(
+                matches!(result, UpdateReady::CanDownload { .. }),
+                "Should update when a newer semver release is available"
+            );
+
+            // Test 6: Current version ahead of server version (no rollback)
             ChannelState::set_app_version(Some("v0.2023.05.15.08.04.stable_02"));
             let version = make_version_info(
                 "v0.2023.05.15.08.04.stable_01",
@@ -546,7 +574,7 @@ fn test_should_update() {
                 "Should not update when current version is ahead and no rollback"
             );
 
-            // Test 4: Current version ahead of server version (with rollback)
+            // Test 7: Current version ahead of server version (with rollback)
             ChannelState::set_app_version(Some("v0.2023.05.15.08.04.stable_02"));
             let version =
                 make_version_info("v0.2023.05.15.08.04.stable_01", true /* is_rollback */);
@@ -556,7 +584,7 @@ fn test_should_update() {
                 "Should update when current version is ahead but rollback is true"
             );
 
-            // Test 5: New update available for download
+            // Test 8: New update available for download
             ChannelState::set_app_version(Some("v0.2023.05.15.08.04.stable_01"));
             let version = make_version_info(
                 "v0.2023.05.15.08.04.stable_02",
