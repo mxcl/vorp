@@ -1,6 +1,6 @@
 #!/usr/local/bin/av inject +APPLE_PASSWORD /usr/local/bin/bash
 #
-# Build, sign, notarize, and publish the macOS OSS app DMGs to a GitHub release.
+# Build, sign, notarize, and publish the arm64 macOS OSS app DMG to a GitHub release.
 #
 # Required environment:
 #   CODESIGN_IDENTITY  Developer ID identity installed in the local keychain.
@@ -72,12 +72,6 @@ export WARP_NOTARIZATION_PASSWORD="$APPLE_PASSWORD"
 echo "Checking GitHub authentication for $GH_REPO..."
 gh auth status >/dev/null
 
-echo "Building signed and notarized universal macOS DMG for $TAG..."
-./script/macos/bundle \
-  --channel oss \
-  --release-tag "$TAG" \
-  --read-passwords-from-env
-
 echo "Building signed and notarized arm64 macOS DMG for $TAG..."
 ./script/macos/bundle \
   --channel oss \
@@ -87,7 +81,6 @@ echo "Building signed and notarized arm64 macOS DMG for $TAG..."
   --dmg-name-suffix arm64
 
 ASSETS=(
-  "$OUT_DIR/$MACOS_APP_NAME.dmg"
   "$OUT_DIR/$MACOS_APP_NAME-arm64.dmg"
 )
 

@@ -150,8 +150,6 @@ jobs:
         include:
           - arch: aarch64
             dmg_name_suffix: arm64
-          - arch: x86_64
-            dmg_name_suffix: x86_64
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
@@ -245,32 +243,12 @@ jobs:
         env:
           DEBUG_FILE_OR_FOLDER_PATH: ${{ steps.bundle_app.outputs.frameworks_dir }}
 
-      # Create a tar archive instead of simply using upload-artifact so we can
-      # preserve permissions and symlinks.  If we don't preserve symlinks, we'll
-      # break the macOS framework directory structure.
-      - name: Create tar archive with build artifacts
-        run: |
-          tar czfv build-artifacts.tar.gz \
-            ${{ steps.bundle_app.outputs.binary_path }} \
-            ${{ steps.bundle_app.outputs.dock_tile_plugin_dir }} \
-            ${{ steps.bundle_app.outputs.dsym_path }} \
-            ${{ steps.bundle_app.outputs.dsym_realpath }} \
-            ${{ steps.bundle_app.outputs.frameworks_dir }}
-
-      - name: Archive ${{ matrix.arch }} build artifacts for universal build
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: macos-${{ matrix.arch }}-${{ steps.get-config.outputs.channel }}
-          retention-days: 1
-          # We compress the tar archive, so no need to re-compress.
-          compression-level: 0
-          path: build-artifacts.tar.gz
-
   release_macos_universal:
     name: Build Release (macOS Universal)
     runs-on: macos-26-xlarge
     needs: [prepare_release, release_macos_single_arch]
-    if: ${{ inputs.build_macos != false }}
+    # Universal macOS app builds require x86_64 and are intentionally disabled.
+    if: ${{ false }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -418,7 +396,6 @@ jobs:
       matrix:
         include:
           - arch: aarch64
-          - arch: x86_64
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
