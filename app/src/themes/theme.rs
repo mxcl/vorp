@@ -51,7 +51,6 @@ pub enum ThemeKind {
     Adeberry,
     #[schemars(description = "Phenomenon")]
     Phenomenon,
-    #[default]
     #[schemars(description = "Dark")]
     Dark,
     #[schemars(description = "Dracula")]
@@ -70,6 +69,7 @@ pub enum ThemeKind {
     Light,
     #[schemars(description = "Dark City")]
     DarkCity,
+    #[default]
     #[schemars(description = "Gruvbox Dark")]
     GruvboxDark,
     #[schemars(description = "Red Rock")]
@@ -386,7 +386,7 @@ impl Default for SelectedSystemThemes {
     fn default() -> Self {
         Self {
             light: ThemeKind::Light,
-            dark: ThemeKind::Dark,
+            dark: ThemeKind::GruvboxDark,
         }
     }
 }

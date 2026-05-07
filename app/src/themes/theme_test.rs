@@ -2,6 +2,12 @@ use super::*;
 use crate::util::color::OPAQUE;
 
 #[test]
+fn default_theme_kind_is_gruvbox_dark() {
+    assert_eq!(ThemeKind::default(), ThemeKind::GruvboxDark);
+    assert_eq!(SelectedSystemThemes::default().dark, ThemeKind::GruvboxDark);
+}
+
+#[test]
 #[cfg(not(target_family = "wasm"))]
 fn in_memory_theme_generation_test() {
     let mountains_bg_path: PathBuf = [
