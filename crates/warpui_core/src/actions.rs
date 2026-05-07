@@ -16,4 +16,5 @@ pub enum StandardAction {
     BringAllToFront,
     ToggleFullScreen,
     Paste,
+    About,
 }

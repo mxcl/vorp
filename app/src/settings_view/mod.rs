@@ -24,7 +24,6 @@ use crate::{
     workspace::WorkspaceAction,
     GlobalResourceHandlesProvider,
 };
-use about_page::AboutPageView;
 use ai_page::{AISettingsPageAction, AISettingsPageEvent, AISettingsPageView, AISubpage};
 use appearance_page::{AppearancePageAction, AppearanceSettingsPageView};
 use billing_and_usage_page::{BillingAndUsagePageEvent, BillingAndUsagePageView};
@@ -73,7 +72,6 @@ use warpui::{
     View, ViewContext, ViewHandle,
 };
 
-mod about_page;
 mod admin_actions;
 mod agent_assisted_environment_modal;
 mod ai_page;
@@ -187,10 +185,10 @@ pub enum SettingsViewEvent {
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum SettingsSection {
     About,
-    #[default]
     Account,
     MCPServers,
     BillingAndUsage,
+    #[default]
     Appearance,
     Features,
     Keybindings,
@@ -969,7 +967,6 @@ macro_rules! update_page {
             SettingsPageViewHandle::Referrals(handle) => $ctx.update_view(handle, $update),
             SettingsPageViewHandle::AI(handle) => $ctx.update_view(handle, $update),
             SettingsPageViewHandle::CloudEnvironments(handle) => $ctx.update_view(handle, $update),
-            SettingsPageViewHandle::About(handle) => $ctx.update_view(handle, $update),
             SettingsPageViewHandle::Code(handle) => $ctx.update_view(handle, $update),
             SettingsPageViewHandle::BillingAndUsage(handle) => $ctx.update_view(handle, $update),
             SettingsPageViewHandle::MCPServers(handle) => $ctx.update_view(handle, $update),
@@ -1050,9 +1047,6 @@ impl SettingsView {
                 })
             }
         });
-
-        // About page
-        let about_page_handle = ctx.add_view(AboutPageView::new);
 
         // AI page
         let ai_page_handle = ctx.add_typed_action_view(AISettingsPageView::new);
@@ -1181,24 +1175,20 @@ impl SettingsView {
             SettingsPage::new(mcp_servers_page_handle),
             SettingsPage::new(environments_page_handle.clone()),
             SettingsPage::new(privacy_page_handle),
-            SettingsPage::new(about_page_handle),
         ]);
 
         // Build sidebar nav items. AI page is presented as an "Agents" umbrella
         // with subpages; the actual AI SettingsPage is hidden from direct sidebar listing.
         let mut nav_items = if crate::terminal_only::is_enabled() {
             vec![
-                SettingsNavItem::Page(SettingsSection::Account),
                 SettingsNavItem::Page(SettingsSection::Appearance),
                 SettingsNavItem::Page(SettingsSection::Features),
                 SettingsNavItem::Page(SettingsSection::Keybindings),
                 SettingsNavItem::Page(SettingsSection::Warpify),
                 SettingsNavItem::Page(SettingsSection::Privacy),
-                SettingsNavItem::Page(SettingsSection::About),
             ]
         } else {
             vec![
-                SettingsNavItem::Page(SettingsSection::Account),
                 SettingsNavItem::Umbrella(SettingsUmbrella::new(
                     "Agents",
                     SettingsSection::ai_subpages().to_vec(),
@@ -1227,7 +1217,6 @@ impl SettingsView {
                 SettingsNavItem::Page(SettingsSection::SharedBlocks),
                 SettingsNavItem::Page(SettingsSection::WarpDrive),
                 SettingsNavItem::Page(SettingsSection::Privacy),
-                SettingsNavItem::Page(SettingsSection::About),
             ]
         };
 
@@ -1255,7 +1244,7 @@ impl SettingsView {
                     | SettingsSection::OzCloudAPIKeys
                     | SettingsSection::WarpDrive
             ) {
-            SettingsSection::Account
+            SettingsSection::Appearance
         } else {
             initial_page
         };
@@ -2001,7 +1990,6 @@ impl SettingsView {
             SettingsPageViewHandle::Features(v) => v.as_ref(app).should_render(app),
             SettingsPageViewHandle::Appearance(v) => v.as_ref(app).should_render(app),
             SettingsPageViewHandle::BillingAndUsage(v) => v.as_ref(app).should_render(app),
-            SettingsPageViewHandle::About(v) => v.as_ref(app).should_render(app),
             SettingsPageViewHandle::OzCloudAPIKeys(v) => v.as_ref(app).should_render(app),
             SettingsPageViewHandle::Privacy(v) => v.as_ref(app).should_render(app),
             SettingsPageViewHandle::Warpify(v) => v.as_ref(app).should_render(app),
