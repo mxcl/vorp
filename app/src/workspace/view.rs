@@ -6792,6 +6792,10 @@ impl Workspace {
     }
 
     fn should_trigger_get_started_onboarding(&self, ctx: &mut ViewContext<Self>) -> bool {
+        if crate::terminal_only::is_enabled() {
+            return false;
+        }
+
         // Onboarding requires a real user to interact with it; suppress when
         // running in a headless mode like the SDK/CLI.
         if !AppExecutionMode::as_ref(ctx).can_show_onboarding() {
@@ -6830,6 +6834,10 @@ impl Workspace {
     /// If the user is new and therefore has not seen the in app onboarding,
     /// triggers the welcome block to be shown after bootstrapping is completed.
     fn check_and_trigger_onboarding(&mut self, ctx: &mut ViewContext<Self>) -> bool {
+        if crate::terminal_only::is_enabled() {
+            return false;
+        }
+
         // Onboarding requires a real user to interact with it; suppress when
         // running in a headless mode like the SDK/CLI.
         if !AppExecutionMode::as_ref(ctx).can_show_onboarding() {
@@ -8474,7 +8482,7 @@ impl Workspace {
             MenuItem::Separator,
         ]);
 
-        if self.auth_state.is_anonymous_or_logged_out() {
+        if self.auth_state.is_anonymous_or_logged_out() && !crate::terminal_only::is_enabled() {
             items.push(
                 MenuItemFields::new("Sign up")
                     .with_on_select_action(WorkspaceAction::SignupAnonymousUser)
@@ -8482,35 +8490,37 @@ impl Workspace {
             );
         }
 
-        // Check if the user is on any paid plan to determine whether to show "Billing and Usage" or "Upgrade"
-        let is_on_paid_plan = UserWorkspaces::as_ref(app)
-            .current_workspace()
-            .map(|workspace| workspace.billing_metadata.is_user_on_paid_plan())
-            .unwrap_or(false);
+        if !crate::terminal_only::is_enabled() {
+            // Check if the user is on any paid plan to determine whether to show "Billing and Usage" or "Upgrade"
+            let is_on_paid_plan = UserWorkspaces::as_ref(app)
+                .current_workspace()
+                .map(|workspace| workspace.billing_metadata.is_user_on_paid_plan())
+                .unwrap_or(false);
 
-        if is_on_paid_plan {
+            if is_on_paid_plan {
+                items.push(
+                    MenuItemFields::new("Billing and usage")
+                        .with_on_select_action(WorkspaceAction::ShowSettingsPage(
+                            SettingsSection::BillingAndUsage,
+                        ))
+                        .into_item(),
+                );
+            } else {
+                items.push(
+                    MenuItemFields::new("Upgrade")
+                        .with_on_select_action(WorkspaceAction::ShowUpgrade)
+                        .into_item(),
+                );
+            }
+
             items.push(
-                MenuItemFields::new("Billing and usage")
-                    .with_on_select_action(WorkspaceAction::ShowSettingsPage(
-                        SettingsSection::BillingAndUsage,
-                    ))
-                    .into_item(),
-            );
-        } else {
-            items.push(
-                MenuItemFields::new("Upgrade")
-                    .with_on_select_action(WorkspaceAction::ShowUpgrade)
+                MenuItemFields::new("Invite a friend")
+                    .with_on_select_action(WorkspaceAction::ShowReferralSettingsPage)
                     .into_item(),
             );
         }
 
-        items.push(
-            MenuItemFields::new("Invite a friend")
-                .with_on_select_action(WorkspaceAction::ShowReferralSettingsPage)
-                .into_item(),
-        );
-
-        if !self.auth_state.is_anonymous_or_logged_out() {
+        if !self.auth_state.is_anonymous_or_logged_out() && !crate::terminal_only::is_enabled() {
             items.push(
                 MenuItemFields::new("Log out")
                     .with_on_select_action(WorkspaceAction::LogOut)
@@ -12444,6 +12454,10 @@ impl Workspace {
     }
 
     fn open_require_login_modal(&mut self, variant: AuthViewVariant, ctx: &mut ViewContext<Self>) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         self.require_login_modal.update(ctx, |modal, ctx| {
             modal.set_variant(ctx, variant);
         });
@@ -18070,6 +18084,7 @@ impl Workspace {
         }
 
         if self.auth_state.is_anonymous_or_logged_out()
+            && !crate::terminal_only::is_enabled()
             && !FeatureFlag::OpenWarpNewSettingsModes.is_enabled()
         {
             if is_web_anonymous_user {
@@ -19000,6 +19015,10 @@ impl Workspace {
     }
 
     fn render_reauth_banner_element(&self) -> Option<WorkspaceBannerFields> {
+        if crate::terminal_only::is_enabled() {
+            return None;
+        }
+
         if self.reauth_banner_dismissed || !self.auth_state.needs_reauth() {
             return None;
         }
@@ -20158,6 +20177,10 @@ impl Workspace {
         entrypoint: AnonymousUserSignupEntrypoint,
         ctx: &mut ViewContext<Self>,
     ) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         if self.auth_state.is_user_anonymous().unwrap_or_default() {
             // User has a Firebase anonymous account — use the linking flow.
             AuthManager::handle(ctx).update(ctx, |auth_manager, ctx| {
@@ -20177,6 +20200,10 @@ impl Workspace {
     }
 
     fn redirect_to_sign_in(&mut self) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         #[cfg(target_family = "wasm")]
         if let Some(current_url) = parse_current_url() {
             update_browser_url(
@@ -20366,6 +20393,10 @@ impl TypedActionView for Workspace {
         use WorkspaceAction::*;
         let window_id = ctx.window_id();
 
+        if crate::terminal_only::is_enabled() && action.is_blocked_in_terminal_only_mode() {
+            return;
+        }
+
         if self.auth_state.is_anonymous_or_logged_out() && action.blocked_for_anonymous_user() {
             AuthManager::handle(ctx).update(ctx, |auth_manager, ctx| {
                 auth_manager.attempt_login_gated_feature(
@@ -20374,10 +20405,6 @@ impl TypedActionView for Workspace {
                     ctx,
                 )
             });
-            return;
-        }
-
-        if crate::terminal_only::is_enabled() && action.is_blocked_in_terminal_only_mode() {
             return;
         }
 

@@ -252,7 +252,8 @@ pub fn init(app: &mut AppContext) {
                     "[Debug] Start HOA Onboarding Flow",
                     WorkspaceAction::ShowHoaOnboardingFlow,
                 )
-                .with_context_predicate(id!("Workspace")),
+                .with_context_predicate(id!("Workspace"))
+                .with_enabled(|| !crate::terminal_only::is_enabled()),
             ]);
         }
     }
@@ -1085,7 +1086,8 @@ pub fn init(app: &mut AppContext) {
         WorkspaceAction::LogOut,
     )
     .with_group(bindings::BindingGroup::Settings.as_str())
-    .with_context_predicate(id!("Workspace") & !id!("IsAnonymousUser"))]);
+    .with_context_predicate(id!("Workspace") & !id!("IsAnonymousUser"))
+    .with_enabled(|| !crate::terminal_only::is_enabled())]);
 
     if !FeatureFlag::AvatarInTabBar.is_enabled() {
         app.register_editable_bindings([EditableBinding::new(

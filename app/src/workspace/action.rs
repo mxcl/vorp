@@ -719,6 +719,8 @@ impl WorkspaceAction {
                 | ToggleResourceCenter
                 | ToggleAIAssistant
                 | ClickedAIAssistantIcon
+                | ShowUpgrade
+                | ShowReferralSettingsPage
                 | ShowCommandSearch(_)
                 | CreatePersonalNotebook
                 | ImportToPersonalDrive
@@ -745,6 +747,10 @@ impl WorkspaceAction {
                 | OpenPromptEditor { .. }
                 | OpenAgentToolbarEditor
                 | OpenCLIAgentToolbarEditor
+                | Reauth
+                | SignupAnonymousUser
+                | SignInAnonymousWebUser
+                | LogOut
                 | FocusLeftPanel
                 | FocusRightPanel
                 | ViewObjectInWarpDrive(_)
@@ -804,6 +810,7 @@ impl WorkspaceAction {
                 | OpenSettingsFile
                 | FixSettingsWithOz { .. }
                 | OpenNetworkLogPane
+                | ShowHoaOnboardingFlow
         );
 
         if is_blocked {

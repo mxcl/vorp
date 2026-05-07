@@ -251,6 +251,10 @@ impl Workspace {
     }
 
     pub(crate) fn should_show_agent_onboarding(&self, ctx: &mut ViewContext<Self>) -> bool {
+        if crate::terminal_only::is_enabled() {
+            return false;
+        }
+
         // Onboarding requires a real user to interact with it; suppress when
         // running in a headless mode like the SDK/CLI.
         if !AppExecutionMode::as_ref(ctx).can_show_onboarding() {

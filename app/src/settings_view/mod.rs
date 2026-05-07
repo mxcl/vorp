@@ -1627,7 +1627,9 @@ impl SettingsView {
         match event {
             MainSettingsPageEvent::CheckForUpdate => ctx.emit(SettingsViewEvent::CheckForUpdate),
             MainSettingsPageEvent::SignupAnonymousUser => {
-                ctx.emit(SettingsViewEvent::SignupAnonymousUser)
+                if !crate::terminal_only::is_enabled() {
+                    ctx.emit(SettingsViewEvent::SignupAnonymousUser)
+                }
             }
             _ => (),
         }
@@ -1640,7 +1642,9 @@ impl SettingsView {
     ) {
         match event {
             BillingAndUsagePageEvent::SignupAnonymousUser => {
-                ctx.emit(SettingsViewEvent::SignupAnonymousUser)
+                if !crate::terminal_only::is_enabled() {
+                    ctx.emit(SettingsViewEvent::SignupAnonymousUser)
+                }
             }
             BillingAndUsagePageEvent::ShowToast { message, flavor } => {
                 ctx.emit(SettingsViewEvent::ShowToast {
@@ -1789,7 +1793,9 @@ impl SettingsView {
     ) {
         match event {
             ReferralsPageEvent::SignupAnonymousUser => {
-                ctx.emit(SettingsViewEvent::SignupAnonymousUser)
+                if !crate::terminal_only::is_enabled() {
+                    ctx.emit(SettingsViewEvent::SignupAnonymousUser)
+                }
             }
             ReferralsPageEvent::FocusModal => ctx.focus(&self.search_editor),
             ReferralsPageEvent::ShowToast { message, flavor } => {
@@ -1808,7 +1814,9 @@ impl SettingsView {
     ) {
         match event {
             warp_drive_page::WarpDriveSettingsPageEvent::SignUp => {
-                ctx.emit(SettingsViewEvent::SignupAnonymousUser)
+                if !crate::terminal_only::is_enabled() {
+                    ctx.emit(SettingsViewEvent::SignupAnonymousUser)
+                }
             }
         }
     }
@@ -1826,7 +1834,9 @@ impl SettingsView {
                 ctx.emit(SettingsViewEvent::OpenExecutionProfileEditor(*profile_id));
             }
             AISettingsPageEvent::SignupAnonymousUser => {
-                ctx.emit(SettingsViewEvent::SignupAnonymousUser)
+                if !crate::terminal_only::is_enabled() {
+                    ctx.emit(SettingsViewEvent::SignupAnonymousUser)
+                }
             }
         }
     }
@@ -1838,7 +1848,9 @@ impl SettingsView {
     ) {
         match event {
             CodeSettingsPageEvent::SignupAnonymousUser => {
-                ctx.emit(SettingsViewEvent::SignupAnonymousUser)
+                if !crate::terminal_only::is_enabled() {
+                    ctx.emit(SettingsViewEvent::SignupAnonymousUser)
+                }
             }
             CodeSettingsPageEvent::OpenLspLogs { log_path } => {
                 ctx.emit(SettingsViewEvent::OpenLspLogs {

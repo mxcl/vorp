@@ -480,7 +480,9 @@ pub fn init(app: &mut AppContext) {
         .with_context_predicate(id!("RootView"))
         .with_key_binding("shift-f12")
         .with_enabled(|| {
-            FeatureFlag::AgentOnboarding.is_enabled() && ChannelState::enable_debug_features()
+            FeatureFlag::AgentOnboarding.is_enabled()
+                && ChannelState::enable_debug_features()
+                && !crate::terminal_only::is_enabled()
         }),
     ])
 }
@@ -1703,7 +1705,9 @@ impl RootView {
             workspace_setting,
         };
 
-        let auth_onboarding_state = if auth_state.is_logged_in() {
+        let auth_onboarding_state = if crate::terminal_only::is_enabled() {
+            AuthOnboardingState::Terminal(workspace_args.create_workspace(ctx))
+        } else if auth_state.is_logged_in() {
             AuthOnboardingState::Terminal(workspace_args.create_workspace(ctx))
         } else {
             cfg_if! {
@@ -2083,6 +2087,10 @@ impl RootView {
 
     /// Debug method to enter the onboarding state.
     fn debug_enter_onboarding_state(&mut self, _: &(), ctx: &mut ViewContext<Self>) -> bool {
+        if crate::terminal_only::is_enabled() {
+            return false;
+        }
+
         if !ChannelState::enable_debug_features() {
             log::warn!("Attempted to enter onboarding state in release build");
             return false;
@@ -3539,6 +3547,10 @@ impl AuthOnboardingState {
     }
 
     fn try_open_onboarding_slides(&mut self, ctx: &mut ViewContext<RootView>) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         let target = match self {
             AuthOnboardingState::Auth(args) | AuthOnboardingState::ConfirmIncomingAuth(args) => {
                 AuthOnboardingTarget::Workspace(args.clone())
