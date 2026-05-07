@@ -272,20 +272,29 @@ impl MainSettingsPageView {
             ctx.notify();
         });
 
-        let mut widgets: Vec<Box<dyn SettingsWidget<View = Self>>> = vec![
-            Box::new(AccountWidget::default()),
-            Box::new(DividerWidget {}),
-        ];
+        let mut widgets: Vec<Box<dyn SettingsWidget<View = Self>>> =
+            if crate::terminal_only::is_enabled() {
+                Vec::new()
+            } else {
+                vec![
+                    Box::new(AccountWidget::default()),
+                    Box::new(DividerWidget {}),
+                ]
+            };
 
         widgets.push(Box::new(SettingsSyncWidget::default()));
 
-        widgets.push(Box::new(EarnRewardsWidget::default()));
+        if !crate::terminal_only::is_enabled() {
+            widgets.push(Box::new(EarnRewardsWidget::default()));
+        }
 
         if ChannelState::app_version().is_some() {
             widgets.push(Box::new(VersionInfoWidget::default()));
         }
 
-        widgets.push(Box::new(LogoutWidget::default()));
+        if !crate::terminal_only::is_enabled() {
+            widgets.push(Box::new(LogoutWidget::default()));
+        }
 
         let page = PageType::new_uncategorized(widgets, Some("Account"));
 
@@ -680,6 +689,10 @@ impl SettingsWidget for SettingsSyncWidget {
     }
 
     fn should_render(&self, app: &AppContext) -> bool {
+        if crate::terminal_only::is_enabled() {
+            return false;
+        }
+
         !AuthStateProvider::as_ref(app)
             .get()
             .is_anonymous_or_logged_out()
@@ -769,6 +782,10 @@ impl SettingsWidget for EarnRewardsWidget {
     }
 
     fn should_render(&self, app: &AppContext) -> bool {
+        if crate::terminal_only::is_enabled() {
+            return false;
+        }
+
         !AuthStateProvider::as_ref(app)
             .get()
             .is_anonymous_or_logged_out()
