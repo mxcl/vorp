@@ -9,7 +9,7 @@
 #
 # Optional environment:
 #   GH_REPO            GitHub repository to publish to. Defaults to mxcl/vorp.
-#   MACOS_APP_NAME     App/DMG base name. Defaults to vфrp.
+#   MACOS_DMG_NAME     DMG/release asset base name. Defaults to vorp.
 
 set -euo pipefail
 
@@ -29,7 +29,7 @@ fi
 TAG="$1"
 NOTES="${2:-Release $TAG}"
 GH_REPO="${GH_REPO:-mxcl/vorp}"
-MACOS_APP_NAME="${MACOS_APP_NAME:-vфrp}"
+MACOS_DMG_NAME="${MACOS_DMG_NAME:-vorp}"
 OUT_DIR="target/release-lto/bundle/osx"
 
 require_env() {
@@ -94,7 +94,7 @@ echo "Building signed and notarized arm64 macOS DMG for $TAG..."
   --dmg-name-suffix arm64
 
 ASSETS=(
-  "$OUT_DIR/$MACOS_APP_NAME-arm64.dmg"
+  "$OUT_DIR/$MACOS_DMG_NAME-arm64.dmg"
 )
 
 for asset in "${ASSETS[@]}"; do

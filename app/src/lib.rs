@@ -44,8 +44,6 @@ mod gpu_state;
 mod input_classifier;
 mod interval_timer;
 mod linear;
-#[cfg(any(target_os = "macos", target_os = "windows"))]
-mod login_item;
 mod menu;
 mod modal;
 mod network;
@@ -2349,20 +2347,6 @@ fn launch(ctx: &mut warpui::AppContext, app_state: Option<AppState>, launch_mode
             IntervalTimer::handle(ctx).update(ctx, |timer, _| {
                 timer.mark_interval_end("WINDOWS_CREATED");
             });
-
-            // TODO(ben): We should skip this for LaunchMode::Test.
-            #[cfg(any(target_os = "macos", target_os = "windows"))]
-            {
-                use crate::login_item::maybe_register_app_as_login_item;
-                use crate::terminal::general_settings::GeneralSettingsChangedEvent;
-                // Note that we put this here because it depends on settings already having been initialized.
-                ctx.subscribe_to_model(&GeneralSettings::handle(ctx), |_, event, ctx| {
-                    if matches!(event, GeneralSettingsChangedEvent::LoginItem { .. }) {
-                        maybe_register_app_as_login_item(ctx);
-                    }
-                });
-                maybe_register_app_as_login_item(ctx);
-            }
         }
         #[cfg_attr(target_family = "wasm", allow(unused_variables))]
         LaunchMode::CommandLine {

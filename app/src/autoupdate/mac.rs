@@ -717,17 +717,22 @@ fn versioned_app_name(channel: Channel, version: &str) -> String {
 }
 
 fn dmg_name(channel: Channel) -> String {
+    let dmg_name_prefix = match channel {
+        Channel::Oss => "vorp",
+        _ => app_name_prefix(channel),
+    };
+
     // If the user is on an Apple Silicon Mac, download an arm64-only bundle.
     let is_arm64 = command::blocking::Command::new("uname")
         .arg("-m")
         .output()
         .is_ok_and(|output| output.stdout.starts_with(b"arm64"));
     if is_arm64 {
-        return format!("{}-arm64.dmg", app_name_prefix(channel));
+        return format!("{dmg_name_prefix}-arm64.dmg");
     }
 
     // Otherwise, download a universal bundle.
-    format!("{}.dmg", app_name_prefix(channel))
+    format!("{dmg_name_prefix}.dmg")
 }
 
 fn app_name_prefix(channel: Channel) -> &'static str {
