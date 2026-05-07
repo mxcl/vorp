@@ -609,39 +609,52 @@ fi
 
 if [[ $CODESIGN = true ]]; then
   # TODO - does this need to change per user?  Seems like it's tied to the WARP_NOTARIZATION_PASSWORD password.
-  APPLE_TEAM_ID="2BBY89MBSN"
-  CODESIGN_KEYCHAIN_NAME="warp-codesign-keychain"
+  APPLE_TEAM_ID="${APPLE_TEAM_ID:-2BBY89MBSN}"
+  WARP_NOTARIZATION_APPLE_ID="${WARP_NOTARIZATION_APPLE_ID:-${APPLE_ID:-}}"
+  WARP_NOTARIZATION_PASSWORD="${WARP_NOTARIZATION_PASSWORD:-${APPLE_PASSWORD:-}}"
+  SIGNING_IDENTITY="${CODESIGN_IDENTITY:-$APPLE_TEAM_ID}"
 
   echo "Starting codesigning..."
 
   if [[ $READ_PASSWORDS_FROM_ENV = true ]]; then
     if [ -z "$WARP_NOTARIZATION_PASSWORD" ] ; then
-      echo "WARP_NOTARIZATION_PASSWORD must be set for code signing"
+      echo "WARP_NOTARIZATION_PASSWORD or APPLE_PASSWORD must be set for code signing"
       exit 1
     fi
 
-    if [ -z "$WARP_DEVELOPER_ID_CERT_PASSWORD" ] ; then
-      echo "WARP_DEVELOPER_ID_CERT_PASSWORD must be set for code signing"
+    if [ -z "$WARP_NOTARIZATION_APPLE_ID" ] ; then
+      echo "WARP_NOTARIZATION_APPLE_ID or APPLE_ID must be set for code signing"
       exit 1
     fi
 
-    if [ -z "$WARP_CODESIGN_KEYCHAIN_PASSWORD" ] ; then
-      echo "WARP_CODESIGN_KEYCHAIN_PASSWORD must be set for code signing"
-      exit 1
+    if [ -z "${CODESIGN_IDENTITY:-}" ]; then
+      if [ -z "${WARP_DEVELOPER_ID_CERT_PASSWORD:-}" ] ; then
+        echo "WARP_DEVELOPER_ID_CERT_PASSWORD must be set when CODESIGN_IDENTITY is not set"
+        exit 1
+      fi
+
+      if [ -z "${WARP_CODESIGN_KEYCHAIN_PASSWORD:-}" ] ; then
+        echo "WARP_CODESIGN_KEYCHAIN_PASSWORD must be set when CODESIGN_IDENTITY is not set"
+        exit 1
+      fi
     fi
   fi
 
-  security delete-keychain $CODESIGN_KEYCHAIN_NAME || echo "No existing keychain to clean up".
+  if [ -z "${CODESIGN_IDENTITY:-}" ]; then
+    CODESIGN_KEYCHAIN_NAME="warp-codesign-keychain"
 
-  echo "Creating $CODESIGN_KEYCHAIN_NAME keychain."
-  security create-keychain -p "$WARP_CODESIGN_KEYCHAIN_PASSWORD" $CODESIGN_KEYCHAIN_NAME
-  security list-keychains -s $CODESIGN_KEYCHAIN_NAME
-  security set-keychain-settings -t 3600 -u $CODESIGN_KEYCHAIN_NAME
+    security delete-keychain $CODESIGN_KEYCHAIN_NAME || echo "No existing keychain to clean up".
 
-  echo "Unlocking keychain and setting cert."
-  security unlock-keychain -p "$WARP_CODESIGN_KEYCHAIN_PASSWORD" $CODESIGN_KEYCHAIN_NAME
-  security import <(echo "$WARP_DEVELOPER_ID_CERT" | base64 -d) -f pkcs12 -P "$WARP_DEVELOPER_ID_CERT_PASSWORD" -k $CODESIGN_KEYCHAIN_NAME -T /usr/bin/codesign
-  security set-key-partition-list -S "apple-tool:,apple:" -s -k "$WARP_CODESIGN_KEYCHAIN_PASSWORD" $CODESIGN_KEYCHAIN_NAME
+    echo "Creating $CODESIGN_KEYCHAIN_NAME keychain."
+    security create-keychain -p "$WARP_CODESIGN_KEYCHAIN_PASSWORD" $CODESIGN_KEYCHAIN_NAME
+    security list-keychains -s $CODESIGN_KEYCHAIN_NAME
+    security set-keychain-settings -t 3600 -u $CODESIGN_KEYCHAIN_NAME
+
+    echo "Unlocking keychain and setting cert."
+    security unlock-keychain -p "$WARP_CODESIGN_KEYCHAIN_PASSWORD" $CODESIGN_KEYCHAIN_NAME
+    security import <(echo "$WARP_DEVELOPER_ID_CERT" | base64 -d) -f pkcs12 -P "$WARP_DEVELOPER_ID_CERT_PASSWORD" -k $CODESIGN_KEYCHAIN_NAME -T /usr/bin/codesign
+    security set-key-partition-list -S "apple-tool:,apple:" -s -k "$WARP_CODESIGN_KEYCHAIN_PASSWORD" $CODESIGN_KEYCHAIN_NAME
+  fi
 fi
 
 ##############################
@@ -665,12 +678,12 @@ if [[ $SELFSIGN = true ]]; then
   fi
 elif [[ $CODESIGN = true ]]; then
   if [[ "$ARTIFACT" == app ]]; then
-    echo "Codesigning $BUNDLE_DIR/$WARP_APP_NAME.app..."
+    echo "Codesigning $BUNDLE_DIR/$WARP_APP_NAME.app with $SIGNING_IDENTITY..."
     # Use --deep so we sign bundled frameworks as well
-    codesign --deep -f -o runtime --timestamp -s "$APPLE_TEAM_ID" "$BUNDLE_DIR/$WARP_APP_NAME.app" --entitlements script/Entitlements.plist
+    codesign --deep -f -o runtime --timestamp -s "$SIGNING_IDENTITY" "$BUNDLE_DIR/$WARP_APP_NAME.app" --entitlements script/Entitlements.plist
   elif [[ "$ARTIFACT" == cli ]]; then
-    echo "Codesigning $OUT_DIR/$WARP_BIN..."
-    codesign -f -o runtime --timestamp -s "$APPLE_TEAM_ID" "$OUT_DIR/$WARP_BIN" --entitlements script/Entitlements.plist
+    echo "Codesigning $OUT_DIR/$WARP_BIN with $SIGNING_IDENTITY..."
+    codesign -f -o runtime --timestamp -s "$SIGNING_IDENTITY" "$OUT_DIR/$WARP_BIN" --entitlements script/Entitlements.plist
 
     # Create the .zip for notarization in a separate location - otherwise, Apple's codesigning
     # tools decide that it's a sealed resource that belongs to the binary and needs to also be signed.
@@ -742,7 +755,7 @@ if [[ "$ARTIFACT" = app ]]; then
     create_warp_dmg "$DMG_DIR"
 
     echo "Codesigning $DMG_DIR/$DMG_NAME..."
-    codesign -s "$APPLE_TEAM_ID" --timestamp "$DMG_DIR/$DMG_NAME"
+    codesign -s "$SIGNING_IDENTITY" --timestamp "$DMG_DIR/$DMG_NAME"
 
     NOTARIZATION_ARTIFACT="$DMG_DIR/$DMG_NAME"
     STAPLE_TICKET=true
