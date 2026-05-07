@@ -611,7 +611,6 @@ const NEW_SESSION_SIDECAR_FOOTER_HORIZONTAL_PADDING: f32 = 16.;
 const NEW_SESSION_SIDECAR_FOOTER_VERTICAL_PADDING: f32 = 8.;
 const SESSION_CONFIG_TAB_CONFIG_CHIP_TEXT: &str = "Access your tab configs here.";
 const SESSION_CONFIG_TAB_CONFIG_CHIP_WIDTH: f32 = 206.;
-const SHOW_SETTINGS_KEYBINDING_NAME: &str = "workspace:show_settings";
 pub const TOGGLE_COMMAND_PALETTE_KEYBINDING_NAME: &str = "workspace:toggle_command_palette";
 
 const USER_AVATAR_BUTTON_POSITION_ID: &str = "workspace:user_avatar_button";
@@ -643,10 +642,9 @@ pub(crate) const LEFT_PANEL_WARP_DRIVE_BINDING_NAME: &str = "workspace:left_pane
 pub(crate) const LEFT_PANEL_AGENT_CONVERSATIONS_BINDING_NAME: &str =
     "workspace:left_panel_agent_conversations";
 
-const KEYBINDINGS_TO_CACHE: [&str; 4] = [
+const KEYBINDINGS_TO_CACHE: [&str; 3] = [
     ASK_AI_ASSISTANT_KEYBINDING_NAME,
     TOGGLE_RESOURCE_CENTER_KEYBINDING_NAME,
-    SHOW_SETTINGS_KEYBINDING_NAME,
     TOGGLE_COMMAND_PALETTE_KEYBINDING_NAME,
 ];
 
@@ -18076,11 +18074,6 @@ impl Workspace {
                 );
             }
 
-            target.add_child(
-                Container::new(self.render_settings_button(appearance))
-                    .with_margin_left(TAB_BAR_PADDING_LEFT)
-                    .finish(),
-            );
         }
 
         if self.auth_state.is_anonymous_or_logged_out()
@@ -18516,23 +18509,6 @@ impl Workspace {
         }
 
         Align::new(button).finish()
-    }
-
-    fn render_settings_button(&self, appearance: &Appearance) -> Box<dyn Element> {
-        Align::new(
-            self.render_tab_bar_icon_button(
-                appearance,
-                icons::Icon::Gear,
-                &self.mouse_states.settings_icon,
-                WorkspaceAction::ShowSettings,
-                "Settings".to_string(),
-                self.cached_keybindings[SHOW_SETTINGS_KEYBINDING_NAME].clone(),
-                false,
-                false,
-            )
-            .finish(),
-        )
-        .finish()
     }
 
     fn render_web_anonymous_user_sign_in_button(
