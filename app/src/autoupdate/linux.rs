@@ -10,7 +10,6 @@ use warpui::ViewContext;
 
 use crate::workspace::Workspace;
 
-use super::release_assets_directory_url;
 use super::{DownloadReady, ReadyForRelaunch};
 
 lazy_static::lazy_static! {
@@ -85,15 +84,8 @@ mod appimage {
         const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(600);
 
         // Compute the URL where we can download the new release.
-        let Some(appimage_name) = option_env!("APPIMAGE_NAME") else {
-            bail!("APPIMAGE_NAME environment variable was not set at compile time!");
-        };
-
-        let url = format!(
-            "{}/{}",
-            release_assets_directory_url(ChannelState::channel(), &version_info.version),
-            appimage_name
-        );
+        let appimage_name = update_asset_name()?;
+        let url = super::update_asset_url(ChannelState::channel(), version_info, &appimage_name);
 
         // Create a temporary file that we'll write the download into.
         let mut new_appimage = tempfile::NamedTempFile::new()?;
@@ -158,6 +150,12 @@ mod appimage {
         command.spawn()?;
         Ok(())
     }
+}
+
+pub(super) fn update_asset_name() -> Result<String> {
+    option_env!("APPIMAGE_NAME")
+        .map(ToOwned::to_owned)
+        .context("APPIMAGE_NAME environment variable was not set at compile time!")
 }
 
 mod package_manager {

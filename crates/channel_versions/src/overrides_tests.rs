@@ -16,6 +16,7 @@ fn test_only_first_override_is_applied() {
     let version = ChannelVersion {
         version_info: VersionInfo {
             version: "base_version".to_string(),
+            update_asset_url: None,
             update_by: None,
             soft_cutoff: None,
             last_prominent_update: None,
@@ -28,6 +29,7 @@ fn test_only_first_override_is_applied() {
                 predicate: predicate.clone(),
                 version_info: VersionInfo {
                     version: "override_version".to_string(),
+                    update_asset_url: None,
                     update_by: Some(DateTime::<Utc>::MIN_UTC.fixed_offset()),
                     soft_cutoff: Some("override_cutoff".to_string()),
                     last_prominent_update: None,
@@ -42,6 +44,7 @@ fn test_only_first_override_is_applied() {
                     // This should not be applied; as we only apply the first
                     // matching override.
                     version: "second_override_version".to_string(),
+                    update_asset_url: None,
                     update_by: None,
                     soft_cutoff: None,
                     last_prominent_update: None,
@@ -138,6 +141,7 @@ fn test_cli_version_override_is_applied() {
     let version = ChannelVersion {
         version_info: VersionInfo {
             version: "base_version".to_string(),
+            update_asset_url: None,
             update_by: None,
             soft_cutoff: None,
             last_prominent_update: None,
@@ -149,6 +153,7 @@ fn test_cli_version_override_is_applied() {
             predicate,
             version_info: VersionInfo {
                 version: "override_version".to_string(),
+                update_asset_url: None,
                 update_by: None,
                 soft_cutoff: None,
                 last_prominent_update: None,
@@ -182,6 +187,7 @@ fn test_cli_version_preserved_when_override_omits_it() {
     let version = ChannelVersion {
         version_info: VersionInfo {
             version: "base_version".to_string(),
+            update_asset_url: None,
             update_by: None,
             soft_cutoff: None,
             last_prominent_update: None,
@@ -193,6 +199,7 @@ fn test_cli_version_preserved_when_override_omits_it() {
             predicate,
             version_info: VersionInfo {
                 version: "override_version".to_string(),
+                update_asset_url: None,
                 update_by: None,
                 soft_cutoff: None,
                 last_prominent_update: None,
