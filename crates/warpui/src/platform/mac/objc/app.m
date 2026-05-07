@@ -1,6 +1,5 @@
 #import <AppKit/AppKit.h>
 #import <Carbon/Carbon.h>
-#import <ServiceManagement/ServiceManagement.h>
 #import <UserNotifications/UserNotifications.h>
 
 #import "alert.h"

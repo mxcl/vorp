@@ -112,7 +112,6 @@ fn compile_objc_lib() {
     println!("cargo:rustc-link-lib=framework=SystemConfiguration");
     println!("cargo:rustc-link-lib=framework=UniformTypeIdentifiers");
     println!("cargo:rustc-link-lib=framework=AVFoundation");
-    println!("cargo:rustc-link-lib=framework=ServiceManagement");
     println!("cargo:rerun-if-changed=src/platform/mac/objc/app.h");
     println!("cargo:rerun-if-changed=src/platform/mac/objc/app.m");
     println!("cargo:rerun-if-changed=src/platform/mac/objc/keycode.m");

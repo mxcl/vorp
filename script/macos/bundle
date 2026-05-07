@@ -332,6 +332,7 @@ elif [[ $RELEASE_CHANNEL = "oss" ]]; then
     WARP_BIN="warp-oss"
     BUNDLE_ID="dev.mxcl.vorp"
     WARP_APP_NAME="vфrp"
+    WARP_DMG_NAME="vorp"
     WARP_SCHEME_NAME="vorp"
     if [[ -z "$TARGET_ARCH" ]]; then
         echo "OSS macOS builds default to arm64-only."
@@ -400,10 +401,11 @@ fi
 
 DMG_DIR="$BUNDLE_DIR/dmg/$WARP_BIN"
 DMG_NAME="$WARP_APP_NAME.dmg"
+WARP_DMG_NAME="${WARP_DMG_NAME:-$WARP_APP_NAME}"
 if [[ -z "$FINAL_DMG_NAME" && -n "$DMG_NAME_SUFFIX" ]]; then
-  FINAL_DMG_NAME="$WARP_APP_NAME-$DMG_NAME_SUFFIX.dmg"
+  FINAL_DMG_NAME="$WARP_DMG_NAME-$DMG_NAME_SUFFIX.dmg"
 else
-  FINAL_DMG_NAME="$WARP_APP_NAME.dmg"
+  FINAL_DMG_NAME="$WARP_DMG_NAME.dmg"
 fi
 
 # First clean up and prep the outdir
@@ -483,9 +485,6 @@ if [[ "$ARTIFACT" == "app" ]]; then
 
   # Add LSBackgroundOnly key and set it to false since we need a UI app
   plutil -insert LSBackgroundOnly -bool false "$BUNDLE_DIR"/$WARP_APP_NAME.app/Contents/Info.plist
-
-  # Add SMAuthorizedClients for macOS 13+ (Ventura) to support login item functionality
-  plutil -insert SMAuthorizedClients -xml "<array><string>$BUNDLE_ID</string></array>" "$BUNDLE_DIR"/$WARP_APP_NAME.app/Contents/Info.plist
 
   if [[ $UNIVERSAL_BINARY = true ]]; then
       if [[ $BUILD_BINARY = true ]]; then
