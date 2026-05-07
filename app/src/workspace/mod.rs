@@ -300,7 +300,8 @@ pub fn init(app: &mut AppContext) {
             WorkspaceAction::NewCodeFile,
             "New File",
             id!("Workspace") & !id!("Workspace_ViewOnlySharedSession"),
-        ),
+        )
+        .with_enabled(|| !crate::terminal_only::is_enabled()),
     ]);
 
     if FeatureFlag::UIZoom.is_enabled() {
@@ -352,7 +353,8 @@ pub fn init(app: &mut AppContext) {
             WorkspaceAction::OpenLaunchConfigSaveModal,
             "Save new launch configuration",
             id!("Workspace"),
-        )]);
+        )
+        .with_enabled(|| !crate::terminal_only::is_enabled())]);
     }
 
     if ChannelState::channel() == Channel::Integration {
@@ -708,7 +710,9 @@ pub fn init(app: &mut AppContext) {
             id!("Workspace") & id!(flags::IS_ANY_AI_ENABLED) & !id!("Workspace_PaneDragging"),
         )
         .with_enabled(|| {
-            FeatureFlag::AgentView.is_enabled() && FeatureFlag::CloudMode.is_enabled()
+            !crate::terminal_only::is_enabled()
+                && FeatureFlag::AgentView.is_enabled()
+                && FeatureFlag::CloudMode.is_enabled()
         }),
         EditableBinding::new(
             "workspace:toggle_left_panel",
@@ -716,14 +720,15 @@ pub fn init(app: &mut AppContext) {
             WorkspaceAction::ToggleLeftPanel,
         )
         .with_context_predicate(id!("Workspace"))
-        .with_custom_action(CustomAction::ToggleWarpDrive),
+        .with_custom_action(CustomAction::ToggleWarpDrive)
+        .with_enabled(|| !crate::terminal_only::is_enabled()),
         EditableBinding::new(
             TOGGLE_RIGHT_PANEL_BINDING_NAME,
             BindingDescription::new("Toggle code review")
                 .with_custom_description(bindings::MAC_MENUS_CONTEXT, "Toggle Code Review"),
             WorkspaceAction::ToggleRightPanel,
         )
-        .with_enabled(|| cfg!(feature = "local_fs"))
+        .with_enabled(|| cfg!(feature = "local_fs") && !crate::terminal_only::is_enabled())
         .with_context_predicate(id!("Workspace"))
         .with_mac_key_binding("cmd-shift-+")
         .with_linux_or_windows_key_binding("ctrl-shift-+"),
@@ -1000,7 +1005,9 @@ pub fn init(app: &mut AppContext) {
         )
         .with_context_predicate(id!("Workspace"))
         .with_custom_action(CustomAction::LaunchConfigPalette)
-        .with_enabled(|| ContextFlag::LaunchConfigurations.is_enabled()),
+        .with_enabled(|| {
+            ContextFlag::LaunchConfigurations.is_enabled() && !crate::terminal_only::is_enabled()
+        }),
         EditableBinding::new(
             "workspace:toggle_files_palette",
             "Toggle Files Palette",
@@ -1010,7 +1017,8 @@ pub fn init(app: &mut AppContext) {
             },
         )
         .with_context_predicate(id!("Workspace") & !id!("Workspace_ViewOnlySharedSession"))
-        .with_custom_action(CustomAction::FilesPalette),
+        .with_custom_action(CustomAction::FilesPalette)
+        .with_enabled(|| !crate::terminal_only::is_enabled()),
         EditableBinding::new(
             "workspace:open_launch_config_save_modal",
             "Save new launch configuration",
@@ -1018,7 +1026,9 @@ pub fn init(app: &mut AppContext) {
         )
         .with_context_predicate(id!("Workspace"))
         .with_custom_action(CustomAction::SaveCurrentConfig)
-        .with_enabled(|| ContextFlag::LaunchConfigurations.is_enabled()),
+        .with_enabled(|| {
+            ContextFlag::LaunchConfigurations.is_enabled() && !crate::terminal_only::is_enabled()
+        }),
         EditableBinding::new(
             // If you rename this name, please update the name in command_palette/action/data_source.rs
             "workspace:search_drive",
@@ -1030,7 +1040,8 @@ pub fn init(app: &mut AppContext) {
             },
         )
         .with_context_predicate(id!("Workspace"))
-        .with_custom_action(CustomAction::SearchDrive),
+        .with_custom_action(CustomAction::SearchDrive)
+        .with_enabled(|| !crate::terminal_only::is_enabled()),
     ]);
 
     if FeatureFlag::Autoupdate.is_enabled() {
@@ -1071,7 +1082,8 @@ pub fn init(app: &mut AppContext) {
         )
         .with_group(bindings::BindingGroup::Navigation.as_str())
         .with_context_predicate(id!("Workspace"))
-        .with_custom_action(CustomAction::ToggleResourceCenter)]);
+        .with_custom_action(CustomAction::ToggleResourceCenter)
+        .with_enabled(|| !crate::terminal_only::is_enabled())]);
     }
 
     if cfg!(not(target_family = "wasm")) {
@@ -1226,14 +1238,16 @@ pub fn init(app: &mut AppContext) {
             WorkspaceAction::FocusLeftPanel,
         )
         .with_context_predicate(id!("Workspace"))
-        .with_key_binding("cmdorctrl-shift-("),
+        .with_key_binding("cmdorctrl-shift-(")
+        .with_enabled(|| !crate::terminal_only::is_enabled()),
         EditableBinding::new(
             "workspace:shift_focus_right",
             "Switch Focus to Right Panel",
             WorkspaceAction::FocusRightPanel,
         )
         .with_context_predicate(id!("Workspace"))
-        .with_key_binding("cmdorctrl-shift-)"),
+        .with_key_binding("cmdorctrl-shift-)")
+        .with_enabled(|| !crate::terminal_only::is_enabled()),
     ]);
 
     app.register_editable_bindings([
@@ -1274,6 +1288,7 @@ pub fn init(app: &mut AppContext) {
         )
         .with_context_predicate(id!("Workspace"))
         .with_custom_action(CustomAction::OpenRepository)
+        .with_enabled(|| !crate::terminal_only::is_enabled())
         .with_group(bindings::BindingGroup::Folders.as_str()),
         EditableBinding::new(
             "workspace:open_ai_fact_collection",
@@ -1294,7 +1309,9 @@ pub fn init(app: &mut AppContext) {
         WorkspaceAction::OpenMCPServerCollection,
     )
     .with_enabled(|| {
-        FeatureFlag::McpServer.is_enabled() && ContextFlag::ShowMCPServers.is_enabled()
+        FeatureFlag::McpServer.is_enabled()
+            && ContextFlag::ShowMCPServers.is_enabled()
+            && !crate::terminal_only::is_enabled()
     })
     .with_custom_action(CustomAction::OpenMCPServerCollection)
     .with_context_predicate(id!("Workspace") & id!(flags::IS_ANY_AI_ENABLED))
@@ -1305,7 +1322,7 @@ pub fn init(app: &mut AppContext) {
         "Jump to latest agent task",
         WorkspaceAction::JumpToLatestToast,
     )
-    .with_enabled(|| FeatureFlag::AgentMode.is_enabled())
+    .with_enabled(|| FeatureFlag::AgentMode.is_enabled() && !crate::terminal_only::is_enabled())
     .with_context_predicate(id!("Workspace") & id!(flags::IS_ANY_AI_ENABLED))
     .with_mac_key_binding("cmd-shift-G")
     .with_linux_or_windows_key_binding("ctrl-shift-G")
@@ -1316,7 +1333,9 @@ pub fn init(app: &mut AppContext) {
         "Toggle notification mailbox",
         WorkspaceAction::ToggleNotificationMailbox { select_first: true },
     )
-    .with_enabled(|| FeatureFlag::HOANotifications.is_enabled())
+    .with_enabled(|| {
+        FeatureFlag::HOANotifications.is_enabled() && !crate::terminal_only::is_enabled()
+    })
     .with_context_predicate(id!("Workspace"))
     .with_mac_key_binding("cmd-shift-U")
     .with_linux_or_windows_key_binding("ctrl-shift-U")
@@ -1330,7 +1349,9 @@ pub fn init(app: &mut AppContext) {
         "Toggle the agent management view",
         WorkspaceAction::ToggleAgentManagementView,
     )
-    .with_enabled(|| FeatureFlag::AgentManagementView.is_enabled())
+    .with_enabled(|| {
+        FeatureFlag::AgentManagementView.is_enabled() && !crate::terminal_only::is_enabled()
+    })
     .with_context_predicate(id!("Workspace") & id!(flags::IS_ANY_AI_ENABLED))
     .with_mac_key_binding("cmd-shift-M")
     .with_linux_or_windows_key_binding("ctrl-shift-M")
@@ -1383,7 +1404,8 @@ fn add_open_setting_pages_as_editable_binding(app: &mut AppContext) {
         )
         .with_group(bindings::BindingGroup::Settings.as_str())
         .with_context_predicate(id!("Workspace"))
-        .with_custom_action(CustomAction::ViewSharedBlocks),
+        .with_custom_action(CustomAction::ViewSharedBlocks)
+        .with_enabled(|| !crate::terminal_only::is_enabled()),
         EditableBinding::new(
             "workspace:show_settings_keyboard_shortcuts_page",
             BindingDescription::new("Open Settings: Keyboard Shortcuts").with_custom_description(
@@ -1412,14 +1434,16 @@ fn add_open_setting_pages_as_editable_binding(app: &mut AppContext) {
         )
         .with_group(bindings::BindingGroup::Settings.as_str())
         .with_custom_action(CustomAction::OpenTeamSettings)
-        .with_context_predicate(id!("Workspace")),
+        .with_context_predicate(id!("Workspace"))
+        .with_enabled(|| !crate::terminal_only::is_enabled()),
         EditableBinding::new(
             "workspace:show_settings_privacy_page",
             BindingDescription::new("Open Settings: Privacy"),
             WorkspaceAction::ShowSettingsPage(SettingsSection::Privacy),
         )
         .with_group(bindings::BindingGroup::Settings.as_str())
-        .with_context_predicate(id!("Workspace")),
+        .with_context_predicate(id!("Workspace"))
+        .with_enabled(|| !crate::terminal_only::is_enabled()),
         EditableBinding::new(
             "workspace:show_settings_warpify_page",
             BindingDescription::new("Open Settings: Warpify")
@@ -1427,13 +1451,14 @@ fn add_open_setting_pages_as_editable_binding(app: &mut AppContext) {
             WorkspaceAction::ShowSettingsPage(SettingsSection::Warpify),
         )
         .with_group(bindings::BindingGroup::Settings.as_str())
-        .with_context_predicate(id!("Workspace")),
+        .with_context_predicate(id!("Workspace"))
+        .with_enabled(|| !crate::terminal_only::is_enabled()),
         EditableBinding::new(
             "workspace:show_ai_settings_page",
             BindingDescription::new("Open Settings: AI"),
             WorkspaceAction::ShowSettingsPage(SettingsSection::WarpAgent),
         )
-        .with_enabled(|| FeatureFlag::AgentMode.is_enabled())
+        .with_enabled(|| FeatureFlag::AgentMode.is_enabled() && !crate::terminal_only::is_enabled())
         .with_group(bindings::BindingGroup::Settings.as_str())
         .with_context_predicate(id!("Workspace")),
         EditableBinding::new(
@@ -1449,7 +1474,8 @@ fn add_open_setting_pages_as_editable_binding(app: &mut AppContext) {
             WorkspaceAction::ShowSettingsPage(SettingsSection::CodeIndexing),
         )
         .with_group(bindings::BindingGroup::Settings.as_str())
-        .with_context_predicate(id!("Workspace")),
+        .with_context_predicate(id!("Workspace"))
+        .with_enabled(|| !crate::terminal_only::is_enabled()),
         EditableBinding::new(
             "workspace:show_settings_referrals_page",
             BindingDescription::new("Open Settings: Referrals"),
@@ -1463,20 +1489,26 @@ fn add_open_setting_pages_as_editable_binding(app: &mut AppContext) {
             WorkspaceAction::ShowSettingsPage(SettingsSection::CloudEnvironments),
         )
         .with_group(bindings::BindingGroup::Settings.as_str())
-        .with_context_predicate(id!("Workspace")),
+        .with_context_predicate(id!("Workspace"))
+        .with_enabled(|| !crate::terminal_only::is_enabled()),
         EditableBinding::new(
             "workspace:show_mcp_servers_settings_page",
             BindingDescription::new("Open Settings: MCP Servers"),
             WorkspaceAction::ShowSettingsPage(SettingsSection::MCPServers),
         )
         .with_group(bindings::BindingGroup::Settings.as_str())
-        .with_context_predicate(id!("Workspace")),
+        .with_context_predicate(id!("Workspace"))
+        .with_enabled(|| !crate::terminal_only::is_enabled()),
         EditableBinding::new(
             "workspace:open_settings_file",
             "Open settings file",
             WorkspaceAction::OpenSettingsFile,
         )
-        .with_enabled(|| FeatureFlag::SettingsFile.is_enabled() && cfg!(feature = "local_fs"))
+        .with_enabled(|| {
+            FeatureFlag::SettingsFile.is_enabled()
+                && cfg!(feature = "local_fs")
+                && !crate::terminal_only::is_enabled()
+        })
         .with_group(bindings::BindingGroup::Settings.as_str())
         .with_context_predicate(id!("Workspace")),
     ]);

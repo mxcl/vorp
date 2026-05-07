@@ -3575,6 +3575,19 @@ impl Workspace {
         workspace_setting: NewWorkspaceSource,
         ctx: &mut ViewContext<Self>,
     ) {
+        if crate::terminal_only::is_enabled()
+            && !matches!(
+                &workspace_setting,
+                NewWorkspaceSource::Empty { .. }
+                    | NewWorkspaceSource::Session { .. }
+                    | NewWorkspaceSource::SharedSessionAsViewer { .. }
+            )
+        {
+            self.configure_empty_workspace(None, None, ctx);
+            self.check_and_trigger_onboarding(ctx);
+            return;
+        }
+
         self.vertical_tabs_panel_open =
             Self::initial_vertical_tabs_panel_open(&workspace_setting, ctx);
         match workspace_setting {
@@ -3987,6 +4000,10 @@ impl Workspace {
         server_token: ServerConversationToken,
         ctx: &mut ViewContext<Self>,
     ) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         let history = BlocklistAIHistoryModel::as_ref(ctx);
         let Some(conversation_id) = history.find_conversation_id_by_server_token(&server_token)
         else {
@@ -5818,6 +5835,9 @@ impl Workspace {
                 crate::util::file::open_file_path_in_external_editor(line_col, path.clone(), ctx);
             }
             FileTarget::CodeEditor(layout) => {
+                if crate::terminal_only::is_enabled() {
+                    return;
+                }
                 let open_as_preview = false;
                 self.open_code(code_source, layout, line_col, open_as_preview, &[], ctx);
             }
@@ -5839,6 +5859,10 @@ impl Workspace {
     }
 
     fn handle_left_panel_event(&mut self, event: &LeftPanelEvent, ctx: &mut ViewContext<Self>) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         match event {
             LeftPanelEvent::FileTree(pane_group_event) => {
                 let pane_group = self.active_tab_pane_group().clone();
@@ -5881,6 +5905,10 @@ impl Workspace {
     }
 
     fn handle_right_panel_event(&mut self, event: RightPanelEvent, ctx: &mut ViewContext<Self>) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         #[cfg(feature = "local_fs")]
         match event {
             RightPanelEvent::ToggleMaximize => {
@@ -6151,7 +6179,7 @@ impl Workspace {
         }
 
         // 3b. Local Docker Sandbox
-        if FeatureFlag::LocalDockerSandbox.is_enabled() {
+        if !crate::terminal_only::is_enabled() && FeatureFlag::LocalDockerSandbox.is_enabled() {
             let mut docker_item = MenuItemFields::new("Local Docker Sandbox")
                 .with_on_select_action(WorkspaceAction::AddDockerSandboxTab)
                 .with_icon(icons::Icon::Docker);
@@ -6162,7 +6190,7 @@ impl Workspace {
         }
 
         // 4. User tab configs
-        if FeatureFlag::TabConfigs.is_enabled() {
+        if !crate::terminal_only::is_enabled() && FeatureFlag::TabConfigs.is_enabled() {
             let tab_configs = WarpConfig::as_ref(ctx).tab_configs().to_vec();
 
             // Count occurrences of each config name so we can disambiguate
@@ -6209,7 +6237,7 @@ impl Workspace {
         }
 
         // 5. Separator + worktree config entry + new tab config
-        if FeatureFlag::TabConfigs.is_enabled() {
+        if !crate::terminal_only::is_enabled() && FeatureFlag::TabConfigs.is_enabled() {
             menu_items.push(MenuItem::Separator);
             menu_items.push(
                 MenuItemFields::new_submenu("New worktree config")
@@ -6919,6 +6947,10 @@ impl Workspace {
         ctx: &mut ViewContext<Self>,
         default_to_new_pane: bool,
     ) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         let notebook_manager = NotebookManager::handle(ctx);
         let mut notebook_already_open = false;
         if let Some((window_id, locator)) = notebook_manager.as_ref(ctx).find_pane(source) {
@@ -7001,6 +7033,10 @@ impl Workspace {
         settings: &OpenWarpDriveObjectSettings,
         ctx: &mut ViewContext<Self>,
     ) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         // If running workflows is supported, do so. Otherwise, or if the workflow isn't in memory,
         // fall back to the workflow pane.
         // We don't want to run the workflow if the invitee email is set, as we want to open the share dialog instead with the
@@ -7044,6 +7080,10 @@ impl Workspace {
         mode: WorkflowViewMode,
         ctx: &mut ViewContext<Self>,
     ) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         let workflow_manager = WorkflowManager::handle(ctx);
 
         if let Some((window_id, locator)) = workflow_manager.as_ref(ctx).find_pane(source) {
@@ -7317,6 +7357,10 @@ impl Workspace {
         additional_paths: &[PathBuf],
         ctx: &mut ViewContext<Self>,
     ) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         send_telemetry_from_ctx!(
             TelemetryEvent::CodePaneOpened {
                 source: source.clone(),
@@ -8058,6 +8102,10 @@ impl Workspace {
         pane_group: ViewHandle<PaneGroup>,
         ctx: &mut ViewContext<Self>,
     ) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         // Skip the full panel setup when the panel is already open for the target repo.
         let panel_already_showing_repo = pane_group.as_ref(ctx).right_panel_open
             && panel_context
@@ -12485,6 +12533,10 @@ impl Workspace {
     /// This function is used when we set a selected object, which is an object open in an active pane.
     /// We do not want to focus Warp Drive, instead we want to focus the editor of the open object.
     fn view_in_warp_drive(&mut self, item_id: WarpDriveItemId, ctx: &mut ViewContext<Self>) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         self.open_left_panel(ctx);
         self.left_panel_view.update(ctx, |left_panel, ctx| {
             left_panel.handle_action(&LeftPanelAction::WarpDrive, ctx);
@@ -12508,6 +12560,10 @@ impl Workspace {
         item_id: WarpDriveItemId,
         ctx: &mut ViewContext<Self>,
     ) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         self.view_in_warp_drive(item_id, ctx);
 
         self.update_warp_drive_view(ctx, |warp_drive, ctx| {
@@ -13425,10 +13481,16 @@ impl Workspace {
                 layout,
                 line_col,
             } => {
+                if crate::terminal_only::is_enabled() {
+                    return;
+                }
                 self.open_code(source.clone(), *layout, *line_col, false, &[], ctx);
             }
             #[cfg(feature = "local_fs")]
             pane_group::Event::PreviewCodeInWarp { source } => {
+                if crate::terminal_only::is_enabled() {
+                    return;
+                }
                 self.open_code(
                     source.clone(),
                     EditorLayout::SplitPane, // preview always uses split pane
@@ -13439,12 +13501,21 @@ impl Workspace {
                 );
             }
             pane_group::Event::OpenCodeDiff { view } => {
+                if crate::terminal_only::is_enabled() {
+                    return;
+                }
                 self.open_code_diff(view.clone(), ctx);
             }
             pane_group::Event::AttachPathAsContext { path } => {
+                if crate::terminal_only::is_enabled() {
+                    return;
+                }
                 self.attach_path_as_context(path.clone(), ctx);
             }
             pane_group::Event::AttachPlanAsContext { ai_document_id } => {
+                if crate::terminal_only::is_enabled() {
+                    return;
+                }
                 self.attach_plan_as_context(*ai_document_id, ctx);
             }
             pane_group::Event::CDToDirectory { path } => {
@@ -13454,12 +13525,21 @@ impl Workspace {
                 self.open_directory_in_new_tab(path.clone(), ctx);
             }
             pane_group::Event::RunTabConfigSkill { path } => {
+                if crate::terminal_only::is_enabled() {
+                    return;
+                }
                 self.run_tab_config_skill(path, ctx);
             }
             pane_group::Event::OpenCodeReviewPane(arg) => {
+                if crate::terminal_only::is_enabled() {
+                    return;
+                }
                 self.open_code_review_panel_from_arg(arg, pane_group.clone(), ctx);
             }
             pane_group::Event::ToggleCodeReviewPane(arg) => {
+                if crate::terminal_only::is_enabled() {
+                    return;
+                }
                 self.toggle_right_panel(&pane_group, ctx);
                 let active_conversation_id = arg.terminal_view.upgrade(ctx).and_then(|tv| {
                     BlocklistAIHistoryModel::as_ref(ctx).active_conversation_id(tv.id())
@@ -13476,6 +13556,9 @@ impl Workspace {
                 workflow_selection_source,
                 argument_override,
             } => {
+                if crate::terminal_only::is_enabled() {
+                    return;
+                }
                 self.run_workflow_in_active_input(
                     workflow,
                     *workflow_source,
@@ -14279,6 +14362,10 @@ impl Workspace {
                 diff_mode,
                 open_code_review,
             } => {
+                if crate::terminal_only::is_enabled() {
+                    return;
+                }
+
                 if let Some(open_code_review) = open_code_review {
                     self.open_code_review_panel_from_arg(open_code_review, pane_group.clone(), ctx);
                 }
@@ -14299,6 +14386,10 @@ impl Workspace {
                 comment,
                 diff_mode,
             } => {
+                if crate::terminal_only::is_enabled() {
+                    return;
+                }
+
                 self.open_code_review_panel_from_arg(open_code_review, pane_group.clone(), ctx);
 
                 let Some(repo_path) = &open_code_review.repo_path else {
@@ -14329,6 +14420,10 @@ impl Workspace {
                 diff_mode,
                 open_code_review,
             } => {
+                if crate::terminal_only::is_enabled() {
+                    return;
+                }
+
                 self.open_code_review_panel_from_arg(open_code_review, pane_group.clone(), ctx);
 
                 let Some(repo_path) = &open_code_review.repo_path else {
@@ -15788,6 +15883,10 @@ impl Workspace {
         autoinstall_gallery_title: Option<&str>,
         ctx: &mut ViewContext<Self>,
     ) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         self.show_settings_with_section(Some(SettingsSection::MCPServers), ctx);
 
         self.settings_pane.update(ctx, |view, ctx| {
@@ -15929,6 +16028,10 @@ impl Workspace {
     }
 
     fn set_selected_object(&mut self, id: Option<WarpDriveItemId>, ctx: &mut ViewContext<Self>) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         // Set Warp drive index selected state
         self.update_warp_drive_view(ctx, |drive_panel, ctx| {
             drive_panel.set_selected_object(id, ctx);
@@ -16319,6 +16422,10 @@ impl Workspace {
 
     /// Opens the Codex modal.
     pub fn open_codex_modal(&mut self, ctx: &mut ViewContext<Self>) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         self.current_workspace_state.is_codex_modal_open = true;
         ctx.focus(&self.codex_modal);
         ctx.notify();
@@ -16331,6 +16438,10 @@ impl Workspace {
         args: &crate::linear::LinearIssueWork,
         ctx: &mut ViewContext<Self>,
     ) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         send_telemetry_from_ctx!(TelemetryEvent::LinearIssueLinkOpened, ctx);
 
         self.add_new_session_tab_internal_with_default_session_mode_behavior(
@@ -16693,6 +16804,10 @@ impl Workspace {
 
     /// Opens the workflow using a mocked [`Workflow`] object as the base
     fn open_workflow_with_temporary(&mut self, workflow: Workflow, ctx: &mut ViewContext<Self>) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         let Some(owner) = UserWorkspaces::as_ref(ctx).personal_drive(ctx) else {
             log::warn!("Unable to open temporary workflow - unset personal drive");
             return;
@@ -16712,6 +16827,10 @@ impl Workspace {
 
     /// Opens the workflow for create with a prepopulated command specified
     fn open_workflow_with_command(&mut self, command: String, ctx: &mut ViewContext<Self>) {
+        if crate::terminal_only::is_enabled() {
+            return;
+        }
+
         let Some(owner) = UserWorkspaces::as_ref(ctx).personal_drive(ctx) else {
             log::warn!("Unable to open workflow with command - unset personal drive");
             return;
@@ -19999,6 +20118,10 @@ impl Workspace {
 
     /// Computes the list of available left panel views based on current AI settings and feature flags.
     fn compute_left_panel_views(ctx: &AppContext) -> Vec<ToolPanelView> {
+        if crate::terminal_only::is_enabled() {
+            return vec![];
+        }
+
         let mut views = vec![];
         if FeatureFlag::AgentViewConversationListView.is_enabled()
             && AISettings::as_ref(ctx).is_any_ai_enabled(ctx)
@@ -20106,6 +20229,10 @@ impl TypedActionView for Workspace {
                     ctx,
                 )
             });
+            return;
+        }
+
+        if crate::terminal_only::is_enabled() && action.is_blocked_in_terminal_only_mode() {
             return;
         }
 
@@ -22206,7 +22333,7 @@ impl View for Workspace {
             }
         };
 
-        if WarpDriveSettings::is_warp_drive_enabled(app) {
+        if !crate::terminal_only::is_enabled() && WarpDriveSettings::is_warp_drive_enabled(app) {
             context.set.insert(flags::ENABLE_WARP_DRIVE);
         }
 
@@ -22216,10 +22343,10 @@ impl View for Workspace {
             context.set.insert(flags::SHOW_CONVERSATION_HISTORY);
         }
 
-        if *CodeSettings::as_ref(app).show_project_explorer {
+        if !crate::terminal_only::is_enabled() && *CodeSettings::as_ref(app).show_project_explorer {
             context.set.insert(flags::SHOW_PROJECT_EXPLORER);
         }
-        if *CodeSettings::as_ref(app).show_global_search {
+        if !crate::terminal_only::is_enabled() && *CodeSettings::as_ref(app).show_global_search {
             context.set.insert(flags::SHOW_GLOBAL_SEARCH);
         }
 

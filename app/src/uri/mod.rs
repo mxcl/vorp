@@ -111,7 +111,27 @@ impl FromStr for UriHost {
 }
 
 impl UriHost {
+    fn is_blocked_in_terminal_only_mode(&self) -> bool {
+        if !crate::terminal_only::is_enabled() {
+            return false;
+        }
+
+        matches!(
+            self,
+            Self::Launch
+                | Self::Conversation
+                | Self::Drive
+                | Self::Mcp
+                | Self::Codex
+                | Self::Linear
+        )
+    }
+
     fn handle(&self, primary_window_id: Option<WindowId>, url: &Url, ctx: &mut AppContext) {
+        if self.is_blocked_in_terminal_only_mode() {
+            return;
+        }
+
         // Handle host
         match self {
             UriHost::Auth => {
@@ -351,6 +371,10 @@ impl UriHost {
                             );
                         }
                         "billing_and_usage" => {
+                            if crate::terminal_only::is_enabled() {
+                                return;
+                            }
+
                             dispatch_action_in_new_or_existing_window(
                                 primary_window_id,
                                 "root_view:open_settings_page_in_existing_window",
@@ -360,6 +384,10 @@ impl UriHost {
                             );
                         }
                         "environments" => {
+                            if crate::terminal_only::is_enabled() {
+                                return;
+                            }
+
                             // Notify that GitHub auth completed so views can refresh
                             GitHubAuthNotifier::handle(ctx).update(ctx, |notifier, ctx| {
                                 notifier.notify_auth_completed(ctx);
@@ -380,6 +408,10 @@ impl UriHost {
                             }
                         }
                         "mcp" => {
+                            if crate::terminal_only::is_enabled() {
+                                return;
+                            }
+
                             // warp://settings/mcp?autoinstall=<name> auto-installs a gallery MCP server.
                             // The value is matched case-insensitively against gallery titles.
                             let autoinstall =
@@ -394,6 +426,10 @@ impl UriHost {
                             );
                         }
                         "platform" => {
+                            if crate::terminal_only::is_enabled() {
+                                return;
+                            }
+
                             dispatch_action_in_new_or_existing_window(
                                 primary_window_id,
                                 "root_view:open_settings_page_in_existing_window",
@@ -733,6 +769,23 @@ enum Action {
 }
 
 impl Action {
+    fn is_blocked_in_terminal_only_mode(&self) -> bool {
+        if !crate::terminal_only::is_enabled() {
+            return false;
+        }
+
+        matches!(
+            self,
+            Self::Docker
+                | Self::OpenRepo
+                | Self::CloudAgentSetup
+                | Self::NewCloudAgentConversation
+                | Self::NewAgentConversation
+                | Self::CreateEnvironment { .. }
+                | Self::FocusCloudMode
+        )
+    }
+
     fn parse(url: &Url) -> Result<Self> {
         match url.path() {
             "/new_tab" => Ok(Self::NewTab),
@@ -759,6 +812,10 @@ impl Action {
     }
 
     fn handle(&self, primary_window_id: Option<WindowId>, url: &Url, ctx: &mut AppContext) {
+        if self.is_blocked_in_terminal_only_mode() {
+            return;
+        }
+
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         let primary_window_id = self.window_behavior_hint().resolve(primary_window_id, ctx);
         match self {
@@ -1074,6 +1131,10 @@ enum OpenFileAction {
 /// Pure routing decision for `open_file`. Extracted so it can be unit-tested without
 /// standing up a full `AppContext`.
 fn classify_open_file_action(path: &Path) -> OpenFileAction {
+    if crate::terminal_only::is_enabled() {
+        return OpenFileAction::ExecuteInSession;
+    }
+
     if is_markdown_file(path) {
         return OpenFileAction::Notebook;
     }

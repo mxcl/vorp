@@ -1186,38 +1186,50 @@ impl SettingsView {
 
         // Build sidebar nav items. AI page is presented as an "Agents" umbrella
         // with subpages; the actual AI SettingsPage is hidden from direct sidebar listing.
-        let mut nav_items = vec![
-            SettingsNavItem::Page(SettingsSection::Account),
-            SettingsNavItem::Umbrella(SettingsUmbrella::new(
-                "Agents",
-                SettingsSection::ai_subpages().to_vec(),
-            )),
-            SettingsNavItem::Page(SettingsSection::BillingAndUsage),
-            SettingsNavItem::Umbrella(SettingsUmbrella::new(
-                "Code",
-                vec![
-                    SettingsSection::CodeIndexing,
-                    SettingsSection::EditorAndCodeReview,
-                ],
-            )),
-            SettingsNavItem::Umbrella(SettingsUmbrella::new(
-                "Cloud platform",
-                vec![
-                    SettingsSection::CloudEnvironments,
-                    SettingsSection::OzCloudAPIKeys,
-                ],
-            )),
-            SettingsNavItem::Page(SettingsSection::Teams),
-            SettingsNavItem::Page(SettingsSection::Appearance),
-            SettingsNavItem::Page(SettingsSection::Features),
-            SettingsNavItem::Page(SettingsSection::Keybindings),
-            SettingsNavItem::Page(SettingsSection::Warpify),
-            SettingsNavItem::Page(SettingsSection::Referrals),
-            SettingsNavItem::Page(SettingsSection::SharedBlocks),
-            SettingsNavItem::Page(SettingsSection::WarpDrive),
-            SettingsNavItem::Page(SettingsSection::Privacy),
-            SettingsNavItem::Page(SettingsSection::About),
-        ];
+        let mut nav_items = if crate::terminal_only::is_enabled() {
+            vec![
+                SettingsNavItem::Page(SettingsSection::Account),
+                SettingsNavItem::Page(SettingsSection::Appearance),
+                SettingsNavItem::Page(SettingsSection::Features),
+                SettingsNavItem::Page(SettingsSection::Keybindings),
+                SettingsNavItem::Page(SettingsSection::Warpify),
+                SettingsNavItem::Page(SettingsSection::Privacy),
+                SettingsNavItem::Page(SettingsSection::About),
+            ]
+        } else {
+            vec![
+                SettingsNavItem::Page(SettingsSection::Account),
+                SettingsNavItem::Umbrella(SettingsUmbrella::new(
+                    "Agents",
+                    SettingsSection::ai_subpages().to_vec(),
+                )),
+                SettingsNavItem::Page(SettingsSection::BillingAndUsage),
+                SettingsNavItem::Umbrella(SettingsUmbrella::new(
+                    "Code",
+                    vec![
+                        SettingsSection::CodeIndexing,
+                        SettingsSection::EditorAndCodeReview,
+                    ],
+                )),
+                SettingsNavItem::Umbrella(SettingsUmbrella::new(
+                    "Cloud platform",
+                    vec![
+                        SettingsSection::CloudEnvironments,
+                        SettingsSection::OzCloudAPIKeys,
+                    ],
+                )),
+                SettingsNavItem::Page(SettingsSection::Teams),
+                SettingsNavItem::Page(SettingsSection::Appearance),
+                SettingsNavItem::Page(SettingsSection::Features),
+                SettingsNavItem::Page(SettingsSection::Keybindings),
+                SettingsNavItem::Page(SettingsSection::Warpify),
+                SettingsNavItem::Page(SettingsSection::Referrals),
+                SettingsNavItem::Page(SettingsSection::SharedBlocks),
+                SettingsNavItem::Page(SettingsSection::WarpDrive),
+                SettingsNavItem::Page(SettingsSection::Privacy),
+                SettingsNavItem::Page(SettingsSection::About),
+            ]
+        };
 
         // Resolve the initial page: map internal backing-page sections to their default subpage.
         let initial_page = match page {
@@ -1225,6 +1237,27 @@ impl SettingsView {
             Some(SettingsSection::Code) => SettingsSection::CodeIndexing,
             Some(section) if section.is_subpage() => section,
             other => other.unwrap_or_default(),
+        };
+        let initial_page = if crate::terminal_only::is_enabled()
+            && matches!(
+                initial_page,
+                SettingsSection::AI
+                    | SettingsSection::WarpAgent
+                    | SettingsSection::AgentProfiles
+                    | SettingsSection::Knowledge
+                    | SettingsSection::ThirdPartyCLIAgents
+                    | SettingsSection::AgentMCPServers
+                    | SettingsSection::MCPServers
+                    | SettingsSection::Code
+                    | SettingsSection::CodeIndexing
+                    | SettingsSection::EditorAndCodeReview
+                    | SettingsSection::CloudEnvironments
+                    | SettingsSection::OzCloudAPIKeys
+                    | SettingsSection::WarpDrive
+            ) {
+            SettingsSection::Account
+        } else {
+            initial_page
         };
 
         // Auto-expand the umbrella if the initial page is one of its subpages.

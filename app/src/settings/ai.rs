@@ -1497,6 +1497,10 @@ impl AISettings {
     }
 
     pub fn is_any_ai_enabled(&self, app: &AppContext) -> bool {
+        if crate::terminal_only::is_enabled() {
+            return false;
+        }
+
         // Disable AI for anonymous and logged-out users.
         let is_anonymous_or_logged_out = AuthStateProvider::as_ref(app)
             .get()
@@ -1508,6 +1512,10 @@ impl AISettings {
     }
 
     pub fn default_session_mode(&self, app: &AppContext) -> DefaultSessionMode {
+        if crate::terminal_only::is_enabled() {
+            return DefaultSessionMode::Terminal;
+        }
+
         let mode = *self.default_session_mode_internal.value();
         match mode {
             // Terminal and TabConfig don't require AI.
