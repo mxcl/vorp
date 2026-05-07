@@ -1,0 +1,106 @@
+#!/bin/bash
+#
+# Build, sign, notarize, and publish the macOS OSS app DMGs to a GitHub release.
+#
+# Required environment:
+#   CODESIGN_IDENTITY  Developer ID identity installed in the local keychain.
+#   APPLE_ID           Apple ID used for notarization.
+#   APPLE_PASSWORD     App-specific password used by notarytool.
+#
+# Optional environment:
+#   APPLE_TEAM_ID      Apple Developer team ID. Defaults to Warp's current team ID.
+#   GH_REPO            GitHub repository to publish to. Defaults to mxcl/vorp.
+#   MACOS_APP_NAME     App/DMG base name. Defaults to WarpOss.
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+cd "$REPO_ROOT"
+
+usage() {
+  echo "Usage: $0 <version-tag> [release notes]" >&2
+  echo "Example: CODESIGN_IDENTITY='Developer ID Application: ...' APPLE_ID=me@example.com APPLE_PASSWORD=... $0 v1.0.1" >&2
+}
+
+if [[ $# -lt 1 ]]; then
+  usage
+  exit 1
+fi
+
+TAG="$1"
+NOTES="${2:-Release $TAG}"
+GH_REPO="${GH_REPO:-mxcl/vorp}"
+MACOS_APP_NAME="${MACOS_APP_NAME:-WarpOss}"
+OUT_DIR="target/release-lto/bundle/osx"
+
+require_env() {
+  local name="$1"
+  if [[ -z "${!name:-}" ]]; then
+    echo "$name must be set" >&2
+    exit 1
+  fi
+}
+
+require_command() {
+  local name="$1"
+  if ! command -v "$name" >/dev/null 2>&1; then
+    echo "$name must be installed and on PATH" >&2
+    exit 1
+  fi
+}
+
+require_env CODESIGN_IDENTITY
+require_env APPLE_ID
+require_env APPLE_PASSWORD
+require_command gh
+require_command xcrun
+require_command codesign
+
+export APPLE_TEAM_ID="${APPLE_TEAM_ID:-2BBY89MBSN}"
+export WARP_NOTARIZATION_APPLE_ID="${WARP_NOTARIZATION_APPLE_ID:-$APPLE_ID}"
+export WARP_NOTARIZATION_PASSWORD="$APPLE_PASSWORD"
+
+echo "Checking GitHub authentication for $GH_REPO..."
+gh auth status >/dev/null
+
+echo "Building signed and notarized universal macOS DMG for $TAG..."
+./script/macos/bundle \
+  --channel oss \
+  --release-tag "$TAG" \
+  --read-passwords-from-env
+
+echo "Building signed and notarized arm64 macOS DMG for $TAG..."
+./script/macos/bundle \
+  --channel oss \
+  --release-tag "$TAG" \
+  --read-passwords-from-env \
+  --arch aarch64 \
+  --dmg-name-suffix arm64
+
+ASSETS=(
+  "$OUT_DIR/$MACOS_APP_NAME.dmg"
+  "$OUT_DIR/$MACOS_APP_NAME-arm64.dmg"
+)
+
+for asset in "${ASSETS[@]}"; do
+  if [[ ! -f "$asset" ]]; then
+    echo "Expected release asset not found: $asset" >&2
+    exit 1
+  fi
+
+  echo "Validating notarization ticket for $asset..."
+  xcrun stapler validate "$asset"
+done
+
+echo "Publishing ${ASSETS[*]} to $GH_REPO release $TAG..."
+if gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+  gh release upload "$TAG" "${ASSETS[@]}" --repo "$GH_REPO" --clobber
+else
+  gh release create "$TAG" "${ASSETS[@]}" \
+    --repo "$GH_REPO" \
+    --title "$TAG" \
+    --notes "$NOTES" \
+    --latest
+fi
+
+echo "Published macOS release $TAG to $GH_REPO."
