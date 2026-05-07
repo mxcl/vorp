@@ -842,7 +842,7 @@ async fn fetch_vorp_release_version(server_api: Arc<ServerApi>) -> Result<Versio
         .http_client()
         .get(VORP_RELEASES_API_URL)
         .header("Accept", "application/vnd.github+json")
-        .header("User-Agent", "WarpOss")
+        .header("User-Agent", "Vorp")
         .timeout(crate::server::server_api::FETCH_CHANNEL_VERSIONS_TIMEOUT)
         .send()
         .await?
