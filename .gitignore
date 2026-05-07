@@ -1,3 +1,4 @@
+/.envrc
 app/Carthage
 app/frameworks/default/Carthage
 app/frameworks/dev/Carthage
