@@ -27,7 +27,7 @@ define_settings_group!(WarpDriveSettings, settings: [
     // Controls whether Warp Drive appears in the tools panel, command palette, and command search.
     enable_warp_drive: EnableWarpDrive {
         type: bool,
-        default: true,
+        default: false,
         supported_platforms: SupportedPlatforms::ALL,
         sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
         private: false,
@@ -41,6 +41,10 @@ impl WarpDriveSettings {
     /// Returns `false` when the user is anonymous or fully logged out,
     /// regardless of the user setting.
     pub fn is_warp_drive_enabled(app: &warpui::AppContext) -> bool {
+        if crate::terminal_only::is_enabled() {
+            return false;
+        }
+
         use warpui::SingletonEntity as _;
         let is_anonymous_or_logged_out = FeatureFlag::SkipFirebaseAnonymousUser.is_enabled()
             && crate::auth::AuthStateProvider::as_ref(app)

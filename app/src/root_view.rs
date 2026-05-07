@@ -887,6 +887,10 @@ fn open_shared_session_as_viewer(session_id: &SessionId, ctx: &mut AppContext) {
 /// Opens a new window to view a persisted view-only cloud conversation.
 /// The conversation data is loaded via GraphQL API.
 fn open_conversation_viewer(conversation_id: &ServerConversationToken, ctx: &mut AppContext) {
+    if crate::terminal_only::is_enabled() {
+        return;
+    }
+
     // Trigger the workspace loading mechanism by dispatching the LoadConversationData event
     // This will open a new window with a loading state, fetch data via GraphQL, and display it
     open_new_with_workspace_source(
@@ -899,6 +903,10 @@ fn open_conversation_viewer(conversation_id: &ServerConversationToken, ctx: &mut
 
 /// Opens a new window and starts the guided `/create-environment` setup flow.
 fn create_environment(arg: &CreateEnvironmentArg, ctx: &mut AppContext) {
+    if crate::terminal_only::is_enabled() {
+        return;
+    }
+
     let repos = arg.repos.clone();
     let (window_id, root_handle) = open_new_with_workspace_source(
         NewWorkspaceSource::Session {
@@ -932,6 +940,10 @@ fn create_environment(arg: &CreateEnvironmentArg, ctx: &mut AppContext) {
 
 /// Opens a new window and starts the guided `/create-environment` setup flow immediately.
 fn create_environment_and_run(arg: &CreateEnvironmentArg, ctx: &mut AppContext) {
+    if crate::terminal_only::is_enabled() {
+        return;
+    }
+
     let repos = arg.repos.clone();
     let (window_id, root_handle) = open_new_with_workspace_source(
         NewWorkspaceSource::Session {
@@ -1001,6 +1013,10 @@ fn open_settings_page_in_new_window(section: &SettingsSection, ctx: &mut AppCont
 /// MCP servers need to wait for initial load to complete, so we have this action in addition
 /// to the general-purpose [`open_settings_page_in_new_window`].
 fn open_mcp_settings_in_new_window(args: &OpenMCPSettingsArgs, ctx: &mut AppContext) {
+    if crate::terminal_only::is_enabled() {
+        return;
+    }
+
     let autoinstall = args.autoinstall.clone();
     let root_handle = open_new_window_get_handles(None, ctx).1;
     root_handle.update(ctx, |root_view, ctx| {
@@ -1023,6 +1039,10 @@ fn open_mcp_settings_in_new_window(args: &OpenMCPSettingsArgs, ctx: &mut AppCont
 
 /// Opens a new window and shows the Codex modal.
 fn open_codex_in_new_window(_: &(), ctx: &mut AppContext) {
+    if crate::terminal_only::is_enabled() {
+        return;
+    }
+
     let root_handle = open_new_window_get_handles(None, ctx).1;
     root_handle.update(ctx, |root_view, ctx| {
         if let AuthOnboardingState::Terminal(workspace_view_handle) =
@@ -1040,6 +1060,10 @@ fn open_codex_in_new_window(_: &(), ctx: &mut AppContext) {
 
 /// Opens a new window and enters agent view with the Linear issue work prompt.
 fn open_linear_issue_work_in_new_window(args: &LinearIssueWork, ctx: &mut AppContext) {
+    if crate::terminal_only::is_enabled() {
+        return;
+    }
+
     let (_, root_handle) = open_new_window_get_handles(None, ctx);
     let args = args.clone();
     root_handle.update(ctx, |root_view, ctx| {
@@ -1054,6 +1078,10 @@ fn open_linear_issue_work_in_new_window(args: &LinearIssueWork, ctx: &mut AppCon
 }
 
 fn open_warp_drive_object(arg: &OpenWarpDriveObjectArgs, ctx: &mut AppContext) {
+    if crate::terminal_only::is_enabled() {
+        return;
+    }
+
     match arg.object_type {
         ObjectType::Notebook => open_new_workspace_with_notebook_open(
             SyncId::ServerId(arg.server_id),
@@ -2538,6 +2566,10 @@ impl RootView {
         arg: &OpenWarpDriveObjectArgs,
         ctx: &mut ViewContext<Self>,
     ) -> bool {
+        if crate::terminal_only::is_enabled() {
+            return false;
+        }
+
         if let AuthOnboardingState::Terminal(handle) = &self.auth_onboarding_state {
             let cloud_model = CloudModel::as_ref(ctx);
 
@@ -2652,6 +2684,10 @@ impl RootView {
         conversation_id: &ServerConversationToken,
         ctx: &mut ViewContext<Self>,
     ) -> bool {
+        if crate::terminal_only::is_enabled() {
+            return false;
+        }
+
         if let AuthOnboardingState::Terminal(handle) = &self.auth_onboarding_state {
             handle.update(ctx, |workspace, ctx| {
                 workspace.open_cloud_conversation_from_server_token(conversation_id.clone(), ctx);
@@ -2672,6 +2708,10 @@ impl RootView {
         arg: &CreateEnvironmentArg,
         ctx: &mut ViewContext<Self>,
     ) -> bool {
+        if crate::terminal_only::is_enabled() {
+            return false;
+        }
+
         if let AuthOnboardingState::Terminal(handle) = &self.auth_onboarding_state {
             let repos = arg.repos.clone();
 
@@ -2713,6 +2753,10 @@ impl RootView {
         arg: &CreateEnvironmentArg,
         ctx: &mut ViewContext<Self>,
     ) -> bool {
+        if crate::terminal_only::is_enabled() {
+            return false;
+        }
+
         let AuthOnboardingState::Terminal(handle) = &self.auth_onboarding_state else {
             log::warn!("Auth not complete before trying to create environment");
             return false;
@@ -2752,6 +2796,14 @@ impl RootView {
     }
 
     pub fn add_file_pane(&mut self, path: &PathBuf, ctx: &mut ViewContext<Self>) -> bool {
+        if crate::terminal_only::is_enabled() {
+            let terminal_path = path
+                .is_file()
+                .then(|| path.parent().map(Path::to_path_buf).unwrap_or_default())
+                .unwrap_or_else(|| path.clone());
+            return self.add_session_at_path(&terminal_path, ctx);
+        }
+
         if let AuthOnboardingState::Terminal(handle) = &self.auth_onboarding_state {
             handle.update(ctx, |workspace, ctx| {
                 workspace.add_tab_for_file_notebook(Some(path.to_owned()), ctx);
@@ -2792,6 +2844,10 @@ impl RootView {
     /// Shows the user the settings view of their newly joined team
     /// within the app.
     pub fn handle_team_intent_link_action(&mut self, _: &(), ctx: &mut ViewContext<Self>) -> bool {
+        if crate::terminal_only::is_enabled() {
+            return false;
+        }
+
         // Force-open warp drive.
         let window_id = ctx.window_id();
         if let AuthOnboardingState::Terminal(handle) = &self.auth_onboarding_state {
@@ -2853,6 +2909,10 @@ impl RootView {
         args: &OpenMCPSettingsArgs,
         ctx: &mut ViewContext<Self>,
     ) -> bool {
+        if crate::terminal_only::is_enabled() {
+            return false;
+        }
+
         if let AuthOnboardingState::Terminal(handle) = &self.auth_onboarding_state {
             let autoinstall = args.autoinstall.clone();
             let initial_load_complete = UpdateManager::as_ref(ctx).initial_load_complete();
@@ -2875,6 +2935,10 @@ impl RootView {
 
     /// Opens the Codex modal in an existing window.
     pub fn open_codex_in_existing_window(&mut self, _: &(), ctx: &mut ViewContext<Self>) -> bool {
+        if crate::terminal_only::is_enabled() {
+            return false;
+        }
+
         let window_id = ctx.window_id();
         if let AuthOnboardingState::Terminal(handle) = &self.auth_onboarding_state {
             handle.update(ctx, |workspace, ctx| {
@@ -2893,6 +2957,10 @@ impl RootView {
         args: &LinearIssueWork,
         ctx: &mut ViewContext<Self>,
     ) -> bool {
+        if crate::terminal_only::is_enabled() {
+            return false;
+        }
+
         let window_id = ctx.window_id();
         if let AuthOnboardingState::Terminal(handle) = &self.auth_onboarding_state {
             let args = args.clone();
@@ -3254,7 +3322,7 @@ impl RootView {
                     view.open_vertical_tabs_panel_if_enabled(ctx);
                 });
             }
-        } else if *AISettings::as_ref(ctx).is_any_ai_enabled {
+        } else if AISettings::as_ref(ctx).is_any_ai_enabled(ctx) {
             workspace.update(ctx, |view, ctx| {
                 view.start_agent_onboarding_tutorial(tutorial, ctx);
             });

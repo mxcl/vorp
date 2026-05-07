@@ -27,6 +27,10 @@ impl CodingPanelEnablementState {
         is_unsupported_session: bool,
         has_remote_server: bool,
     ) -> Self {
+        if crate::terminal_only::is_enabled() {
+            return Self::Disabled;
+        }
+
         if is_remote {
             Self::RemoteSession { has_remote_server }
         } else if is_unsupported_session {

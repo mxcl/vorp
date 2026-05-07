@@ -59,6 +59,18 @@ impl HeaderToolbarItemKind {
     /// (feature flags, compile-time features, AI enabled, auth state).
     /// Does not check user show/hide preferences — use `is_available` for that.
     pub fn is_supported(&self, app: &AppContext) -> bool {
+        if crate::terminal_only::is_enabled()
+            && matches!(
+                self,
+                Self::ToolsPanel
+                    | Self::AgentManagement
+                    | Self::CodeReview
+                    | Self::NotificationsMailbox
+            )
+        {
+            return false;
+        }
+
         match self {
             Self::TabsPanel => {
                 FeatureFlag::VerticalTabs.is_enabled()
@@ -99,11 +111,19 @@ impl HeaderToolbarItemKind {
     }
 
     pub fn default_left() -> Vec<Self> {
-        vec![Self::TabsPanel, Self::ToolsPanel, Self::AgentManagement]
+        if crate::terminal_only::is_enabled() {
+            vec![Self::TabsPanel]
+        } else {
+            vec![Self::TabsPanel, Self::ToolsPanel, Self::AgentManagement]
+        }
     }
 
     pub fn default_right() -> Vec<Self> {
-        vec![Self::CodeReview, Self::NotificationsMailbox]
+        if crate::terminal_only::is_enabled() {
+            vec![]
+        } else {
+            vec![Self::CodeReview, Self::NotificationsMailbox]
+        }
     }
 
     /// All toolbar item variants (availability filtering is done at the call site).

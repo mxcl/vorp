@@ -43,7 +43,7 @@ define_settings_group!(CodeSettings, settings: [
     // Controls whether the project explorer / file tree appears in the tools panel.
     show_project_explorer: ShowProjectExplorer {
         type: bool,
-        default: true,
+        default: false,
         supported_platforms: SupportedPlatforms::ALL,
         sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
         private: false,
@@ -53,7 +53,7 @@ define_settings_group!(CodeSettings, settings: [
     // Controls whether global file search appears in the tools panel.
     show_global_search: ShowGlobalSearch {
         type: bool,
-        default: true,
+        default: false,
         supported_platforms: SupportedPlatforms::ALL,
         sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
         private: false,

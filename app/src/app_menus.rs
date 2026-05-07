@@ -61,18 +61,24 @@ const MAX_RECENT_REPOS_IN_MENU: usize = 10;
 
 /// Creates the root app menu bar
 pub fn menu_bar(ctx: &mut AppContext) -> MenuBar {
-    MenuBar::new(vec![
+    let mut menus = vec![
         make_new_app_menu(ctx),
         make_new_file_menu(ctx),
         make_new_edit_menu(ctx),
         make_new_view_menu(ctx),
         make_new_tab_menu(ctx),
         make_new_blocks_menu(ctx),
-        make_new_ai_menu(ctx),
-        make_new_drive_menu(ctx),
-        make_new_window_menu(),
-        make_new_help_menu(),
-    ])
+    ];
+
+    if !crate::terminal_only::is_enabled() {
+        menus.push(make_new_ai_menu(ctx));
+        menus.push(make_new_drive_menu(ctx));
+    }
+
+    menus.push(make_new_window_menu());
+    menus.push(make_new_help_menu());
+
+    MenuBar::new(menus)
 }
 
 // Creates the app dock menu
@@ -248,23 +254,29 @@ fn make_new_app_menu(ctx: &AppContext) -> Menu {
 
 fn make_new_file_menu(ctx: &AppContext) -> Menu {
     let mut file_menu_options = make_new_elements_menu_items(ctx);
+
+    if !crate::terminal_only::is_enabled() {
+        file_menu_options.extend([
+            MenuItem::Separator,
+            updateable_custom_item_without_checkmark(CustomAction::OpenRepository, ctx),
+            MenuItem::Custom(CustomMenuItem::new_with_submenu(
+                "Open Recent",
+                |_| (),
+                |_props, ctx| {
+                    let recent_repos = generate_recent_repos_for_menu(ctx);
+                    MenuItemPropertyChanges {
+                        submenu: Some(Some(make_recent_repos_menu_items(ctx))),
+                        disabled: Some(recent_repos.is_empty()),
+                        ..Default::default()
+                    }
+                },
+                None,
+                vec![],
+            )),
+        ]);
+    }
+
     file_menu_options.extend([
-        MenuItem::Separator,
-        updateable_custom_item_without_checkmark(CustomAction::OpenRepository, ctx),
-        MenuItem::Custom(CustomMenuItem::new_with_submenu(
-            "Open Recent",
-            |_| (),
-            |_props, ctx| {
-                let recent_repos = generate_recent_repos_for_menu(ctx);
-                MenuItemPropertyChanges {
-                    submenu: Some(Some(make_recent_repos_menu_items(ctx))),
-                    disabled: Some(recent_repos.is_empty()),
-                    ..Default::default()
-                }
-            },
-            None,
-            vec![],
-        )),
         MenuItem::Separator,
         updateable_custom_item_without_checkmark(CustomAction::CloseCurrentSession, ctx),
         updateable_custom_item_without_checkmark(CustomAction::CloseWindow, ctx),
@@ -374,21 +386,35 @@ fn make_new_edit_menu(ctx: &AppContext) -> Menu {
 }
 
 fn make_new_view_menu(ctx: &AppContext) -> Menu {
-    let mut items = vec![
-        updateable_custom_item_without_checkmark(CustomAction::ToggleWarpDrive, ctx),
-        MenuItem::Separator,
-        updateable_custom_item_without_checkmark(CustomAction::CommandPalette, ctx),
-        updateable_custom_item_without_checkmark(CustomAction::NavigationPalette, ctx),
-        updateable_custom_item_without_checkmark(CustomAction::LaunchConfigPalette, ctx),
-        updateable_custom_item_without_checkmark(CustomAction::FilesPalette, ctx),
-        updateable_custom_item_without_checkmark(CustomAction::ToggleConversationListView, ctx),
-        updateable_custom_item_without_checkmark(CustomAction::ToggleProjectExplorer, ctx),
-        updateable_custom_item_without_checkmark(CustomAction::ToggleGlobalSearch, ctx),
-        MenuItem::Separator,
-        updateable_custom_item_without_checkmark(CustomAction::History, ctx),
-        updateable_custom_item_without_checkmark(CustomAction::CommandSearch, ctx),
-        updateable_custom_item_without_checkmark(CustomAction::Workflows, ctx),
-        MenuItem::Separator,
+    let mut items = if crate::terminal_only::is_enabled() {
+        vec![
+            updateable_custom_item_without_checkmark(CustomAction::CommandPalette, ctx),
+            updateable_custom_item_without_checkmark(CustomAction::NavigationPalette, ctx),
+            MenuItem::Separator,
+            updateable_custom_item_without_checkmark(CustomAction::History, ctx),
+            updateable_custom_item_without_checkmark(CustomAction::CommandSearch, ctx),
+            MenuItem::Separator,
+        ]
+    } else {
+        vec![
+            updateable_custom_item_without_checkmark(CustomAction::ToggleWarpDrive, ctx),
+            MenuItem::Separator,
+            updateable_custom_item_without_checkmark(CustomAction::CommandPalette, ctx),
+            updateable_custom_item_without_checkmark(CustomAction::NavigationPalette, ctx),
+            updateable_custom_item_without_checkmark(CustomAction::LaunchConfigPalette, ctx),
+            updateable_custom_item_without_checkmark(CustomAction::FilesPalette, ctx),
+            updateable_custom_item_without_checkmark(CustomAction::ToggleConversationListView, ctx),
+            updateable_custom_item_without_checkmark(CustomAction::ToggleProjectExplorer, ctx),
+            updateable_custom_item_without_checkmark(CustomAction::ToggleGlobalSearch, ctx),
+            MenuItem::Separator,
+            updateable_custom_item_without_checkmark(CustomAction::History, ctx),
+            updateable_custom_item_without_checkmark(CustomAction::CommandSearch, ctx),
+            updateable_custom_item_without_checkmark(CustomAction::Workflows, ctx),
+            MenuItem::Separator,
+        ]
+    };
+
+    items.extend([
         MenuItem::Custom(CustomMenuItem::new(
             "Toggle Mouse Reporting",
             move |ctx| {
@@ -435,7 +461,7 @@ fn make_new_view_menu(ctx: &AppContext) -> Menu {
             },
             None,
         )),
-    ];
+    ]);
 
     let is_compact_mode = matches!(
         TerminalSettings::handle(ctx)
@@ -563,9 +589,13 @@ fn make_new_blocks_menu(ctx: &AppContext) -> Menu {
         ctx,
     ));
     items.push(MenuItem::Separator);
+    if !crate::terminal_only::is_enabled() {
+        items.extend([
+            updateable_custom_item_without_checkmark(CustomAction::CreateBlockPermalink, ctx),
+            non_updateable_custom_item(CustomAction::ViewSharedBlocks, ctx),
+        ]);
+    }
     items.extend([
-        updateable_custom_item_without_checkmark(CustomAction::CreateBlockPermalink, ctx),
-        non_updateable_custom_item(CustomAction::ViewSharedBlocks, ctx),
         updateable_custom_item_without_checkmark(CustomAction::ToggleBookmarkBlock, ctx),
         updateable_custom_item_without_checkmark(CustomAction::FindWithinBlock, ctx),
         MenuItem::Separator,
@@ -1005,39 +1035,45 @@ fn make_new_elements_menu_items(ctx: &AppContext) -> Vec<MenuItem> {
             },
             Some(Keystroke::parse("cmd-t").expect("Valid keystroke")),
         )),
-        MenuItem::Custom(CustomMenuItem::new(
-            "New Agent Tab",
-            open_new_agent_tab_or_window,
-            move |_props: &MenuItemProperties, ctx: &mut AppContext| {
-                let mut changes = MenuItemPropertyChanges::default();
-                let (is_any_ai_enabled, is_default_session_mode_agent) = AISettings::handle(ctx)
-                    .read(ctx, |ai_settings, ctx| {
-                        let enabled = ai_settings.is_any_ai_enabled(ctx);
-                        let agent = enabled
-                            && ai_settings.default_session_mode(ctx) == DefaultSessionMode::Agent;
-                        (enabled, agent)
-                    });
-                if !is_any_ai_enabled {
-                    changes.disabled = Some(true);
-                    return changes;
-                }
-                let trigger = if is_default_session_mode_agent {
-                    Trigger::Custom(CustomAction::NewTab.into())
-                } else {
-                    Trigger::Custom(CustomAction::NewAgentTab.into())
-                };
-                let binding = ctx
-                    .get_key_bindings()
-                    .find(|b| b.trigger == &trigger || b.original_trigger == Some(&trigger));
-                if let Some(binding) = binding {
-                    changes.keystroke = Some(bindings::trigger_to_keystroke(binding.trigger));
-                }
-                changes
-            },
-            None,
-        )),
-        non_updateable_custom_item(CustomAction::NewFile, ctx),
     ];
+
+    if !crate::terminal_only::is_enabled() {
+        new_elements_menu.extend([
+            MenuItem::Custom(CustomMenuItem::new(
+                "New Agent Tab",
+                open_new_agent_tab_or_window,
+                move |_props: &MenuItemProperties, ctx: &mut AppContext| {
+                    let mut changes = MenuItemPropertyChanges::default();
+                    let (is_any_ai_enabled, is_default_session_mode_agent) =
+                        AISettings::handle(ctx).read(ctx, |ai_settings, ctx| {
+                            let enabled = ai_settings.is_any_ai_enabled(ctx);
+                            let agent = enabled
+                                && ai_settings.default_session_mode(ctx)
+                                    == DefaultSessionMode::Agent;
+                            (enabled, agent)
+                        });
+                    if !is_any_ai_enabled {
+                        changes.disabled = Some(true);
+                        return changes;
+                    }
+                    let trigger = if is_default_session_mode_agent {
+                        Trigger::Custom(CustomAction::NewTab.into())
+                    } else {
+                        Trigger::Custom(CustomAction::NewAgentTab.into())
+                    };
+                    let binding = ctx
+                        .get_key_bindings()
+                        .find(|b| b.trigger == &trigger || b.original_trigger == Some(&trigger));
+                    if let Some(binding) = binding {
+                        changes.keystroke = Some(bindings::trigger_to_keystroke(binding.trigger));
+                    }
+                    changes
+                },
+                None,
+            )),
+            non_updateable_custom_item(CustomAction::NewFile, ctx),
+        ]);
+    }
 
     let reopen_session_action_updater =
         custom_action_updater(CustomAction::ReopenClosedSession, Box::new(|_| false));
@@ -1056,16 +1092,18 @@ fn make_new_elements_menu_items(ctx: &AppContext) -> Vec<MenuItem> {
         Some(Keystroke::parse("cmd-shift-T").expect("Valid keystroke")),
     )));
 
-    new_elements_menu.push(MenuItem::Custom(CustomMenuItem::new_with_submenu(
-        "Launch Configurations",
-        |_| (),
-        |_props, ctx| MenuItemPropertyChanges {
-            submenu: Some(Some(make_launch_config_menu_items(ctx))),
-            ..Default::default()
-        },
-        None,
-        vec![],
-    )));
+    if !crate::terminal_only::is_enabled() {
+        new_elements_menu.push(MenuItem::Custom(CustomMenuItem::new_with_submenu(
+            "Launch Configurations",
+            |_| (),
+            |_props, ctx| MenuItemPropertyChanges {
+                submenu: Some(Some(make_launch_config_menu_items(ctx))),
+                ..Default::default()
+            },
+            None,
+            vec![],
+        )));
+    }
 
     new_elements_menu
 }

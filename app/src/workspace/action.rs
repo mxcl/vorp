@@ -695,6 +695,146 @@ impl From<&WorkspaceAction> for LoginGatedFeature {
 }
 
 impl WorkspaceAction {
+    pub fn is_blocked_in_terminal_only_mode(&self) -> bool {
+        use WorkspaceAction::*;
+
+        let is_blocked = matches!(
+            self,
+            AddAmbientAgentTab
+                | AddAgentTab
+                | AddDockerSandboxTab
+                | AddGetStartedTab
+                | ToggleTabConfigsMenu
+                | SelectTabConfig(_)
+                | OpenLaunchConfigSaveModal
+                | ExportAllWarpDriveObjects
+                | OpenPalette {
+                    mode: PaletteMode::Files | PaletteMode::WarpDrive | PaletteMode::LaunchConfig,
+                    ..
+                }
+                | TogglePalette {
+                    mode: PaletteMode::Files | PaletteMode::WarpDrive | PaletteMode::LaunchConfig,
+                    ..
+                }
+                | ToggleResourceCenter
+                | ToggleAIAssistant
+                | ClickedAIAssistantIcon
+                | ShowCommandSearch(_)
+                | CreatePersonalNotebook
+                | ImportToPersonalDrive
+                | ImportToTeamDrive
+                | CreateTeamNotebook
+                | CreatePersonalWorkflow
+                | CreateTeamWorkflow
+                | CreatePersonalFolder
+                | CreateTeamFolder
+                | CreateTeamEnvVarCollection
+                | CreatePersonalEnvVarCollection
+                | CreatePersonalAIPrompt
+                | CreateTeamAIPrompt
+                | ToggleLeftPanel
+                | ToggleWarpDrive
+                | OpenWarpDrive
+                | ToggleRightPanel
+                | OpenCodeReviewPanel(_)
+                | ShowAIAssistantWarmWelcome
+                | ClickedAIAssistantWarmWelcome
+                | DismissAIAssistantWarmWelcome
+                | HandleConflictingWorkflow(_)
+                | HandleConflictingEnvVarCollection(_)
+                | OpenPromptEditor { .. }
+                | OpenAgentToolbarEditor
+                | OpenCLIAgentToolbarEditor
+                | FocusLeftPanel
+                | FocusRightPanel
+                | ViewObjectInWarpDrive(_)
+                | OpenObjectSharingSettings { .. }
+                | UndoTrash(_)
+                | OpenFilePath { .. }
+                | RunAISuggestedCommand(_)
+                | NewTabInAgentMode { .. }
+                | NewPaneInAgentMode { .. }
+                | OpenCloudAgentSetupGuide
+                | AttemptLoginGatedAIUpgrade
+                | FixInAgentMode { .. }
+                | OpenAIFactCollection
+                | OpenMCPServerCollection
+                | OpenEnvironmentManagementPane
+                | ToggleAIDocumentPane { .. }
+                | HideAIDocumentPanes
+                | OpenAIDocumentPane { .. }
+                | StartNewConversation { .. }
+                | JumpToLatestToast
+                | OpenFileInNewTab { .. }
+                | OpenNotebook { .. }
+                | RunWorkflow { .. }
+                | RestoreOrNavigateToConversation { .. }
+                | ForkAIConversation { .. }
+                | InsertForkSlashCommand
+                | OpenLocalToCloudHandoffPane { .. }
+                | SummarizeAIConversation { .. }
+                | QueuePromptForConversation { .. }
+                | UndoRevertInCodeReviewPane { .. }
+                | OpenRepository { .. }
+                | OpenTabConfigRepoPicker { .. }
+                | NewCodeFile
+                | ToggleProjectExplorer
+                | ToggleGlobalSearch
+                | OpenGlobalSearch
+                | ToggleConversationListView
+                | ToggleNotificationMailbox { .. }
+                | ToggleAgentManagementView
+                | ViewAgentRunsForEnvironment { .. }
+                | ShowRewindConfirmationDialog { .. }
+                | ExecuteRewindAIConversation { .. }
+                | ExecuteDeleteConversation { .. }
+                | OpenAmbientAgentSession { .. }
+                | OpenConversationTranscriptViewer { .. }
+                | StartAgentOnboardingTutorial(_)
+                | ShowSessionConfigModal
+                | OpenNewWorktreeModal
+                | OpenNewWorktreeRepoPicker
+                | OpenWorktreeInRepo { .. }
+                | OpenWorktreeAddRepoPicker
+                | SaveCurrentTabAsNewConfig(_)
+                | OpenTabConfigErrorFile { .. }
+                | TabConfigSidecarMakeDefault { .. }
+                | TabConfigSidecarEditConfig { .. }
+                | TabConfigSidecarRemoveConfig { .. }
+                | OpenSettingsFile
+                | FixSettingsWithOz { .. }
+                | OpenNetworkLogPane
+        );
+
+        if is_blocked {
+            return true;
+        }
+
+        #[cfg(not(target_family = "wasm"))]
+        if matches!(self, ContinueConversationLocally { .. }) {
+            return true;
+        }
+
+        let settings_section = match self {
+            ShowSettingsPage(section) => Some(*section),
+            ScrollToSettingsWidget { page, .. } => Some(*page),
+            _ => None,
+        };
+
+        settings_section.is_some_and(|section| {
+            !matches!(
+                section,
+                SettingsSection::Account
+                    | SettingsSection::Appearance
+                    | SettingsSection::Features
+                    | SettingsSection::Keybindings
+                    | SettingsSection::Warpify
+                    | SettingsSection::Privacy
+                    | SettingsSection::About
+            )
+        })
+    }
+
     pub fn blocked_for_anonymous_user(&self) -> bool {
         use WorkspaceAction::*;
         matches!(
