@@ -56,6 +56,15 @@ require_command gh
 require_command xcrun
 require_command codesign
 
+if ! cargo about --version >/dev/null 2>&1; then
+  echo "cargo-about must be installed for bundled third-party license generation." >&2
+  echo "Install it with:" >&2
+  echo "  ./script/install_cargo_release_deps --no-build-deps" >&2
+  echo "or:" >&2
+  echo "  cargo install --locked cargo-about@0.8.4" >&2
+  exit 1
+fi
+
 export APPLE_TEAM_ID="${APPLE_TEAM_ID:-2BBY89MBSN}"
 export WARP_NOTARIZATION_APPLE_ID="${WARP_NOTARIZATION_APPLE_ID:-$APPLE_ID}"
 export WARP_NOTARIZATION_PASSWORD="$APPLE_PASSWORD"
