@@ -32,10 +32,8 @@ pub const MAC_MENUS_CONTEXT: DescriptionContext = DescriptionContext::Custom("ma
 pub enum CustomAction {
     NewTab,
     NewFile,
-    ShowAboutWarp,
     ShowSettings,
     ConfigureKeybindings,
-    ShowAccount,
     ShowAppearance,
     ReferAFriend,
     ViewChangelog,
@@ -256,7 +254,8 @@ pub fn trigger_to_keystroke(trigger: &Trigger) -> Option<Keystroke> {
             StandardAction::ShowAllApps
             | StandardAction::BringAllToFront
             | StandardAction::Minimize
-            | StandardAction::Zoom => None,
+            | StandardAction::Zoom
+            | StandardAction::About => None,
         },
         Trigger::Empty => None,
     }
@@ -435,7 +434,6 @@ pub fn custom_tag_to_keystroke(custom: CustomTag) -> Option<Keystroke> {
         }
         CustomAction::NewTerminalTab
         | CustomAction::NewFile
-        | CustomAction::ShowAboutWarp
         | CustomAction::SplitPaneLeft
         | CustomAction::SelectAllBlocks
         | CustomAction::SplitPaneUp
@@ -446,7 +444,6 @@ pub fn custom_tag_to_keystroke(custom: CustomTag) -> Option<Keystroke> {
         | CustomAction::CloseTabsRight
         | CustomAction::ReferAFriend
         | CustomAction::ViewSharedBlocks
-        | CustomAction::ShowAccount
         | CustomAction::ShowAppearance
         | CustomAction::SaveCurrentConfig
         | CustomAction::TriggerWelcomeBlock

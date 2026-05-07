@@ -6,7 +6,6 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 
 use super::{
-    about_page::AboutPageView,
     ai_page::{AISettingsPageAction, AISettingsPageView},
     appearance_page::AppearanceSettingsPageView,
     billing_and_usage_page::BillingAndUsagePageView,
@@ -110,7 +109,6 @@ pub enum SettingsPageViewHandle {
     Features(ViewHandle<FeaturesPageView>),
     SharedBlocks(ViewHandle<ShowBlocksView>),
     Keybindings(ViewHandle<KeybindingsView>),
-    About(ViewHandle<AboutPageView>),
     Code(ViewHandle<CodeSettingsPageView>),
     Teams(ViewHandle<TeamsPageView>),
     OzCloudAPIKeys(ViewHandle<super::platform_page::PlatformPageView>),
@@ -133,7 +131,6 @@ impl SettingsPageViewHandle {
             Features(view_handle) => ChildView::new(view_handle).finish(),
             SharedBlocks(view_handle) => ChildView::new(view_handle).finish(),
             Keybindings(view_handle) => ChildView::new(view_handle).finish(),
-            About(view_handle) => ChildView::new(view_handle).finish(),
             Code(view_handle) => ChildView::new(view_handle).finish(),
             Teams(view_handle) => ChildView::new(view_handle).finish(),
             OzCloudAPIKeys(view_handle) => ChildView::new(view_handle).finish(),
