@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+#
+# Check upstream Warp releases and invoke Codex to merge the latest
+# non-prerelease release tag into this fork.
+#
+# Intended for a simple daily cron/launchd job. It deliberately does not handle
+# concurrency; do not run more than one copy at a time.
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
+cd "$REPO_ROOT"
+
+UPSTREAM_REPO="${UPSTREAM_REPO:-warpdotdev/warp}"
+UPSTREAM_REMOTE="${UPSTREAM_REMOTE:-upstream}"
+CODEX_BIN="${CODEX_BIN:-codex}"
+
+require_command() {
+  local name="$1"
+  if ! command -v "$name" >/dev/null 2>&1; then
+    echo "$name must be installed and on PATH" >&2
+    exit 1
+  fi
+}
+
+require_command git
+require_command gh
+require_command "$CODEX_BIN"
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "Working tree is not clean; refusing to start an automated upstream merge." >&2
+  git status --short >&2
+  exit 1
+fi
+
+if ! git remote get-url "$UPSTREAM_REMOTE" >/dev/null 2>&1; then
+  echo "Missing git remote '$UPSTREAM_REMOTE'. Expected it to point at https://github.com/$UPSTREAM_REPO." >&2
+  exit 1
+fi
+
+echo "Checking $UPSTREAM_REPO for the latest non-prerelease release..."
+LATEST_TAG="$(
+  gh api "repos/$UPSTREAM_REPO/releases?per_page=20" \
+    --jq 'map(select((.draft | not) and (.prerelease | not)))[0].tag_name // empty'
+)"
+
+if [[ -z "$LATEST_TAG" ]]; then
+  echo "No non-prerelease upstream release found for $UPSTREAM_REPO." >&2
+  exit 1
+fi
+
+echo "Latest upstream release tag: $LATEST_TAG"
+git fetch --force "$UPSTREAM_REMOTE" "refs/tags/$LATEST_TAG:refs/tags/$LATEST_TAG"
+
+if git merge-base --is-ancestor "$LATEST_TAG^{commit}" HEAD; then
+  echo "Already contains upstream release $LATEST_TAG; nothing to do."
+  exit 0
+fi
+
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+CURRENT_HEAD="$(git rev-parse --short HEAD)"
+
+echo "Invoking Codex to merge upstream release $LATEST_TAG into $CURRENT_BRANCH..."
+"$CODEX_BIN" exec \
+  --cd "$REPO_ROOT" \
+  --sandbox workspace-write \
+  --ask-for-approval never \
+  - <<EOF
+You are maintaining the vфrp fork of Warp in this repository.
+
+Task:
+- Merge upstream release tag $LATEST_TAG into the current branch $CURRENT_BRANCH, currently at $CURRENT_HEAD.
+- Start with a simple merge: git merge --no-edit $LATEST_TAG.
+- If there are conflicts, resolve them by preserving upstream fixes while keeping this fork's intentional product changes.
+- Commit the completed merge if and only if the merge is resolved and the repository is in a coherent state.
+
+Fork intent to preserve:
+- User-visible app name is vфrp.
+- GitHub release/update assets use ASCII vorp names, especially vorp-arm64.dmg, so GitHub asset lookup remains stable.
+- Autoupdates check https://github.com/mxcl/vorp releases, not Warp's release service.
+- macOS releases are arm64-only; do not restore Intel or universal release builds.
+- Onboarding flows remain removed.
+- Auth/sign-in/sign-up entry points remain removed.
+- Launch-at-login registration and settings remain removed.
+- Warp team defaults must not be reintroduced; Apple team ID should be derived from the signing identity where relevant.
+- Keep README.md's Removed section accurate if the merge changes any of these decisions.
+
+Validation:
+- Do not run full builds or broad cargo checks; they are too slow for this automation.
+- Prefer fast checks such as:
+  - bash -n script/macos/bundle script/macos/publish_github_release script/check_upstream_release
+  - cargo fmt --check
+  - git diff --check
+  - targeted rg checks that confirm the fork invariants above
+- If a fast check fails, fix it or leave a clear final explanation of the blocker.
+
+Final response:
+- State whether $LATEST_TAG was merged and committed.
+- List any conflicts you resolved.
+- List the fast checks you ran.
+- If the merge cannot be completed safely, leave the working tree as understandable as possible and explain exactly what needs human attention.
+EOF
