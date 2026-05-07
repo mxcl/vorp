@@ -8,7 +8,6 @@
 #   APPLE_PASSWORD     App-specific password used by notarytool.
 #
 # Optional environment:
-#   APPLE_TEAM_ID      Apple Developer team ID. Defaults to Warp's current team ID.
 #   GH_REPO            GitHub repository to publish to. Defaults to mxcl/vorp.
 #   MACOS_APP_NAME     App/DMG base name. Defaults to vфrp.
 
@@ -56,6 +55,15 @@ require_command gh
 require_command xcrun
 require_command codesign
 
+extract_team_id_from_codesign_identity() {
+  local identity="$1"
+  if [[ "$identity" =~ \(([A-Z0-9]{10})\)[[:space:]]*$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  return 1
+}
+
 if ! cargo about --version >/dev/null 2>&1; then
   echo "cargo-about must be installed for bundled third-party license generation." >&2
   echo "Install it with:" >&2
@@ -65,7 +73,12 @@ if ! cargo about --version >/dev/null 2>&1; then
   exit 1
 fi
 
-export APPLE_TEAM_ID="${APPLE_TEAM_ID:-2BBY89MBSN}"
+if ! APPLE_TEAM_ID="$(extract_team_id_from_codesign_identity "$CODESIGN_IDENTITY")"; then
+  echo "Could not extract Apple team ID from CODESIGN_IDENTITY." >&2
+  echo "Expected a full identity like: Developer ID Application: Name (TEAMID)" >&2
+  exit 1
+fi
+export APPLE_TEAM_ID
 export WARP_NOTARIZATION_APPLE_ID="${WARP_NOTARIZATION_APPLE_ID:-$APPLE_ID}"
 export WARP_NOTARIZATION_PASSWORD="$APPLE_PASSWORD"
 
