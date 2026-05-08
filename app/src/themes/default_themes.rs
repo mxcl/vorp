@@ -416,10 +416,7 @@ pub(super) fn phenomenon() -> WarpTheme {
         None,
         Some(Details::Darker),
         phenomenon_colors(),
-        Some(Image {
-            source: bundled_or_fetched_asset!("jpg/phenomenon_bg.jpg"),
-            opacity: 100,
-        }),
+        None,
         Some("Phenomenon".to_string()),
     )
 }

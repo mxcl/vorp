@@ -10,9 +10,8 @@ use pathfinder_color::ColorU;
 use rust_embed::RustEmbed;
 use std::borrow::Cow;
 use warp_core::ui::icons::Icon;
-use warp_core::ui::theme::{AnsiColor, AnsiColors, Details, Fill, Image, TerminalColors};
+use warp_core::ui::theme::{AnsiColor, AnsiColors, Details, Fill, TerminalColors};
 use warp_core::ui::{appearance::Appearance, theme::WarpTheme};
-use warpui::assets::asset_cache::AssetSource;
 use warpui::platform;
 use warpui::{
     elements::{
@@ -419,13 +418,7 @@ fn phenomenon() -> WarpTheme {
         None,
         Some(Details::Darker),
         phenomenon_colors(),
-        Some(Image {
-            source: AssetSource::Bundled {
-                // Match app's asset layout: this image lives under app/assets/async.
-                path: "async/jpg/phenomenon_bg.jpg",
-            },
-            opacity: 100,
-        }),
+        None,
         Some("Phenomenon".to_string()),
     )
 }
