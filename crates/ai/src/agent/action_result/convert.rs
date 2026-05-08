@@ -4,7 +4,10 @@ use warp_multi_agent_api::{
     ask_user_question_result::answer_item::{self, Answer as AskUserQuestionAnswer},
 };
 
-use crate::agent::{action_result::ShellCommandError, convert::ConvertToAPITypeError};
+use crate::{
+    agent::{action_result::ShellCommandError, convert::ConvertToAPITypeError},
+    computer_use,
+};
 
 use super::*;
 

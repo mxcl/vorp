@@ -238,9 +238,9 @@ impl SessionSearcher for FuzzySessionSearcher {
     }
 }
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "use_tantivy_search"))]
 pub use full_text_searcher::FullTextSessionSearcher;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "use_tantivy_search"))]
 mod full_text_searcher {
     use crate::define_search_schema;
     use crate::pane_group::PaneId;

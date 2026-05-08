@@ -354,7 +354,7 @@ pub enum MCPServerTelemetryError {
     TransportError(String),
 }
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
 impl From<rmcp::RmcpError> for MCPServerTelemetryError {
     fn from(err: rmcp::RmcpError) -> Self {
         match err {
@@ -2535,7 +2535,7 @@ pub enum TelemetryEvent {
         action: AgentModeSetupCreateEnvironmentActionType,
     },
     InputBufferSubmitted {
-        input_type: input_classifier::InputType,
+        input_type: InputType,
         is_locked: bool,
         was_lock_set_with_empty_buffer: bool,
     },
@@ -2811,7 +2811,7 @@ pub enum TelemetryEvent {
     /// Emitted when the remote server connection + initialization completes.
     /// `error` is `None` on success, `Some(reason)` on failure.
     RemoteServerInitialization {
-        phase: remote_server::manager::RemoteServerInitPhase,
+        phase: crate::remote_server::manager::RemoteServerInitPhase,
         error: Option<String>,
         remote_os: Option<String>,
         remote_arch: Option<String>,
@@ -2823,8 +2823,8 @@ pub enum TelemetryEvent {
     },
     /// Emitted when a client request to the remote server fails.
     RemoteServerClientRequestError {
-        operation: remote_server::manager::RemoteServerOperation,
-        error_type: remote_server::manager::RemoteServerErrorKind,
+        operation: crate::remote_server::manager::RemoteServerOperation,
+        error_type: crate::remote_server::manager::RemoteServerErrorKind,
         remote_os: Option<String>,
         remote_arch: Option<String>,
     },

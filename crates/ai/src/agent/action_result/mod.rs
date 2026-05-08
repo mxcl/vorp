@@ -10,6 +10,7 @@ use warp_terminal::model::BlockId;
 
 use crate::{
     agent::FileLocations,
+    computer_use,
     document::{AIDocumentId, AIDocumentVersion},
 };
 

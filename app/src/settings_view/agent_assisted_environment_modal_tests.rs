@@ -256,7 +256,7 @@ fn test_modal_directory_picked_adds_repo_and_confirm_emits_event() {
         let (_window_id, harness) = app.add_window(WindowStyle::NotStealFocus, ModalHarness::new);
 
         let tmp_dir = tempfile::TempDir::new().expect("TempDir should be creatable");
-        git2::Repository::init(tmp_dir.path()).expect("git repo should be init-able");
+        std::fs::create_dir(tmp_dir.path().join(".git")).expect(".git dir should be creatable");
         let selected_repo = tmp_dir.path().to_path_buf();
         let expected_repo_string = dunce::canonicalize(tmp_dir.path())
             .unwrap_or_else(|_| tmp_dir.path().to_path_buf())
@@ -308,7 +308,7 @@ fn test_modal_directory_picked_dedupes_paths() {
         let (_window_id, harness) = app.add_window(WindowStyle::NotStealFocus, ModalHarness::new);
 
         let tmp_dir = tempfile::TempDir::new().expect("TempDir should be creatable");
-        git2::Repository::init(tmp_dir.path()).expect("git repo should be init-able");
+        std::fs::create_dir(tmp_dir.path().join(".git")).expect(".git dir should be creatable");
         let selected_repo = tmp_dir.path().to_path_buf();
 
         harness.update(&mut app, |harness, ctx| {

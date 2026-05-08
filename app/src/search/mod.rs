@@ -19,6 +19,7 @@ mod palette_styles;
 pub mod result_renderer;
 mod search_bar;
 pub mod search_results_menu;
+#[cfg(all(not(target_family = "wasm"), feature = "use_tantivy_search"))]
 pub mod searcher;
 pub mod slash_command_menu;
 pub mod welcome_palette;

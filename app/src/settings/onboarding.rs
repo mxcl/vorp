@@ -6,6 +6,7 @@ use crate::settings::ai::DefaultSessionMode;
 use crate::settings::{AISettings, CodeSettings};
 use crate::workspace::tab_settings::TabSettings;
 use crate::workspaces::user_workspaces::UserWorkspaces;
+use ai::LLMId;
 use onboarding::slides::{AgentAutonomy, AgentDevelopmentSettings};
 use onboarding::{SelectedSettings, SessionDefault, UICustomizationSettings};
 use settings::Setting as _;
@@ -153,7 +154,7 @@ fn apply_agent_settings(agent_settings: &AgentDevelopmentSettings, app: &mut App
 
         profiles.set_base_model(
             default_profile_id,
-            Some(agent_settings.selected_model_id.clone()),
+            Some(LLMId::from(agent_settings.selected_model_id.as_str())),
             ctx,
         );
 

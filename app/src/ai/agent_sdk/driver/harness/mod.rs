@@ -6,11 +6,11 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 
+use crate::warp_managed_secrets::ManagedSecretValue;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use tempfile::NamedTempFile;
 use warp_cli::agent::Harness;
-use warp_managed_secrets::ManagedSecretValue;
 use warpui::{ModelHandle, ModelSpawner, SingletonEntity};
 
 use crate::ai::agent::conversation::AIConversationId;

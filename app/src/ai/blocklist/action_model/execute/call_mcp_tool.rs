@@ -44,7 +44,12 @@ impl CallMCPToolExecutor {
             false
         }
 
-        #[cfg(not(target_family = "wasm"))]
+        #[cfg(all(not(target_family = "wasm"), not(feature = "mcp_runtime")))]
+        {
+            false
+        }
+
+        #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
         {
             let ExecuteActionInput {
                 action:
@@ -82,7 +87,14 @@ impl CallMCPToolExecutor {
             ActionExecution::<()>::InvalidAction
         }
 
-        #[cfg(not(target_family = "wasm"))]
+        #[cfg(all(not(target_family = "wasm"), not(feature = "mcp_runtime")))]
+        {
+            ActionExecution::<()>::Sync(AIAgentActionResultType::CallMCPTool(
+                CallMCPToolResult::Error("MCP runtime is not available in this build".to_owned()),
+            ))
+        }
+
+        #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
         {
             let server_output_id = get_server_output_id(input.conversation_id, ctx);
             let AIAgentAction {
@@ -203,7 +215,7 @@ pub(crate) fn coerce_integer_args(
 mod tests;
 
 /// Handles the result of a call_tool request, converting it to an AIAgentActionResultType.
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
 fn handle_call_tool_result(
     res: Result<rmcp::model::CallToolResult, rmcp::ServiceError>,
     server_output_id: Option<crate::ai::blocklist::action_model::execute::ServerOutputId>,

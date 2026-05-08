@@ -8,7 +8,6 @@
 use std::sync::Arc;
 
 use futures::stream::AbortHandle;
-use input_classifier::util::{is_agent_follow_up_input, is_one_off_natural_language_word};
 use instant::Instant;
 use parking_lot::FairMutex;
 use serde::{Deserialize, Serialize};
@@ -17,7 +16,7 @@ use settings::Setting as _;
 use warp_core::features::FeatureFlag;
 use warpui::{AppContext, Entity, EntityId, ModelContext, ModelHandle, SingletonEntity};
 
-pub use input_classifier::InputType;
+pub use crate::input_classifier::InputType;
 
 use super::agent_view::{AgentViewController, AgentViewControllerEvent, AgentViewEntryOrigin};
 use super::context_model::BlocklistAIContextModel;
@@ -28,7 +27,10 @@ use crate::PrivacySettings;
 use warp_completer::completer::CompletionContext;
 
 use crate::{
-    input_classifier::InputClassifierModel,
+    input_classifier::{
+        util::{is_agent_follow_up_input, is_one_off_natural_language_word},
+        Context, InputClassifierModel,
+    },
     report_if_error, send_telemetry_from_ctx,
     settings::{AISettings, AISettingsChangedEvent, InputBoxType, InputSettings},
     terminal::{
@@ -735,7 +737,7 @@ impl BlocklistAIInputModel {
 
                     futures_lite::future::yield_now().await;
 
-                    let context = input_classifier::Context {
+                    let context = Context {
                         current_input_type,
                         is_agent_follow_up,
                     };

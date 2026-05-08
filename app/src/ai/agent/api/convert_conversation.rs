@@ -4,6 +4,8 @@
 //! If some UI state is stored in the client, it needs to also be represented in the proto tasks somehow so it can be restored.
 //! Some conversions may be lossy if it's not important to recover that UI state.
 
+use ai::computer_use;
+
 use crate::ai::agent::api::convert_from::{
     convert_user_query_mode, ConversionParams, ConvertAPIMessageToClientOutputMessage,
     MaybeAIAgentOutputMessage,

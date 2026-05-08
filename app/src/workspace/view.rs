@@ -17928,7 +17928,6 @@ impl Workspace {
                         .finish(),
                 );
             }
-
         }
 
         if self.auth_state.is_anonymous_or_logged_out()

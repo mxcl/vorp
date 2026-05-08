@@ -14,8 +14,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use remote_server::client::RemoteServerClient;
-use remote_server::manager::RemoteServerManager;
 use warp_core::HostId;
 use warp_util::standardized_path::StandardizedPath;
 
@@ -24,6 +22,10 @@ use futures::StreamExt;
 
 use async_channel::Sender;
 use notify_debouncer_full::notify::{RecursiveMode, WatchFilter};
+#[cfg(feature = "remote_server")]
+use remote_server::client::RemoteServerClient;
+#[cfg(feature = "remote_server")]
+use remote_server::manager::RemoteServerManager;
 use repo_metadata::{
     repositories::DetectedRepositories,
     repository::{RepositorySubscriber, SubscriberId},
@@ -32,8 +34,10 @@ use repo_metadata::{
 use warp_util::content_version::ContentVersion;
 use warp_util::file::FileSaveError;
 use warp_util::file::{FileId, FileLoadError};
+#[cfg(feature = "remote_server")]
+use warpui::AppContext;
 use warpui::ModelHandle;
-use warpui::{r#async::SpawnedFutureHandle, AppContext, Entity, ModelContext, SingletonEntity};
+use warpui::{r#async::SpawnedFutureHandle, Entity, ModelContext, SingletonEntity};
 use watcher::{BulkFilesystemWatcher, BulkFilesystemWatcherEvent};
 
 pub mod text_file_reader;
@@ -710,32 +714,45 @@ impl FileModel {
                 );
             }
             FileBackend::Remote { host_id, path } => {
-                let client = Self::resolve_remote_client(host_id, ctx)?;
-                let path = path.as_str().to_string();
-                let future = async move {
-                    client
-                        .write_file(path, content)
-                        .await
-                        .map_err(|e| e.to_string())
-                };
-                ctx.spawn(
-                    future,
-                    move |me, result: Result<(), String>, ctx| match result {
-                        Ok(()) => {
-                            me.set_version(file_id, version);
-                            ctx.emit(FileModelEvent::FileSaved {
-                                id: file_id,
-                                version,
-                            });
-                        }
-                        Err(err) => {
-                            ctx.emit(FileModelEvent::FailedToSave {
-                                id: file_id,
-                                error: Rc::new(FileSaveError::RemoteError(err)),
-                            });
-                        }
-                    },
-                );
+                #[cfg(feature = "remote_server")]
+                {
+                    let client = Self::resolve_remote_client(host_id, ctx)?;
+                    let path = path.as_str().to_string();
+                    let future = async move {
+                        client
+                            .write_file(path, content)
+                            .await
+                            .map_err(|e| e.to_string())
+                    };
+                    ctx.spawn(
+                        future,
+                        move |me, result: Result<(), String>, ctx| match result {
+                            Ok(()) => {
+                                me.set_version(file_id, version);
+                                ctx.emit(FileModelEvent::FileSaved {
+                                    id: file_id,
+                                    version,
+                                });
+                            }
+                            Err(err) => {
+                                ctx.emit(FileModelEvent::FailedToSave {
+                                    id: file_id,
+                                    error: Rc::new(FileSaveError::RemoteError(err)),
+                                });
+                            }
+                        },
+                    );
+                }
+                #[cfg(not(feature = "remote_server"))]
+                {
+                    let error = FileSaveError::RemoteError(format!(
+                        "Remote file support is not available in this build: {host_id}:{path}"
+                    ));
+                    ctx.emit(FileModelEvent::FailedToSave {
+                        id: file_id,
+                        error: Rc::new(error),
+                    });
+                }
             }
         }
 
@@ -861,28 +878,41 @@ impl FileModel {
                 );
             }
             FileBackend::Remote { host_id, path } => {
-                let client = Self::resolve_remote_client(host_id, ctx)?;
-                let path = path.as_str().to_string();
-                let future =
-                    async move { client.delete_file(path).await.map_err(|e| e.to_string()) };
-                ctx.spawn(
-                    future,
-                    move |me, result: Result<(), String>, ctx| match result {
-                        Ok(()) => {
-                            me.set_version(file_id, version);
-                            ctx.emit(FileModelEvent::FileSaved {
-                                id: file_id,
-                                version,
-                            });
-                        }
-                        Err(err) => {
-                            ctx.emit(FileModelEvent::FailedToSave {
-                                id: file_id,
-                                error: Rc::new(FileSaveError::RemoteError(err)),
-                            });
-                        }
-                    },
-                );
+                #[cfg(feature = "remote_server")]
+                {
+                    let client = Self::resolve_remote_client(host_id, ctx)?;
+                    let path = path.as_str().to_string();
+                    let future =
+                        async move { client.delete_file(path).await.map_err(|e| e.to_string()) };
+                    ctx.spawn(
+                        future,
+                        move |me, result: Result<(), String>, ctx| match result {
+                            Ok(()) => {
+                                me.set_version(file_id, version);
+                                ctx.emit(FileModelEvent::FileSaved {
+                                    id: file_id,
+                                    version,
+                                });
+                            }
+                            Err(err) => {
+                                ctx.emit(FileModelEvent::FailedToSave {
+                                    id: file_id,
+                                    error: Rc::new(FileSaveError::RemoteError(err)),
+                                });
+                            }
+                        },
+                    );
+                }
+                #[cfg(not(feature = "remote_server"))]
+                {
+                    let error = FileSaveError::RemoteError(format!(
+                        "Remote file support is not available in this build: {host_id}:{path}"
+                    ));
+                    ctx.emit(FileModelEvent::FailedToSave {
+                        id: file_id,
+                        error: Rc::new(error),
+                    });
+                }
             }
         }
 
@@ -890,6 +920,7 @@ impl FileModel {
     }
 
     /// Look up the `RemoteServerClient` for a given host at call time.
+    #[cfg(feature = "remote_server")]
     fn resolve_remote_client(
         host_id: &HostId,
         ctx: &AppContext,

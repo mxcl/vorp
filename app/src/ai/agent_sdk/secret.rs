@@ -3,6 +3,7 @@ use std::{
     io::{self, IsTerminal as _, Read},
 };
 
+use crate::warp_managed_secrets::{client::SecretOwner, ManagedSecretManager, ManagedSecretValue};
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use comfy_table::Cell;
@@ -22,7 +23,6 @@ use warp_graphql::{
     managed_secrets::{ManagedSecret, ManagedSecretType},
     object::SpaceType,
 };
-use warp_managed_secrets::{client::SecretOwner, ManagedSecretManager, ManagedSecretValue};
 use warpui::{platform::TerminationMode, AppContext, SingletonEntity as _};
 
 use crate::{

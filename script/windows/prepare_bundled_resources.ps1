@@ -49,6 +49,10 @@ if (Test-Path $BundledSource -PathType Container) {
         Remove-Item -Path $BundledDestination -Recurse -Force
     }
     Copy-Item -Path $BundledSource -Destination $BundledDestination -Recurse -Force
+    if ($Channel -eq 'oss') {
+        Write-Output 'Removing bundled AI/MCP skills from OSS resources'
+        Remove-Item -Path (Join-Path $BundledDestination 'skills'), (Join-Path $BundledDestination 'mcp_skills') -Recurse -Force -ErrorAction SilentlyContinue
+    }
 } else {
     Write-Warning "No bundled directory found at $BundledSource"
 }
@@ -168,7 +172,11 @@ if ($env:SKIP_SETTINGS_SCHEMA -ne '1') {
     if ($CargoProfile) {
         $SchemaCmd += @('--profile', $CargoProfile)
     }
-    $SchemaCmd += @('--manifest-path', (Join-Path $RepoRoot 'Cargo.toml'), '--bin', 'generate_settings_schema', '--')
+    $SchemaCmd += @('--manifest-path', (Join-Path $RepoRoot 'Cargo.toml'), '--bin', 'generate_settings_schema')
+    if ($Channel -eq 'oss') {
+        $SchemaCmd += @('--no-default-features', '--features', 'release_bundle,extern_plist,oss_release,gui')
+    }
+    $SchemaCmd += '--'
     if ($Channel) {
         $SchemaCmd += @('--channel', $Channel)
     }

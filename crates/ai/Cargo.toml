@@ -6,6 +6,8 @@ publish.workspace = true
 license.workspace = true
 
 [features]
+default = ["computer_use_runtime"]
+computer_use_runtime = ["dep:computer_use"]
 jemalloc = []
 local_fs = []
 test-util = []
@@ -17,7 +19,7 @@ async-trait.workspace = true
 bincode.workspace = true
 bytes.workspace = true
 cfg-if.workspace = true
-computer_use.workspace = true
+computer_use = { workspace = true, optional = true }
 dunce.workspace = true
 prost-types.workspace = true
 serde.workspace = true

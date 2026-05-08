@@ -15,6 +15,8 @@ pub mod view_impl;
 
 pub use pending_user_query_block::{PendingUserQueryBlock, PendingUserQueryBlockEvent};
 
+use ai::computer_use;
+
 #[cfg(feature = "agent_mode_debug")]
 use self::code_diff_view::FileDiff;
 use crate::ai::agent::redaction::redact_secrets;

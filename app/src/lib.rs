@@ -1,5 +1,11 @@
 // Suppress warnings about rustdoc style.
 #![allow(clippy::doc_lazy_continuation)]
+// OSS builds intentionally leave broad AI/MCP/editor modules unreferenced while
+// the fork migrates them from runtime-disabled to fully removed dependencies.
+#![cfg_attr(
+    feature = "oss_release",
+    allow(dead_code, unused_imports, unused_variables)
+)]
 
 mod ai;
 mod alloc;
@@ -91,6 +97,14 @@ mod vim_registers;
 mod voice;
 mod voltron;
 mod warp_managed_paths_watcher;
+#[cfg(feature = "warp_managed_secrets")]
+extern crate warp_managed_secrets as warp_managed_secrets_crate;
+#[cfg(feature = "warp_managed_secrets")]
+mod warp_managed_secrets {
+    pub use crate::warp_managed_secrets_crate::*;
+}
+#[cfg(not(feature = "warp_managed_secrets"))]
+mod warp_managed_secrets;
 #[cfg(target_family = "wasm")]
 mod wasm_nux_dialog;
 mod window_settings;
@@ -242,6 +256,7 @@ use crate::undo_close::UndoCloseStack;
 use crate::user_config::WarpConfig;
 use crate::vim_registers::VimRegisters;
 use crate::warp_managed_paths_watcher::{ensure_warp_watch_roots_exist, WarpManagedPathsWatcher};
+use crate::warp_managed_secrets::ManagedSecretManager;
 use crate::workflows::aliases::WorkflowAliases;
 use crate::workflows::local_workflows::LocalWorkflows;
 use crate::workspace::{ActiveSession, OneTimeModalModel, ToastStack};
@@ -266,7 +281,6 @@ use terminal::input;
 use terminal::session_settings::SessionSettings;
 use url::Url;
 use warp_core::execution_mode::{AppExecutionMode, ExecutionMode};
-use warp_managed_secrets::ManagedSecretManager;
 use workspace::sync_inputs::SyncedInputState;
 
 use warpui::{integration::TestDriver, App, AssetProvider, Event};
@@ -318,6 +332,9 @@ use warpui::{AppContext, SingletonEntity, WindowId};
 // embedded asset set to keep the CLI binary small — mirroring the carve-out
 // already applied for the WASM target above.
 #[cfg_attr(feature = "standalone", exclude = "async/**")]
+// OSS release packaging does not need the large onboarding/theme/referral
+// imagery under `async/` embedded in the app binary.
+#[cfg_attr(feature = "oss_release", exclude = "async/**")]
 pub struct Assets;
 
 pub static ASSETS: Assets = Assets;
@@ -1123,6 +1140,7 @@ pub(crate) fn initialize_app(
     let server_api_provider = ctx
         .add_singleton_model(|ctx| ServerApiProvider::new(auth_state.clone(), agent_source, ctx));
     let server_api = server_api_provider.as_ref(ctx).get();
+    #[cfg(not(feature = "oss_release"))]
     let ai_client = server_api_provider.as_ref(ctx).get_ai_client();
 
     ctx.add_singleton_model(|_ctx| AuthStateProvider::new(auth_state.clone()));
@@ -1247,6 +1265,7 @@ pub(crate) fn initialize_app(
     // be initialized after it.
     ctx.add_singleton_model(|ctx| ServerExperiments::new_from_cache(experiments, ctx));
 
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| AIRequestUsageModel::new(ai_client, ctx));
 
     ctx.add_singleton_model(|ctx| {
@@ -1308,10 +1327,13 @@ pub(crate) fn initialize_app(
     App::record_last_active_timestamp();
 
     ctx.add_singleton_model(|_| SettingsPaneManager::new());
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| AIFactManager::new());
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| ExecutionProfileEditorManager::default());
     ctx.add_singleton_model(|_| NetworkLogPaneManager::default());
     ctx.add_singleton_model(|_| pricing::PricingInfoModel::new());
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
         // Not using the *Provider types isn't ideal, but it's worth it for the ability to move managed secrets to a separate crate.
         ManagedSecretManager::new(
@@ -1491,6 +1513,7 @@ pub(crate) fn initialize_app(
         });
     }
 
+    #[cfg(not(feature = "oss_release"))]
     {
         use code_review::git_status_update::GitStatusUpdateModel;
         ctx.add_singleton_model(|_| GitStatusUpdateModel::new());
@@ -1514,10 +1537,12 @@ pub(crate) fn initialize_app(
     timer.mark_interval_end("INITIALIZE_TELEMETRY_COLLECTION");
 
     // Register initial keybindings prior to creating menus
+    #[cfg(not(feature = "oss_release"))]
     ai::init(ctx);
     app_services::init(ctx);
     // // TODO: Temporarily disabling keybindings for WASM builds. Will be implemented in future WASM support.
     #[cfg(not(target_family = "wasm"))]
+    #[cfg(not(feature = "oss_release"))]
     code::editor::find::view::init(ctx);
     workspace::init(ctx);
     pane_group::init(ctx);
@@ -1538,15 +1563,19 @@ pub(crate) fn initialize_app(
     reward_view::init(ctx);
     crate::view_components::find::init(ctx);
     prompt::editor_modal::init(ctx);
+    #[cfg(not(feature = "oss_release"))]
     ai::blocklist::agent_view::editor::init(ctx);
     undo_close::init(ctx);
     billing::shared_objects_creation_denied_modal::init(ctx);
     tab_configs::new_worktree_modal::init(ctx);
     tab_configs::params_modal::init(ctx);
+    #[cfg(not(feature = "oss_release"))]
     ai::blocklist::init(ctx);
+    #[cfg(not(feature = "oss_release"))]
     ai::blocklist::block::status_bar::init(ctx);
     drive::index::init(ctx);
     drive::sharing::dialog::init(ctx);
+    #[cfg(not(feature = "oss_release"))]
     ai_assistant::panel::init(ctx);
     settings_view::update_environment_form::init(ctx);
     env_vars::env_var_collection_block::init(ctx);
@@ -1556,9 +1585,11 @@ pub(crate) fn initialize_app(
     context_chips::display_menu::init(ctx);
     context_chips::node_version_popup::init(ctx);
     env_vars::view::env_var_collection::init(ctx);
+    #[cfg(not(feature = "oss_release"))]
     ai::agent::todos::popup::init(ctx);
     terminal::view::init_environment::mode_selector::init(ctx);
     coding_entrypoints::project_buttons::init(ctx);
+    #[cfg(not(feature = "oss_release"))]
     if FeatureFlag::CodeReviewSaveChanges.is_enabled() {
         code_review::init(ctx);
     }
@@ -1568,6 +1599,7 @@ pub(crate) fn initialize_app(
 
     ctx.add_singleton_model(|_| RelaunchModel::new());
     ctx.add_singleton_model(|_| ChangelogModel::new(server_api.clone()));
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| GitHubAuthNotifier::new());
     ctx.add_singleton_model(|_| NetworkStatus::new());
     ctx.add_singleton_model(|_| SystemStats::new());
@@ -1577,6 +1609,7 @@ pub(crate) fn initialize_app(
     ctx.add_singleton_model(|_| VimRegisters::new());
     ctx.add_singleton_model(UndoCloseStack::new);
     ctx.add_singleton_model(|_| ToastStack);
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| GlobalCodeReviewModel);
     ctx.add_singleton_model(workspace::OneTimeModalModel::new);
     ctx.add_singleton_model(
@@ -1588,6 +1621,7 @@ pub(crate) fn initialize_app(
     #[cfg(windows)]
     ctx.add_singleton_model(util::traffic_lights::windows::RendererState::new);
     #[cfg(feature = "local_fs")]
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| LanguageServerShutdownManager::new());
 
     #[cfg(feature = "voice_input")]
@@ -1646,25 +1680,35 @@ pub(crate) fn initialize_app(
         )
     });
 
+    #[cfg(not(feature = "oss_release"))]
     {
         let conversations = &multi_agent_conversations;
         ctx.add_singleton_model(move |_| BlocklistAIHistoryModel::new(ai_queries, conversations));
     }
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(move |_| RestoredAgentConversations::new(multi_agent_conversations));
     ctx.add_singleton_model(|_| CLIAgentSessionsModel::new());
     // ActiveAgentViewsModel is used to track active agent conversations and notify listeners when they change.
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| ActiveAgentViewsModel::new());
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(AgentNotificationsModel::new);
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(BlocklistAIPermissions::new);
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(ai::blocklist::orchestration_events::OrchestrationEventService::new);
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(ai::blocklist::task_status_sync_model::TaskStatusSyncModel::new);
+    #[cfg(not(feature = "oss_release"))]
     if warp_core::features::FeatureFlag::OrchestrationV2.is_enabled() {
         ctx.add_singleton_model(
             ai::blocklist::orchestration_event_streamer::OrchestrationEventStreamer::new,
         );
     }
 
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(RepoOutlines::new);
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
         warp_core::sync_queue::SyncQueue::<SyncTask>::new_with_rate_limit(
             &ctx.background_executor(),
@@ -1710,49 +1754,57 @@ pub(crate) fn initialize_app(
     // LogManager must be registered before any subsystem (e.g. MCP, LSP) that creates file-based loggers.
     ctx.add_singleton_model(|_| simple_logger::manager::LogManager::new());
 
-    let running_mcp_servers = app_state
-        .as_ref()
-        .map(|app_state| app_state.running_mcp_servers.as_slice())
-        .unwrap_or(&[]);
+    #[cfg(not(feature = "oss_release"))]
+    {
+        let running_mcp_servers = app_state
+            .as_ref()
+            .map(|app_state| app_state.running_mcp_servers.as_slice())
+            .unwrap_or(&[]);
 
-    // FileMCPWatcher must be registered before FileBasedMCPManager, which subscribes to it.
-    ctx.add_singleton_model(FileMCPWatcher::new);
-    ctx.add_singleton_model(FileBasedMCPManager::new);
+        // FileMCPWatcher must be registered before FileBasedMCPManager, which subscribes to it.
+        ctx.add_singleton_model(FileMCPWatcher::new);
+        ctx.add_singleton_model(FileBasedMCPManager::new);
 
-    // TemplatableMCPServerManager must be registered after UpdateManager and MCPServerManager so it can migrate legacy MCPs on start up
-    // It should also be registered after FileBasedMCPManager so it can receive file-based server updates.
-    ctx.add_singleton_model(|ctx| {
-        TemplatableMCPServerManager::new(
-            persisted_mcp_server_installations,
-            mcp_servers_to_restore,
-            running_mcp_servers,
-            ctx,
-        )
-    });
+        // TemplatableMCPServerManager must be registered after UpdateManager and MCPServerManager so it can migrate legacy MCPs on start up
+        // It should also be registered after FileBasedMCPManager so it can receive file-based server updates.
+        ctx.add_singleton_model(|ctx| {
+            TemplatableMCPServerManager::new(
+                persisted_mcp_server_installations,
+                mcp_servers_to_restore,
+                running_mcp_servers,
+                ctx,
+            )
+        });
 
-    // MCPGalleryManager subscribes to UpdateManager so that it can be notified when gallery items are updated.
-    // The registration of this singleton must be after UpdateManager is registered.
-    ctx.add_singleton_model(MCPGalleryManager::new);
+        // MCPGalleryManager subscribes to UpdateManager so that it can be notified when gallery items are updated.
+        // The registration of this singleton must be after UpdateManager is registered.
+        ctx.add_singleton_model(MCPGalleryManager::new);
 
-    // SkillManager is used to cache SKILL.md files for all active terminal views and their working directories
-    ctx.add_singleton_model(SkillManager::new);
+        // SkillManager is used to cache SKILL.md files for all active terminal views and their working directories
+        ctx.add_singleton_model(SkillManager::new);
+    }
 
     // CloudViewModel subscribes to UpdateManager so that it can be notified when objects are
     // created on the server.
     ctx.add_singleton_model(CloudViewModel::new);
 
     // AIDocumentModel subscribes to UpdateManager so that it can be notified when notebooks are created on the server.
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(AIDocumentModel::new);
 
     // AgentConversationsModel subscribes to UpdateManager for RTC task updates.
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(AgentConversationsModel::new);
 
     // ByoLlmAuthBannerSessionState tracks dismissal of the BYO LLM auth banner (e.g., AWS Bedrock login).
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(ByoLlmAuthBannerSessionState::new);
 
     ctx.add_singleton_model(ExportManager::new);
     ctx.add_singleton_model(|ctx| NotebookManager::new(notebooks, ctx));
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| CodeManager::default());
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| OpenedFilesModel::new());
     ctx.add_singleton_model(NotebookKeybindings::new);
     ctx.add_singleton_model(TerminalKeybindings::new);
@@ -1794,9 +1846,12 @@ pub(crate) fn initialize_app(
 
     ctx.add_singleton_model(LocalWorkflows::new);
 
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(LLMPreferences::new);
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(HarnessAvailabilityModel::new);
 
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
         ai::agent_tips::AITipModel::<ai::AgentTip>::new_for_agent_tips(ctx)
     });
@@ -1816,10 +1871,12 @@ pub(crate) fn initialize_app(
         FeatureFlag::SSHTmuxWrapper.set_user_preference(is_ssh_tmux_wrapper_enabled);
     }
 
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| AIExecutionProfilesModel::new(launch_mode, ctx));
 
     ctx.add_singleton_model(DefaultTerminal::new);
 
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
         let indices_to_restore = if UserWorkspaces::as_ref(ctx).is_codebase_context_enabled(ctx)
             && launch_mode.supports_indexing()
@@ -1841,9 +1898,11 @@ pub(crate) fn initialize_app(
         )
     });
 
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
         ProjectContextModel::new_from_persisted(persisted_project_rules, ctx)
     });
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
         PersistedWorkspace::new(
             persisted_workspaces,
@@ -1854,6 +1913,7 @@ pub(crate) fn initialize_app(
     });
     ctx.add_singleton_model(move |_| persistence_writer);
 
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(input_classifier::InputClassifierModel::new);
 
     ctx.add_singleton_model(move |_| IgnoredSuggestionsModel::new(persisted_ignored_suggestions));

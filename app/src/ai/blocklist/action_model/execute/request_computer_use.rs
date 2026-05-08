@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use ai::agent::action_result::{AIAgentActionResultType, RequestComputerUseResult};
+use ai::computer_use;
 use futures::{future::BoxFuture, FutureExt};
 use warpui::{Entity, EntityId, ModelContext, SingletonEntity};
 

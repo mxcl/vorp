@@ -1,9 +1,9 @@
 use std::{collections::HashMap, ffi::OsString, path::PathBuf, sync::Arc};
 
+use crate::warp_managed_secrets::ManagedSecretValue;
 use shell_words::quote as shell_quote;
 use uuid::Uuid;
 use warp_cli::agent::Harness;
-use warp_managed_secrets::ManagedSecretValue;
 
 use crate::ai::{
     agent_sdk::{

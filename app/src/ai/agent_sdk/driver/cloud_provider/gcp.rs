@@ -1,7 +1,7 @@
 use std::{collections::HashMap, ffi::OsString, future::Future, pin::Pin, time::Duration};
 
+use crate::warp_managed_secrets::{GcpCredentials, GcpFederationConfig};
 use anyhow::Context as _;
-use warp_managed_secrets::{GcpCredentials, GcpFederationConfig};
 
 use crate::ai::cloud_environments::GcpProviderConfig;
 

@@ -50,7 +50,7 @@ test = false
 
 [dependencies]
 addr = "0.15.6"
-ai.workspace = true
+ai = { workspace = true, default-features = false }
 anyhow.workspace = true
 arrayvec.workspace = true
 asset_cache.workspace = true
@@ -79,7 +79,6 @@ clap.workspace = true
 command = { workspace = true }
 command-corrections.workspace = true
 command-signatures-v2 = { workspace = true, optional = true }
-computer_use.workspace = true
 crc.workspace = true
 content_inspector = "0.2.4"
 concat-idents.workspace = true
@@ -121,7 +120,7 @@ jemalloc_pprof = { version = "0.8.1", optional = true, features = [
 ] }
 lsp-types = "0.97.0"
 indexmap = { version = "2.0.2", features = ["serde"] }
-input_classifier.workspace = true
+input_classifier_crate = { package = "input_classifier", path = "../crates/input_classifier", optional = true }
 instant.workspace = true
 ipc.workspace = true
 itertools.workspace = true
@@ -231,7 +230,6 @@ languages.workspace = true
 warp_terminal.workspace = true
 websocket.workspace = true
 wgpu = { workspace = true, optional = true }
-natural_language_detection.workspace = true
 onboarding.workspace = true
 aho-corasick = "1.1.3"
 strum.workspace = true
@@ -243,13 +241,13 @@ typed-path.workspace = true
 urlencoding = "2.1.3"
 mime_guess = "2.0"
 warp_multi_agent_api.workspace = true
-remote_server.workspace = true
+remote_server = { workspace = true, optional = true }
 repo_metadata.workspace = true
 vim.workspace = true
-rmcp = { workspace = true, features = ["client"] }
+rmcp.workspace = true
 warp_isolation_platform.workspace = true
 warp_ripgrep.workspace = true
-warp_managed_secrets.workspace = true
+warp_managed_secrets = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 block.workspace = true
@@ -275,9 +273,6 @@ inquire = "0.9.1"
 diesel = { workspace = true, features = ["sqlite", "chrono"] }
 diesel_migrations = { version = "2.2.0", features = ["sqlite"] }
 env_logger.workspace = true
-git2 = { version = "0.20.4", default-features = false, features = [
-    "vendored-libgit2",
-] }
 http_server.workspace = true
 hyper.workspace = true
 libsqlite3-sys = { version = "0.33.0", features = ["bundled"] }
@@ -286,28 +281,22 @@ tokio.workspace = true
 tokio-util.workspace = true
 
 # AWS SDK (loading credentials for BYO LLM)
-aws-config = { version = "1.8.12", features = ["credentials-login"] }
-aws-credential-types = "1"
-aws-sdk-sts = "1"
-aws-types = "1"
+aws-config = { version = "1.8.12", features = ["credentials-login"], optional = true }
+aws-credential-types = { version = "1", optional = true }
+aws-sdk-sts = { version = "1", optional = true }
+aws-types = { version = "1", optional = true }
 
-rmcp = { workspace = true, features = [
-    "auth",
-    "transport-streamable-http-client-reqwest",
-    "transport-sse-client-reqwest",
-    "transport-child-process",
-] }
 notify-debouncer-full.workspace = true
 rquickjs = { workspace = true, optional = true }
 rustls.workspace = true
-syntect = "5.0"
+syntect = { version = "5.0", optional = true }
 sysinfo.workspace = true
-warp-command-signatures = { workspace = true, features = ["embed-signatures"] }
+warp-command-signatures = { workspace = true }
 is_executable = "1.0.1"
 gethostname = "1.1.0"
 watcher.workspace = true
-warp_files.workspace = true
-tantivy = "0.26.0"
+warp_files = { workspace = true, default-features = false }
+tantivy = { version = "0.26.0", optional = true }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 console_error_panic_hook = { version = "0.1.6" }
@@ -320,7 +309,7 @@ js-sys = "0.3.63"
 # Make sure we embed the data into the wasm binary even when running in debug
 # mode, as it cannot be read directly from the filesystem.
 rust-embed = { workspace = true, features = ["debug-embed"] }
-syntect = { version = "5.0", default-features = false, features = [
+syntect = { version = "5.0", default-features = false, optional = true, features = [
     "default-fancy",
 ] }
 wasm-bindgen.workspace = true
@@ -424,6 +413,13 @@ embed-resource = "3.0"
 [features]
 ai_resume_button = []
 autoupdate = []
+aws_credentials = [
+    "dep:aws-config",
+    "dep:aws-credential-types",
+    "dep:aws-sdk-sts",
+    "dep:aws-types",
+]
+computer_use_runtime = ["ai/computer_use_runtime"]
 figma_detection = []
 bundled_skills = []
 agent_mode = []
@@ -458,6 +454,11 @@ creating_shared_sessions = []
 cross_repo_context = []
 codebase_index_persistence = ["full_source_code_embedding"]
 default = [
+    "aws_credentials",
+    "computer_use_runtime",
+    "embedded_command_signatures",
+    "input_classifier_model",
+    "notebook_syntax_highlighting",
     "agent_mode",
     "viewing_shared_sessions",
     "render_continuous_block_selections_with_single_border",
@@ -467,6 +468,8 @@ default = [
     "remove_alt_screen_padding",
     "less_horizontal_terminal_padding",
     "session_sharing_acls",
+    "mcp_runtime",
+    "remote_server_runtime",
     "external_agent_mode_context",
     "shell_selector",
     "minimalist_ui",
@@ -632,6 +635,10 @@ dynamic_workflow_enums = []
 editable_markdown_mermaid = []
 default_adeberry_theme = []
 drag_tabs_to_windows = []
+embedded_command_signatures = [
+    "warp-command-signatures/embed-signatures",
+    "warp_completer/embedded-signatures",
+]
 embedded_code_review_comments = []
 agent_management_view = []
 agent_management_details_view = []
@@ -653,7 +660,7 @@ grep_tool = []
 # feature set is for a minimal build of Warp, and we add on GUI-specific features here.
 # For the most part, including GUI code in headless builds is fine; the main use case is
 # for things that pull in external dependencies.
-gui = ["voice_input"]
+gui = []
 msys2_shells = []
 file_retrieval_tools = []
 welcome_tab = []
@@ -674,6 +681,7 @@ ambient_agents_image_upload = []
 scheduled_ambient_agents = []
 allow_ignoring_input_suggestions = []
 inline_slash_commands = ["agent_view"]
+input_classifier_model = ["dep:input_classifier_crate"]
 
 # Enable this feature to track heap usage and automatically produce a heap
 # profile report when app memory usage exceeds a 10GB threshold.
@@ -716,11 +724,21 @@ markdown_mermaid = []
 mcp_server = []
 mcp_oauth = []
 mcp_debugging_ids = []
+mcp_runtime = [
+    "rmcp/client",
+    "rmcp/auth",
+    "rmcp/transport-streamable-http-client-reqwest",
+    "rmcp/transport-sse-client-reqwest",
+    "rmcp/transport-child-process",
+]
 notebook_parameter = []
+notebook_syntax_highlighting = ["dep:syntect"]
 oz_changelog_updates = []
+oss_release = []
 personal_cloud_objects = []
 # Remote-backed tty that connects to a PTY-like interface via a server.
 remote_tty = []
+remote_server_runtime = ["dep:remote_server", "warp_files/remote_server"]
 # Fix for cursor reflow bug during window resize, from Alacritty resizing logic.
 resize_fix = []
 pluggable_notifications = []
@@ -803,12 +821,12 @@ warp_packs = []
 suggested_rules = []
 command_correction_key = []
 full_source_code_embedding = []
-use_tantivy_search = []
+use_tantivy_search = ["dep:tantivy"]
 agent_management_popup = []
 simulate_github_unauthed = []
 reload_stale_conversation_files = []
-nld_fasttext_model = ["input_classifier/fasttext"]
-nld_onnx_model = ["input_classifier/onnx_candle"]
+nld_fasttext_model = ["input_classifier_model", "input_classifier_crate/fasttext"]
+nld_onnx_model = ["input_classifier_model", "input_classifier_crate/onnx_candle"]
 shared_block_title_generation = []
 retry_truncated_code_responses = []
 usage_based_pricing = []
@@ -872,7 +890,7 @@ revert_to_checkpoints = []
 rewind_slash_command = []
 agent_view = []
 agent_view_block_context = ["agent_view"]
-warp_managed_secrets = []
+warp_managed_secrets = ["dep:warp_managed_secrets"]
 v4a_file_diffs = []
 agent_tips = []
 agent_toolbar_editor = ["agent_view"]

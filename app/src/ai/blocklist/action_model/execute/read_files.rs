@@ -12,6 +12,7 @@ use crate::{
         blocklist::BlocklistAIPermissions,
         paths::host_native_absolute_path,
     },
+    remote_server,
     terminal::model::session::{active_session::ActiveSession, SessionType},
 };
 

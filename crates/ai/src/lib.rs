@@ -1,6 +1,14 @@
 pub mod agent;
 pub mod api_keys;
 pub mod aws_credentials;
+#[cfg(feature = "computer_use_runtime")]
+extern crate computer_use as computer_use_crate;
+#[cfg(feature = "computer_use_runtime")]
+pub mod computer_use {
+    pub use computer_use_crate::*;
+}
+#[cfg(not(feature = "computer_use_runtime"))]
+pub mod computer_use;
 pub mod llm_id;
 
 pub use llm_id::LLMId;

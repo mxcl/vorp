@@ -1,5 +1,7 @@
 // Onboarding library crate
 
+use serde::{Deserialize, Serialize};
+
 mod agent_onboarding_view;
 pub mod callout;
 mod model;
@@ -52,6 +54,40 @@ cfg_if::cfg_if! {
 
 pub mod components;
 mod visuals;
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct LLMId(String);
+
+impl LLMId {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<String> for LLMId {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+impl From<&str> for LLMId {
+    fn from(value: &str) -> Self {
+        value.to_owned().into()
+    }
+}
+
+impl From<LLMId> for String {
+    fn from(value: LLMId) -> Self {
+        value.0
+    }
+}
+
+impl std::fmt::Display for LLMId {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 /// The default mode for new sessions, chosen during onboarding.
 /// Mapped to `DefaultSessionMode` at the application boundary.

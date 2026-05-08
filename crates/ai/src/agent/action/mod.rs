@@ -23,6 +23,7 @@ use crate::{
         },
         AIAgentCitation, FileLocations,
     },
+    computer_use,
     diff_validation::ParsedDiff,
     document::AIDocumentId,
     skills::SkillReference,

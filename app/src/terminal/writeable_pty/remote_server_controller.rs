@@ -1,7 +1,10 @@
 use crate::auth::auth_state::AuthStateProvider;
+use crate::remote_server::auth::RemoteServerAuthContext;
 use crate::remote_server::auth_context::server_api_auth_context;
+use crate::remote_server::setup::{
+    PreinstallCheckResult, PreinstallStatus, RemoteLibc, RemotePlatform, UnsupportedReason,
+};
 use instant::Instant;
-use remote_server::auth::RemoteServerAuthContext;
 use std::path::PathBuf;
 use std::sync::Arc;
 use warp_core::SessionId;
@@ -18,9 +21,6 @@ use crate::settings::PrivacySettings;
 use crate::terminal::model::session::{IsLegacySSHSession, SessionInfo};
 use crate::terminal::model_events::{ModelEvent, ModelEventDispatcher};
 use crate::{send_telemetry_from_ctx, TelemetryEvent};
-use remote_server::setup::{
-    PreinstallCheckResult, PreinstallStatus, RemoteLibc, RemotePlatform, UnsupportedReason,
-};
 
 use super::pty_controller::{EventLoopSender, PtyController};
 
@@ -559,7 +559,7 @@ fn send_unsupported_telemetry<T: EventLoopSender>(
         })
         .unwrap_or((None, None));
     let required_glibc = match &check.status {
-        remote_server::setup::PreinstallStatus::Unsupported {
+        PreinstallStatus::Unsupported {
             reason: UnsupportedReason::GlibcTooOld { required, .. },
         } => required.to_string(),
         _ => String::new(),

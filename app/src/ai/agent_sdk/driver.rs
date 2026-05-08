@@ -32,6 +32,7 @@ use crate::terminal::cli_agent_sessions::plugin_manager::{
 use crate::terminal::cli_agent_sessions::{
     CLIAgentSessionStatus, CLIAgentSessionsModel, CLIAgentSessionsModelEvent,
 };
+use crate::warp_managed_secrets::ManagedSecretValue;
 use crate::{
     ai::{
         agent::{
@@ -86,7 +87,6 @@ use warp_cli::mcp::MCPSpec;
 use warp_cli::share::ShareRequest;
 use warp_core::{features::FeatureFlag, report_error, report_if_error, safe_debug, safe_info};
 use warp_graphql::ai::AgentTaskState;
-use warp_managed_secrets::ManagedSecretValue;
 use warpui::{
     r#async::{FutureExt, TimeoutError},
     AppContext, Entity, ModelContext, ModelHandle, ModelSpawner, SingletonEntity,

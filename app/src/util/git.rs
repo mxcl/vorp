@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Result};
 
@@ -101,6 +101,35 @@ pub fn list_local_branches_sync(repo_path: &Path) -> HashSet<String> {
 #[cfg(not(feature = "local_fs"))]
 pub fn list_local_branches_sync(_repo_path: &Path) -> HashSet<String> {
     HashSet::new()
+}
+
+/// Returns the nearest Git working tree root at or above `path`.
+///
+/// This intentionally avoids linking libgit2 for simple repo-root discovery.
+/// It handles normal repositories, submodules, and linked worktrees because
+/// `.git` may be either a directory or a file.
+#[cfg(feature = "local_fs")]
+pub fn discover_worktree_root(path: &Path) -> Option<PathBuf> {
+    let mut candidate = if path.is_dir() {
+        path.to_path_buf()
+    } else {
+        path.parent()?.to_path_buf()
+    };
+
+    loop {
+        if candidate.join(".git").exists() {
+            return Some(candidate);
+        }
+
+        if !candidate.pop() {
+            return None;
+        }
+    }
+}
+
+#[cfg(not(feature = "local_fs"))]
+pub fn discover_worktree_root(_path: &Path) -> Option<PathBuf> {
+    None
 }
 
 /// Fetches the current git branch.

@@ -1,31 +1,36 @@
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
 mod native;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
 pub use native::McpIntegration;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(any(target_family = "wasm", not(feature = "mcp_runtime")))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum McpIntegration {
+    Figma,
+}
+#[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
 mod oauth;
-#[cfg(target_family = "wasm")]
+#[cfg(any(target_family = "wasm", not(feature = "mcp_runtime")))]
 mod wasm;
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
 use diesel::SqliteConnection;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
 use std::sync::Arc;
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
 use crate::ai::mcp::templatable::CloudTemplatableMCPServer;
 use crate::ai::mcp::FileBasedMCPManager;
 use crate::ai::mcp::{templatable_installation::TemplatableMCPServerInstallation, MCPServerState};
 use futures_util::stream::AbortHandle;
 use uuid::Uuid;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
 use warpui::ModelSpawner;
 use warpui::{Entity, SingletonEntity};
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
 type ReconnectResultSender =
     tokio::sync::oneshot::Sender<Result<rmcp::Peer<rmcp::RoleClient>, String>>;
 
@@ -39,45 +44,48 @@ type ReconnectResultSender =
 /// The core implementations are in the `native` and `wasm` modules.
 #[derive(Default)]
 pub struct TemplatableMCPServerManager {
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
     cloud_templatable_mcp_servers: HashMap<Uuid, CloudTemplatableMCPServer>,
     locally_installed_servers: HashMap<Uuid, TemplatableMCPServerInstallation>,
     server_states: HashMap<Uuid, MCPServerState>,
     active_servers: HashMap<Uuid, TemplatableMCPServerInfo>,
 
-    #[cfg_attr(target_family = "wasm", allow(dead_code))]
+    #[cfg_attr(
+        any(target_family = "wasm", not(feature = "mcp_runtime")),
+        allow(dead_code)
+    )]
     spawned_servers: HashMap<Uuid, SpawnedServerInfo>,
     /// Cached credentials for each server.
     ///
     /// We persist these to secure storage, and if they are present when the server is started,
     /// we use them instead of going through the OAuth flow again.
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
     server_credentials: oauth::PersistedCredentialsMap,
     /// Cached credentials for file-based servers, keyed by installation hash.
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
     file_based_server_credentials: oauth::FileBasedPersistedCredentialsMap,
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
     database_connection: Option<Arc<Mutex<SqliteConnection>>>,
     /// Error messages for failed servers, keyed by installation UUID.
     server_error_messages: HashMap<Uuid, String>,
     /// Spawner for running tasks in the context of this manager.
     ///
     /// Used by `ReconnectingPeer` to trigger reconnection from async contexts.
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
     spawner: Option<ModelSpawner<Self>>,
     /// Pending reconnection waiters, keyed by installation UUID.
     ///
     /// When a reconnection is in progress, subsequent reconnect requests for the same server
     /// will add their result channels here instead of starting a new reconnection. When the
     /// reconnection completes, all waiters are notified with the result.
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
     pending_reconnections: HashMap<Uuid, Vec<ReconnectResultSender>>,
     /// Maps the OAuth CSRF `state` token to the installation UUID of the server whose
     /// authorization flow is in progress.
     ///
     /// Populated just before opening the authorization URL; removed once the callback
     /// is received or the spawn task terminates.
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
     pending_oauth_csrf: HashMap<String, Uuid>,
     /// UUIDs of MCP servers started via the Oz CLI. We track these so they can be distinguished from
     /// file-based ephemeral MCP servers, which are directory-scoped.
@@ -85,17 +93,24 @@ pub struct TemplatableMCPServerManager {
 }
 
 /// Information about a spawned server task.
-#[cfg_attr(target_family = "wasm", allow(dead_code))]
+#[cfg_attr(
+    any(target_family = "wasm", not(feature = "mcp_runtime")),
+    allow(dead_code)
+)]
 struct SpawnedServerInfo {
     abort_handle: AbortHandle,
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
     oauth_result_tx: async_channel::Sender<oauth::CallbackResult>,
 }
 
 /// Information about a single connected MCP server.
-#[cfg_attr(target_family = "wasm", allow(dead_code))]
+#[cfg_attr(
+    any(target_family = "wasm", not(feature = "mcp_runtime")),
+    allow(dead_code)
+)]
 pub struct TemplatableMCPServerInfo {
     name: String,
+    #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
     service: rmcp::service::RunningService<
         rmcp::RoleClient,
         Box<dyn rmcp::service::DynService<rmcp::RoleClient>>,
@@ -193,12 +208,12 @@ impl TemplatableMCPServerManager {
             .map(|server_installation| server_installation.template_uuid())
     }
 
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
     pub fn is_server_active(&self, installation_uuid: Uuid) -> bool {
         self.active_servers.contains_key(&installation_uuid)
     }
 
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
     pub fn is_server_active_or_pending(&self, uuid: Uuid) -> bool {
         self.is_server_active(uuid) || self.spawned_servers.contains_key(&uuid)
     }
@@ -228,7 +243,7 @@ impl TemplatableMCPServerManager {
     /// Returns a reconnecting peer for a server that has the given resource.
     ///
     /// The returned peer will automatically reconnect if the underlying transport is closed.
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
     pub fn server_with_resource(
         &self,
         resource: &rmcp::model::Resource,
@@ -281,7 +296,7 @@ impl TemplatableMCPServerManager {
             .map(|t| t.input_schema.clone())
     }
 
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
     pub fn server_from_tool(&self, tool: String) -> Option<&Uuid> {
         self.active_servers
             .iter()
@@ -291,7 +306,7 @@ impl TemplatableMCPServerManager {
 
     /// Returns the installation UUID of the server that provides a resource matching the given
     /// name or URI.
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
     pub fn server_from_resource(&self, name: &str, uri: Option<&str>) -> Option<&Uuid> {
         self.active_servers
             .iter()

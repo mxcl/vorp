@@ -62,6 +62,7 @@ $ErrorActionPreference = 'Stop'
 $WORKSPACE_ROOT_DIR = $(Get-Location).Path
 $CARGO_TARGET_DIR = $WORKSPACE_ROOT_DIR + '\target'
 $WINDOWS_INSTALLER_DIR = $WORKSPACE_ROOT_DIR + '\script\windows'
+$CARGO_DEFAULT_FEATURES_FLAGS = @()
 
 if ($DEBUG_BUILD) {
     $CARGO_PROFILE = 'dev'
@@ -114,8 +115,11 @@ if ("$CHANNEL" -eq 'local') {
     $BINARY_NAME = 'warp-oss.exe'
     $APP_NAME = 'WarpOss'
     # The OSS channel does not ship Sentry, so drop the crash_reporting feature
-    # (which would otherwise pull in the Sentry SDK as a dependency).
-    $FEATURES = 'release_bundle,gui,nld_improvements'
+    # (which would otherwise pull in the Sentry SDK as a dependency). It also
+    # opts out of Cargo's default features because this fork does not ship the
+    # AI/auth/MCP/editor/git UI feature set collected there.
+    $FEATURES = 'release_bundle,gui,oss_release'
+    $CARGO_DEFAULT_FEATURES_FLAGS = @('--no-default-features')
 }
 
 $BINARY_PATH = "$CARGO_TARGET_OUTPUT_DIR\$BINARY_NAME"
@@ -137,7 +141,7 @@ if ($DEBUG_BUILD) {
 # then exit.  We use this script to invoke `cargo check` to ensure that we are
 # using the same feature flags and profile that we would be using in production.
 if ($CHECK_ONLY) {
-    cargo check -p warp --profile "$CARGO_PROFILE" --bin "$WARP_BIN" --features "$FEATURES" --target $PLATFORM_TARGET
+    cargo check -p warp --profile "$CARGO_PROFILE" --bin "$WARP_BIN" @CARGO_DEFAULT_FEATURES_FLAGS --features "$FEATURES" --target $PLATFORM_TARGET
     if (-Not $?) {
         Write-Error "Failed to verify Warp $WARP_BIN compilation with profile $CARGO_PROFILE"
         exit 1
@@ -149,7 +153,7 @@ if (-Not $SKIP_BUILD_BINARY) {
     Write-Output "Building Warp for channel $CHANNEL and bundle id $BUNDLE_ID"
     $env:CARGO_BIN_NAME = $CHANNEL
     $env:WARP_APP_NAME = $APP_NAME
-    cargo build -p warp --profile "$CARGO_PROFILE" --bin "$WARP_BIN" --features "$FEATURES" --target $PLATFORM_TARGET
+    cargo build -p warp --profile "$CARGO_PROFILE" --bin "$WARP_BIN" @CARGO_DEFAULT_FEATURES_FLAGS --features "$FEATURES" --target $PLATFORM_TARGET
     if (-Not $?) {
         Write-Error "Failed to build Warp $WARP_BIN binary with profile $CARGO_PROFILE"
         exit 1

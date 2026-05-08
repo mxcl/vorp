@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::warp_managed_secrets::client::{SecretOwner, TaskIdentityToken};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use cynic::{MutationBuilder, QueryBuilder};
@@ -35,12 +36,11 @@ use warp_graphql::{
     },
     object_permissions::Owner,
 };
-use warp_managed_secrets::client::{SecretOwner, TaskIdentityToken};
 
 use super::ServerApi;
 use crate::server::graphql::{get_request_context, get_user_facing_error_message};
 
-pub use warp_managed_secrets::client::{ManagedSecretConfigs, ManagedSecretsClient};
+pub use crate::warp_managed_secrets::client::{ManagedSecretConfigs, ManagedSecretsClient};
 
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
@@ -254,7 +254,7 @@ impl ManagedSecretsClient for ServerApi {
 
     async fn issue_task_identity_token(
         &self,
-        options: warp_managed_secrets::client::IdentityTokenOptions,
+        options: crate::warp_managed_secrets::client::IdentityTokenOptions,
     ) -> Result<TaskIdentityToken> {
         let requested_duration_seconds = options
             .requested_duration

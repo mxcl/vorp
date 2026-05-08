@@ -4,6 +4,7 @@
 use std::{collections::HashMap, sync::Arc};
 use uuid::Uuid;
 
+use ai::computer_use;
 use anyhow::anyhow;
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};

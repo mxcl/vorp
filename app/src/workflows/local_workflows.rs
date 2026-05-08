@@ -181,14 +181,11 @@ fn app_workflows() -> Vec<Workflow> {
 /// directory.
 #[cfg(feature = "local_fs")]
 pub(super) fn load_project_workflows(path: &Path) -> Vec<Workflow> {
-    match git2::Repository::discover(path) {
-        Ok(repository) => repository.workdir().map_or(Vec::new(), |workdir| {
-            load_workflows(&workflows_dir(
-                workdir.join(warp_core::paths::WARP_CONFIG_DIR),
-            ))
-        }),
-        Err(_) => Vec::new(),
-    }
+    crate::util::git::discover_worktree_root(path).map_or(Vec::new(), |workdir| {
+        load_workflows(&workflows_dir(
+            workdir.join(warp_core::paths::WARP_CONFIG_DIR),
+        ))
+    })
 }
 
 /// Runs `tail` or equivalent command on the given path.
