@@ -93,9 +93,9 @@ pub struct GlobalOptions {
 #[cfg_attr(
     not(feature = "oss_release"),
     command(
-    name = "oz",
-    display_name = "Oz",
-    about = r#"The orchestration platform for cloud agents
+        name = "oz",
+        display_name = "Oz",
+        about = r#"The orchestration platform for cloud agents
 
 The Oz CLI is a tool for running, managing, and orchestrating coding agents at scale.
 Use the CLI to:
@@ -271,89 +271,92 @@ impl Args {
     pub fn clap_command() -> clap::Command {
         let mut command = <Args as CommandFactory>::command();
 
-        // Hide the environment subcommands and --environment flags from help text
-        if !FeatureFlag::CloudEnvironments.is_enabled() {
-            command = command.mut_subcommand("environment", |c| c.hide(true));
-            command = command.mut_subcommand("agent", |agent_cmd| {
-                agent_cmd
-                    .mut_subcommand("run", |run_cmd| {
-                        run_cmd.mut_arg("environment", |arg| arg.hide(true))
-                    })
-                    .mut_subcommand("run-cloud", |cloud_cmd| {
-                        cloud_cmd.mut_arg("environment", |arg| arg.hide(true))
-                    })
-            });
-        }
+        #[cfg(not(feature = "oss_release"))]
+        {
+            // Hide the environment subcommands and --environment flags from help text
+            if !FeatureFlag::CloudEnvironments.is_enabled() {
+                command = command.mut_subcommand("environment", |c| c.hide(true));
+                command = command.mut_subcommand("agent", |agent_cmd| {
+                    agent_cmd
+                        .mut_subcommand("run", |run_cmd| {
+                            run_cmd.mut_arg("environment", |arg| arg.hide(true))
+                        })
+                        .mut_subcommand("run-cloud", |cloud_cmd| {
+                            cloud_cmd.mut_arg("environment", |arg| arg.hide(true))
+                        })
+                });
+            }
 
-        // Hide the --conversation flag from help text
-        if !FeatureFlag::CloudConversations.is_enabled() {
-            command = command.mut_subcommand("agent", |agent_cmd| {
-                agent_cmd
-                    .mut_subcommand("run", |run_cmd| {
-                        run_cmd.mut_arg("conversation", |arg| arg.hide(true))
-                    })
-                    .mut_subcommand("run-cloud", |cloud_cmd| {
-                        cloud_cmd.mut_arg("conversation", |arg| arg.hide(true))
-                    })
-            });
-        }
+            // Hide the --conversation flag from help text
+            if !FeatureFlag::CloudConversations.is_enabled() {
+                command = command.mut_subcommand("agent", |agent_cmd| {
+                    agent_cmd
+                        .mut_subcommand("run", |run_cmd| {
+                            run_cmd.mut_arg("conversation", |arg| arg.hide(true))
+                        })
+                        .mut_subcommand("run-cloud", |cloud_cmd| {
+                            cloud_cmd.mut_arg("conversation", |arg| arg.hide(true))
+                        })
+                });
+            }
 
-        if !FeatureFlag::AmbientAgentsCommandLine.is_enabled() {
-            command = command.mut_subcommand("agent", |agent_cmd| {
-                agent_cmd.mut_subcommand("run-cloud", |c| c.hide(true))
-            });
-        }
+            if !FeatureFlag::AmbientAgentsCommandLine.is_enabled() {
+                command = command.mut_subcommand("agent", |agent_cmd| {
+                    agent_cmd.mut_subcommand("run-cloud", |c| c.hide(true))
+                });
+            }
 
-        // Hide the provider subcommand from help text
-        if !FeatureFlag::ProviderCommand.is_enabled() {
-            command = command.mut_subcommand("provider", |c| c.hide(true));
-        }
+            // Hide the provider subcommand from help text
+            if !FeatureFlag::ProviderCommand.is_enabled() {
+                command = command.mut_subcommand("provider", |c| c.hide(true));
+            }
 
-        // Hide the integration subcommand from help text
-        if !FeatureFlag::IntegrationCommand.is_enabled() {
-            command = command.mut_subcommand("integration", |c| c.hide(true));
-        }
+            // Hide the integration subcommand from help text
+            if !FeatureFlag::IntegrationCommand.is_enabled() {
+                command = command.mut_subcommand("integration", |c| c.hide(true));
+            }
 
-        // Hide the schedule subcommand from help text.
-        if !FeatureFlag::ScheduledAmbientAgents.is_enabled() {
-            command = command.mut_subcommand("schedule", |c| c.hide(true));
-        }
+            // Hide the schedule subcommand from help text.
+            if !FeatureFlag::ScheduledAmbientAgents.is_enabled() {
+                command = command.mut_subcommand("schedule", |c| c.hide(true));
+            }
 
-        // Hide the secret subcommand from help text.
-        if !FeatureFlag::WarpManagedSecrets.is_enabled() {
-            command = command.mut_subcommand("secret", |c| c.hide(true));
-        }
+            // Hide the secret subcommand from help text.
+            if !FeatureFlag::WarpManagedSecrets.is_enabled() {
+                command = command.mut_subcommand("secret", |c| c.hide(true));
+            }
 
-        // Hide the federate subcommand from help text.
-        if !FeatureFlag::OzIdentityFederation.is_enabled() {
-            command = command.mut_subcommand("federate", |c| c.hide(true));
-        }
+            // Hide the federate subcommand from help text.
+            if !FeatureFlag::OzIdentityFederation.is_enabled() {
+                command = command.mut_subcommand("federate", |c| c.hide(true));
+            }
 
-        // Hide the harness-support subcommand from help text.
-        if !FeatureFlag::AgentHarness.is_enabled() {
-            command = command.mut_subcommand("harness-support", |c| c.hide(true));
-        }
+            // Hide the harness-support subcommand from help text.
+            if !FeatureFlag::AgentHarness.is_enabled() {
+                command = command.mut_subcommand("harness-support", |c| c.hide(true));
+            }
 
-        // Hide the conversation subcommand and --conversation flag from help text.
-        if !FeatureFlag::ConversationApi.is_enabled() {
-            command = command.mut_subcommand("run", |run_cmd| {
-                run_cmd
-                    .mut_subcommand("conversation", |c| c.hide(true))
-                    .mut_subcommand("get", |get_cmd| {
-                        get_cmd.mut_arg("conversation", |arg| arg.hide(true))
-                    })
-            });
-        }
-        // Hide the message subcommand from help text.
-        if !FeatureFlag::OrchestrationV2.is_enabled() {
-            command = command.mut_subcommand("run", |run_cmd| {
-                run_cmd.mut_subcommand("message", |c| c.hide(true))
-            });
-        }
+            // Hide the conversation subcommand and --conversation flag from help text.
+            if !FeatureFlag::ConversationApi.is_enabled() {
+                command = command.mut_subcommand("run", |run_cmd| {
+                    run_cmd
+                        .mut_subcommand("conversation", |c| c.hide(true))
+                        .mut_subcommand("get", |get_cmd| {
+                            get_cmd.mut_arg("conversation", |arg| arg.hide(true))
+                        })
+                });
+            }
+            // Hide the message subcommand from help text.
+            if !FeatureFlag::OrchestrationV2.is_enabled() {
+                command = command.mut_subcommand("run", |run_cmd| {
+                    run_cmd.mut_subcommand("message", |c| c.hide(true))
+                });
+            }
 
-        // Hide the artifact subcommand from help text.
-        if !FeatureFlag::ArtifactCommand.is_enabled() {
-            command = command.mut_subcommand("artifact", |c| c.hide(true));
+            // Hide the artifact subcommand from help text.
+            if !FeatureFlag::ArtifactCommand.is_enabled() {
+                command = command.mut_subcommand("artifact", |c| c.hide(true));
+            }
         }
 
         // Wire up `--version` / `-V` using the same version metadata used elsewhere in the
@@ -727,6 +730,25 @@ pub fn version_string() -> &'static str {
     ChannelState::app_version().unwrap_or("<unknown>")
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "oss_release")))]
 #[path = "lib_tests.rs"]
 mod tests;
+
+#[cfg(all(test, feature = "oss_release"))]
+mod oss_tests {
+    use super::*;
+
+    #[test]
+    fn oss_clap_command_builds_without_removed_cli_subcommands() {
+        let command = Args::clap_command();
+
+        assert!(command.find_subcommand("environment").is_none());
+        assert!(
+            command
+                .try_get_matches_from(["warp"])
+                .expect("OSS app invocation should parse without a CLI subcommand")
+                .subcommand()
+                .is_none()
+        );
+    }
+}
