@@ -50,6 +50,14 @@ impl SlashCommandRequest {
     /// Parses user input into a SlashCommandRequest for slash commands that are handled
     /// via the AI query flow (as opposed to action-based slash commands handled in input.rs).
     pub fn from_query(query: &str) -> Option<SlashCommandRequest> {
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = query;
+            None
+        }
+
+        #[cfg(not(feature = "oss_release"))]
+        {
         // Check if this is an exact /init query and route it to InitProjectRules instead
         if query == "/init" {
             return Some(Self::InitProjectRules);
@@ -63,6 +71,7 @@ impl SlashCommandRequest {
         }
 
         None
+        }
     }
 
     pub(super) fn send_request(
@@ -71,6 +80,13 @@ impl SlashCommandRequest {
         is_queued_prompt: bool,
         ctx: &mut ModelContext<BlocklistAIController>,
     ) {
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = (self, controller, is_queued_prompt, ctx);
+        }
+
+        #[cfg(not(feature = "oss_release"))]
+        {
         let conversation_id = self.conversation_id(controller, ctx);
         // For skill invocations, include user-attached context (images, blocks, and selected
         // text) so the skill's agent sees the same attachments a non-slash-command user query
@@ -179,6 +195,7 @@ impl SlashCommandRequest {
                 }
             }
             Err(e) => log::error!("Failed to send agent slash command request: {e:?}"),
+        }
         }
     }
 

@@ -1,58 +1,75 @@
 use std::{result::Result as StdResult, sync::Arc};
 
+#[cfg(feature = "auth_oauth")]
+use crate::oauth2::TokenResponse;
 use anyhow::{anyhow, bail, Context as _, Result};
 use async_trait::async_trait;
+#[cfg(not(feature = "oss_release"))]
 use cynic::{MutationBuilder, QueryBuilder};
-use firebase::{FetchAccessTokenResponse, FirebaseError};
 use futures::FutureExt;
 use instant::Duration;
 #[cfg(test)]
 use mockall::{automock, predicate::*};
-use oauth2::TokenResponse;
 use thiserror::Error;
 use warp_core::errors::{AnyhowErrorExt, ErrorExt};
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::client::Operation;
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::expire_api_key::{
     ExpireApiKey, ExpireApiKeyResult, ExpireApiKeyVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::queries::get_conversation_usage::{
     ConversationUsage, GetConversationUsage, GetConversationUsageVariables, UserResult,
 };
 
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::set_user_is_onboarded::{
     SetUserIsOnboarded, SetUserIsOnboardedResult, SetUserIsOnboardedVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::update_user_settings::{
     UpdateUserSettings, UpdateUserSettingsInput, UpdateUserSettingsResult,
     UpdateUserSettingsVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::{
     create_anonymous_user::{
-        AnonymousUserType, CreateAnonymousUser, CreateAnonymousUserResult,
+        AnonymousUserType as GraphqlAnonymousUserType, CreateAnonymousUser,
         CreateAnonymousUserVariables,
     },
     generate_api_key::{
         GenerateApiKey, GenerateApiKeyInput, GenerateApiKeyResult, GenerateApiKeyVariables,
     },
-    mint_custom_token::{MintCustomTokenResult, MintCustomTokenVariables},
+    mint_custom_token::{
+        MintCustomTokenResult as GraphqlMintCustomTokenResult, MintCustomTokenVariables,
+    },
 };
-use warp_graphql::object_permissions::OwnerType;
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::queries::api_keys::{
     ApiKeyProperties, ApiKeyPropertiesResult, ApiKeys, ApiKeysVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::queries::get_user::{GetUser, GetUserVariables, UserOutput as GqlUserOutput};
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::queries::get_user_settings::{GetUserSettings, GetUserSettingsVariables};
+#[cfg(not(feature = "oss_release"))]
 use warpui::r#async::BoxFuture;
 
 use crate::auth::UserUid;
-use crate::server::graphql::{default_request_options, get_user_facing_error_message};
+use crate::firebase::{FetchAccessTokenResponse, FirebaseError};
+use crate::oauth2;
+#[cfg(not(feature = "oss_release"))]
+use crate::server::graphql::default_request_options;
+use crate::server::graphql::get_user_facing_error_message;
 use crate::server::ids::ApiKeyUid;
 use crate::server::server_api::register_error;
 use crate::server::server_api::EXPERIMENT_ID_HEADER;
 use crate::settings::PrivacySettingsSnapshot;
 use crate::{
     auth::{
-        credentials::{AuthToken, Credentials, FirebaseToken, LoginToken, RefreshToken},
+        credentials::{AuthOwnerType, AuthToken, Credentials, FirebaseToken, LoginToken, RefreshToken},
+        user::AnonymousUserType,
         user::FirebaseAuthTokens,
         user::User,
     },
@@ -70,6 +87,7 @@ use super::ServerApi;
 /// into an access token that indicate the user's token is in an errored state.
 /// These are "soft" errors because the user likely just needs to log in again.
 /// See https://firebase.google.com/docs/reference/rest/auth#section-refresh-token.
+#[cfg(not(feature = "oss_release"))]
 static FETCH_ACCESS_TOKEN_SOFT_ERROR_MESSAGES: &[&str] = &[
     "TOKEN_EXPIRED",
     "INVALID_REFRESH_TOKEN",
@@ -81,8 +99,10 @@ static FETCH_ACCESS_TOKEN_SOFT_ERROR_MESSAGES: &[&str] = &[
 /// These are "hard" errors because the user likely can no longer sign in with their account,
 /// for example if it were disabled or deleted.
 /// See https://firebase.google.com/docs/reference/rest/auth#section-refresh-token.
+#[cfg(not(feature = "oss_release"))]
 static FETCH_ACCESS_TOKEN_HARD_ERROR_MESSAGES: &[&str] = &["USER_DISABLED", "USER_NOT_FOUND"];
 
+#[cfg(not(feature = "oss_release"))]
 const FETCH_ACCESS_TOKEN_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Header key for the ambient workload token attached to multi-agent requests.
@@ -113,6 +133,64 @@ pub struct FetchUserResult {
     /// LLM model choices for this user.
     pub llms: crate::ai::llms::ModelsByFeature,
 }
+
+#[derive(Debug)]
+pub struct CreateAnonymousUserOutput {
+    pub id_token: String,
+}
+
+#[derive(Debug)]
+pub enum CreateAnonymousUserResult {
+    CreateAnonymousUserOutput(CreateAnonymousUserOutput),
+    UserFacingError(String),
+    Unknown,
+}
+
+#[derive(Debug)]
+pub struct MintCustomTokenOutput {
+    pub custom_token: String,
+}
+
+#[derive(Debug)]
+pub enum MintCustomTokenResult {
+    MintCustomTokenOutput(MintCustomTokenOutput),
+    UserFacingError(String),
+    Unknown,
+}
+
+#[cfg(not(feature = "oss_release"))]
+pub type AuthConversationUsage = ConversationUsage;
+#[cfg(feature = "oss_release")]
+pub struct AuthConversationUsage;
+
+#[cfg(not(feature = "oss_release"))]
+pub type AuthApiKeyProperties = ApiKeyProperties;
+#[cfg(feature = "oss_release")]
+pub struct AuthApiKeyProperties;
+
+#[cfg(not(feature = "oss_release"))]
+pub type AuthGenerateApiKeyResult = GenerateApiKeyResult;
+#[cfg(feature = "oss_release")]
+pub enum AuthGenerateApiKeyResult {
+    Unknown,
+}
+
+#[cfg(not(feature = "oss_release"))]
+pub type AuthExpireApiKeyResult = ExpireApiKeyResult;
+#[cfg(feature = "oss_release")]
+pub enum AuthExpireApiKeyResult {
+    Unknown,
+}
+
+#[cfg(not(feature = "oss_release"))]
+pub type AuthTime = warp_graphql::scalars::Time;
+#[cfg(feature = "oss_release")]
+pub struct AuthTime;
+
+#[cfg(not(feature = "oss_release"))]
+pub type AuthApiKeyTeamId = cynic::Id;
+#[cfg(feature = "oss_release")]
+pub struct AuthApiKeyTeamId;
 
 #[cfg_attr(test, automock)]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
@@ -151,8 +229,8 @@ pub trait AuthClient: 'static + Send + Sync {
     ) -> Result<String, MintCustomTokenError>;
 
     /// Queries warp-server for a set of the currently logged-in user's fields.
-    async fn fetch_user_properties<'a>(&self, auth_token: Option<&'a str>)
-        -> Result<GqlUserOutput>;
+    #[cfg(not(feature = "oss_release"))]
+    async fn fetch_user_properties<'a>(&self, auth_token: Option<&'a str>) -> Result<GqlUserOutput>;
 
     /// Upon success, returns an `Option` containing the user's settings retrieved from the server,
     /// if any. The user may not have server-side settings if they onboarded prior to the launch
@@ -168,8 +246,8 @@ pub trait AuthClient: 'static + Send + Sync {
         &self,
         days: Option<i32>,
         limit: Option<i32>,
-        last_updated_end_timestamp: Option<warp_graphql::scalars::Time>,
-    ) -> Result<Vec<ConversationUsage>>;
+        last_updated_end_timestamp: Option<AuthTime>,
+    ) -> Result<Vec<AuthConversationUsage>>;
 
     async fn set_is_telemetry_enabled(&self, value: bool) -> Result<()>;
 
@@ -195,16 +273,16 @@ pub trait AuthClient: 'static + Send + Sync {
         timeout: Duration,
     ) -> StdResult<FirebaseToken, UserAuthenticationError>;
     // API Keys
-    async fn list_api_keys(&self) -> Result<Vec<ApiKeyProperties>>;
+    async fn list_api_keys(&self) -> Result<Vec<AuthApiKeyProperties>>;
 
     async fn create_api_key(
         &self,
         name: String,
-        team_id: Option<cynic::Id>,
-        expires_at: Option<warp_graphql::scalars::Time>,
-    ) -> Result<GenerateApiKeyResult>;
+        team_id: Option<AuthApiKeyTeamId>,
+        expires_at: Option<AuthTime>,
+    ) -> Result<AuthGenerateApiKeyResult>;
 
-    async fn expire_api_key(&self, key_uid: &ApiKeyUid) -> Result<ExpireApiKeyResult>;
+    async fn expire_api_key(&self, key_uid: &ApiKeyUid) -> Result<AuthExpireApiKeyResult>;
 
     /// Returns a cached ambient workload token, or issues a new one if not present or expired.
     ///
@@ -214,12 +292,24 @@ pub trait AuthClient: 'static + Send + Sync {
 
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(not(feature = "oss_release"))]
 impl AuthClient for ServerApi {
     async fn create_anonymous_user(
         &self,
         referral_code: Option<String>,
         anonymous_user_type: AnonymousUserType,
     ) -> Result<CreateAnonymousUserResult> {
+        let anonymous_user_type = match anonymous_user_type {
+            AnonymousUserType::NativeClientAnonymousUser => {
+                GraphqlAnonymousUserType::NativeClientAnonymousUser
+            }
+            AnonymousUserType::NativeClientAnonymousUserFeatureGated => {
+                GraphqlAnonymousUserType::NativeClientAnonymousUserFeatureGated
+            }
+            AnonymousUserType::WebClientAnonymousUser => {
+                GraphqlAnonymousUserType::WebClientAnonymousUser
+            }
+        };
         let variables = CreateAnonymousUserVariables {
             input: warp_graphql::mutations::create_anonymous_user::CreateAnonymousUserInput {
                 anonymous_user_type,
@@ -234,10 +324,26 @@ impl AuthClient for ServerApi {
             .send_request(self.client.clone(), default_request_options())
             .await?;
 
-        Ok(response
+        let result = response
             .data
             .ok_or_else(|| anyhow!("missing data in response"))?
-            .create_anonymous_user)
+            .create_anonymous_user;
+
+        match result {
+            warp_graphql::mutations::create_anonymous_user::CreateAnonymousUserResult::CreateAnonymousUserOutput(output) => {
+                Ok(CreateAnonymousUserResult::CreateAnonymousUserOutput(
+                    CreateAnonymousUserOutput { id_token: output.id_token },
+                ))
+            }
+            warp_graphql::mutations::create_anonymous_user::CreateAnonymousUserResult::UserFacingError(user_facing_error) => {
+                Ok(CreateAnonymousUserResult::UserFacingError(
+                    get_user_facing_error_message(user_facing_error),
+                ))
+            }
+            warp_graphql::mutations::create_anonymous_user::CreateAnonymousUserResult::Unknown => {
+                Ok(CreateAnonymousUserResult::Unknown)
+            }
+        }
     }
 
     async fn get_or_refresh_access_token(&self) -> Result<AuthToken> {
@@ -331,7 +437,21 @@ impl AuthClient for ServerApi {
         let operation =
             warp_graphql::mutations::mint_custom_token::MintCustomToken::build(variables);
         let response = self.send_graphql_request(operation, None).await?;
-        Ok(response.mint_custom_token)
+        match response.mint_custom_token {
+            GraphqlMintCustomTokenResult::MintCustomTokenOutput(output) => {
+                Ok(MintCustomTokenResult::MintCustomTokenOutput(
+                    MintCustomTokenOutput {
+                        custom_token: output.custom_token,
+                    },
+                ))
+            }
+            GraphqlMintCustomTokenResult::UserFacingError(user_facing_error) => {
+                Ok(MintCustomTokenResult::UserFacingError(
+                    get_user_facing_error_message(user_facing_error),
+                ))
+            }
+            GraphqlMintCustomTokenResult::Unknown => Ok(MintCustomTokenResult::Unknown),
+        }
     }
 
     fn on_custom_token_fetched(
@@ -341,10 +461,8 @@ impl AuthClient for ServerApi {
         match response {
             Ok(response_data) => match response_data {
                 MintCustomTokenResult::MintCustomTokenOutput(output) => Ok(output.custom_token),
-                MintCustomTokenResult::UserFacingError(user_facing_error) => {
-                    Err(MintCustomTokenError::UserFacingError(
-                        get_user_facing_error_message(user_facing_error),
-                    ))
+                MintCustomTokenResult::UserFacingError(message) => {
+                    Err(MintCustomTokenError::UserFacingError(message))
                 }
                 MintCustomTokenResult::Unknown => Err(MintCustomTokenError::Unknown),
             },
@@ -352,6 +470,7 @@ impl AuthClient for ServerApi {
         }
     }
 
+    #[cfg(not(feature = "oss_release"))]
     async fn fetch_user_properties<'a>(
         &self,
         auth_token: Option<&'a str>,
@@ -415,7 +534,7 @@ impl AuthClient for ServerApi {
         days: Option<i32>,
         limit: Option<i32>,
         last_updated_end_timestamp: Option<warp_graphql::scalars::Time>,
-    ) -> Result<Vec<ConversationUsage>> {
+    ) -> Result<Vec<AuthConversationUsage>> {
         let operation = GetConversationUsage::build(GetConversationUsageVariables {
             request_context: get_request_context(),
             days,
@@ -554,6 +673,14 @@ impl AuthClient for ServerApi {
     async fn request_device_code(
         &self,
     ) -> StdResult<oauth2::StandardDeviceAuthorizationResponse, UserAuthenticationError> {
+        #[cfg(not(feature = "auth_oauth"))]
+        {
+            return Err(UserAuthenticationError::Unexpected(anyhow!(
+                "OAuth device authentication is not available in this build"
+            )));
+        }
+
+        #[cfg(feature = "auth_oauth")]
         self.oauth_client
             .exchange_device_code()
             .request_async(self.client.as_ref())
@@ -567,6 +694,15 @@ impl AuthClient for ServerApi {
         details: &oauth2::StandardDeviceAuthorizationResponse,
         timeout: Duration,
     ) -> StdResult<FirebaseToken, UserAuthenticationError> {
+        #[cfg(not(feature = "auth_oauth"))]
+        {
+            let _ = (details, timeout);
+            return Err(UserAuthenticationError::Unexpected(anyhow!(
+                "OAuth device authentication is not available in this build"
+            )));
+        }
+
+        #[cfg(feature = "auth_oauth")]
         let result = self
             .oauth_client
             .exchange_device_access_token(details)
@@ -581,13 +717,16 @@ impl AuthClient for ServerApi {
 
         // Firebase doesn't directly support the device flow. Instead, the server mints a short-lived
         // custom access token, which we can then exchange for a refresh token.
-        Ok(FirebaseToken::Custom(
-            result.access_token().secret().to_string(),
-        ))
+        #[cfg(feature = "auth_oauth")]
+        {
+            Ok(FirebaseToken::Custom(
+                result.access_token().secret().to_string(),
+            ))
+        }
     }
 
     // API Keys
-    async fn list_api_keys(&self) -> Result<Vec<ApiKeyProperties>> {
+    async fn list_api_keys(&self) -> Result<Vec<AuthApiKeyProperties>> {
         let variables = ApiKeysVariables {
             request_context: get_request_context(),
         };
@@ -605,9 +744,9 @@ impl AuthClient for ServerApi {
     async fn create_api_key(
         &self,
         name: String,
-        team_id: Option<cynic::Id>,
+        team_id: Option<AuthApiKeyTeamId>,
         expires_at: Option<warp_graphql::scalars::Time>,
-    ) -> Result<GenerateApiKeyResult> {
+    ) -> Result<AuthGenerateApiKeyResult> {
         let variables = GenerateApiKeyVariables {
             input: GenerateApiKeyInput {
                 name,
@@ -620,7 +759,7 @@ impl AuthClient for ServerApi {
         let response = self.send_graphql_request(operation, None).await?;
         Ok(response.generate_api_key)
     }
-    async fn expire_api_key(&self, key_uid: &ApiKeyUid) -> Result<ExpireApiKeyResult> {
+    async fn expire_api_key(&self, key_uid: &ApiKeyUid) -> Result<AuthExpireApiKeyResult> {
         let variables = ExpireApiKeyVariables {
             key_uid: key_uid.into(),
             request_context: get_request_context(),
@@ -673,7 +812,129 @@ impl AuthClient for ServerApi {
     }
 }
 
+#[cfg(feature = "oss_release")]
+fn auth_unavailable<T>() -> Result<T> {
+    Err(anyhow!(
+        "Authentication server APIs are not available in this build"
+    ))
+}
+
+#[cfg(feature = "oss_release")]
+fn auth_unavailable_user<T>() -> StdResult<T, UserAuthenticationError> {
+    Err(UserAuthenticationError::Unexpected(anyhow!(
+        "Authentication server APIs are not available in this build"
+    )))
+}
+
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(feature = "oss_release")]
+impl AuthClient for ServerApi {
+    async fn create_anonymous_user(
+        &self,
+        _referral_code: Option<String>,
+        _anonymous_user_type: AnonymousUserType,
+    ) -> Result<CreateAnonymousUserResult> {
+        auth_unavailable()
+    }
+
+    async fn get_or_refresh_access_token(&self) -> Result<AuthToken> {
+        auth_unavailable()
+    }
+
+    async fn fetch_user(
+        &self,
+        _token: LoginToken,
+        _for_refresh: bool,
+    ) -> StdResult<FetchUserResult, UserAuthenticationError> {
+        auth_unavailable_user()
+    }
+
+    async fn fetch_new_custom_token(&self) -> Result<MintCustomTokenResult> {
+        auth_unavailable()
+    }
+
+    fn on_custom_token_fetched(
+        &self,
+        _response: Result<MintCustomTokenResult>,
+    ) -> Result<String, MintCustomTokenError> {
+        Err(MintCustomTokenError::Unknown)
+    }
+
+    async fn get_user_settings(&self) -> Result<Option<SyncedUserSettings>> {
+        Ok(None)
+    }
+
+    async fn get_conversation_usage_history(
+        &self,
+        _days: Option<i32>,
+        _limit: Option<i32>,
+        _last_updated_end_timestamp: Option<AuthTime>,
+    ) -> Result<Vec<AuthConversationUsage>> {
+        Ok(Vec::new())
+    }
+
+    async fn set_is_telemetry_enabled(&self, _value: bool) -> Result<()> {
+        Ok(())
+    }
+
+    async fn set_is_crash_reporting_enabled(&self, _value: bool) -> Result<()> {
+        Ok(())
+    }
+
+    async fn set_is_cloud_conversation_storage_enabled(&self, _value: bool) -> Result<()> {
+        Ok(())
+    }
+
+    async fn update_user_settings(
+        &self,
+        _settings_snapshot: PrivacySettingsSnapshot,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    async fn set_user_is_onboarded(&self) -> Result<bool> {
+        Ok(true)
+    }
+
+    async fn request_device_code(
+        &self,
+    ) -> StdResult<oauth2::StandardDeviceAuthorizationResponse, UserAuthenticationError> {
+        auth_unavailable_user()
+    }
+
+    async fn exchange_device_access_token(
+        &self,
+        _details: &oauth2::StandardDeviceAuthorizationResponse,
+        _timeout: Duration,
+    ) -> StdResult<FirebaseToken, UserAuthenticationError> {
+        auth_unavailable_user()
+    }
+
+    async fn list_api_keys(&self) -> Result<Vec<AuthApiKeyProperties>> {
+        Ok(Vec::new())
+    }
+
+    async fn create_api_key(
+        &self,
+        _name: String,
+        _team_id: Option<AuthApiKeyTeamId>,
+        _expires_at: Option<AuthTime>,
+    ) -> Result<AuthGenerateApiKeyResult> {
+        auth_unavailable()
+    }
+
+    async fn expire_api_key(&self, _key_uid: &ApiKeyUid) -> Result<AuthExpireApiKeyResult> {
+        auth_unavailable()
+    }
+
+    async fn get_or_create_ambient_workload_token(&self) -> Result<Option<String>> {
+        Ok(None)
+    }
+}
+
 /// Exchange a long-lived token for fresh [`Credentials`].
+#[cfg(not(feature = "oss_release"))]
 async fn exchange_credentials(
     client: Arc<http_client::Client>,
     token: LoginToken,
@@ -691,6 +952,7 @@ async fn exchange_credentials(
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 fn fetch_auth_tokens(
     client: Arc<http_client::Client>,
     token: FirebaseToken,
@@ -743,6 +1005,7 @@ fn fetch_auth_tokens(
     })
 }
 
+#[cfg(not(feature = "oss_release"))]
 fn fetch_access_token_via_proxy<'a>(
     client: Arc<http_client::Client>,
     request_body: &'a [(&'a str, &'a str)],
@@ -759,6 +1022,7 @@ fn fetch_access_token_via_proxy<'a>(
 }
 
 /// The [`oauth2::Client`] type, specialized to the endpoints that we require.
+#[cfg(feature = "auth_oauth")]
 pub type OAuth2Client = oauth2::basic::BasicClient<
     oauth2::EndpointNotSet, // HasAuthUrl
     oauth2::EndpointSet,    // HasDeviceAuthUrl
@@ -767,14 +1031,20 @@ pub type OAuth2Client = oauth2::basic::BasicClient<
     oauth2::EndpointSet,    // HasTokenUrl
 >;
 
+#[cfg(not(feature = "auth_oauth"))]
+#[derive(Clone, Debug, Default)]
+pub struct OAuth2Client;
+
 /// Intermediate type produced by converting a [`GqlUserOutput`] from the server.
+#[cfg(not(feature = "oss_release"))]
 struct UserProperties {
     user: User,
     server_experiments: Vec<ServerExperiment>,
     llms: crate::ai::llms::ModelsByFeature,
-    api_key_owner_type: Option<OwnerType>,
+    api_key_owner_type: Option<AuthOwnerType>,
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<GqlUserOutput> for UserProperties {
     fn from(user_output: GqlUserOutput) -> Self {
         let principal_type = user_output
@@ -785,7 +1055,7 @@ impl From<GqlUserOutput> for UserProperties {
 
         let is_on_work_domain = user_properties.is_on_work_domain;
         let is_onboarded = user_properties.is_onboarded;
-        let api_key_owner_type = user_output.api_key_owner_type;
+        let api_key_owner_type = user_output.api_key_owner_type.map(Into::into);
 
         let linked_at = user_properties
             .anonymous_user_info
@@ -818,7 +1088,7 @@ impl From<GqlUserOutput> for UserProperties {
             needs_sso_link,
             anonymous_user_type: anonymous_user_type.and_then(|t| t.try_into().ok()),
             is_on_work_domain,
-            linked_at,
+            linked_at: linked_at.map(Into::into),
             personal_object_limits: personal_object_limits.and_then(|t| t.try_into().ok()),
             principal_type,
         };
@@ -832,6 +1102,7 @@ impl From<GqlUserOutput> for UserProperties {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 #[derive(Error, Debug)]
 /// Error type when retrieving a user and validating it against Firebase.
 pub enum UserAuthenticationError {
@@ -851,6 +1122,23 @@ pub enum UserAuthenticationError {
     Unexpected(#[from] anyhow::Error),
 }
 
+#[cfg(feature = "oss_release")]
+#[derive(Error, Debug)]
+/// Error type when retrieving a user.
+pub enum UserAuthenticationError {
+    #[error("Authentication failed")]
+    DeniedAccessToken(FirebaseError),
+    #[error("Authentication failed")]
+    UserAccountDisabled(FirebaseError),
+    #[error("Authentication failed")]
+    InvalidStateParameter,
+    #[error("Authentication failed")]
+    MissingStateParameter,
+    #[error("Authentication failed")]
+    Unexpected(#[from] anyhow::Error),
+}
+
+#[cfg(not(feature = "oss_release"))]
 impl ErrorExt for UserAuthenticationError {
     fn is_actionable(&self) -> bool {
         match self {
@@ -879,8 +1167,16 @@ impl ErrorExt for UserAuthenticationError {
         }
     }
 }
+
+#[cfg(feature = "oss_release")]
+impl ErrorExt for UserAuthenticationError {
+    fn is_actionable(&self) -> bool {
+        false
+    }
+}
 register_error!(UserAuthenticationError);
 
+#[cfg(not(feature = "oss_release"))]
 impl From<FirebaseError> for UserAuthenticationError {
     fn from(error: FirebaseError) -> Self {
         if FETCH_ACCESS_TOKEN_SOFT_ERROR_MESSAGES.contains(&error.message.as_str()) {
@@ -893,6 +1189,13 @@ impl From<FirebaseError> for UserAuthenticationError {
                     .context("Failed to exchange refresh token with access token."),
             )
         }
+    }
+}
+
+#[cfg(feature = "oss_release")]
+impl From<FirebaseError> for UserAuthenticationError {
+    fn from(error: FirebaseError) -> Self {
+        UserAuthenticationError::Unexpected(anyhow::Error::from(error))
     }
 }
 

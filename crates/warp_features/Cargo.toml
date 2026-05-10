@@ -8,6 +8,7 @@ license.workspace = true
 
 [features]
 integration_tests = []
+oss_release = []
 test-util = []
 
 [dependencies]

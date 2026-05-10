@@ -1,21 +1,23 @@
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::{collections::BTreeMap, ffi::OsString};
 
+#[cfg(not(feature = "oss_release"))]
 use crate::terminal::cli_agent_sessions::event::current_protocol_version;
 use crate::terminal::local_tty::shell::{extra_path_entries, ssh_socket_dir};
 use itertools::Itertools;
 use warp_core::channel::ChannelState;
+#[cfg(not(feature = "oss_release"))]
 use warp_core::features::FeatureFlag;
-use windows::core::{HSTRING, PCWSTR};
 use windows::Win32::System::Environment::ExpandEnvironmentStringsW;
+use windows::core::{HSTRING, PCWSTR};
 use winreg::types::FromRegValue;
 use winreg::{
-    enums::{RegType, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE},
     RegKey, RegValue,
+    enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, RegType},
 };
 
 use crate::safe_info;
-use crate::terminal::local_tty::{shell::ShellStarter, PtyOptions};
+use crate::terminal::local_tty::{PtyOptions, shell::ShellStarter};
 
 const HONOR_PS1_NAME: &str = "WARP_HONOR_PS1";
 const INITIAL_WORKING_DIR_NAME: &str = "WARP_INITIAL_WORKING_DIR";
@@ -109,6 +111,7 @@ pub(super) fn get_shell_environment_variables(options: &PtyOptions) -> Vec<u16> 
         },
     );
 
+    #[cfg(not(feature = "oss_release"))]
     if FeatureFlag::HOANotifications.is_enabled() {
         env.insert(
             map_key("WARP_CLI_AGENT_PROTOCOL_VERSION".into()),

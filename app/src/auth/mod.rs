@@ -1,17 +1,61 @@
 pub mod anonymous_id;
+#[cfg(not(feature = "oss_release"))]
 pub mod auth_manager;
+#[cfg(feature = "oss_release")]
+#[path = "auth_manager_oss.rs"]
+pub mod auth_manager;
+#[cfg(not(feature = "oss_release"))]
 mod auth_override_warning_body;
+#[cfg(not(feature = "oss_release"))]
 pub mod auth_override_warning_modal;
+#[cfg(feature = "oss_release")]
+#[path = "auth_override_warning_modal_oss.rs"]
+pub mod auth_override_warning_modal;
+#[cfg(not(feature = "oss_release"))]
 pub mod auth_state;
+#[cfg(feature = "oss_release")]
+#[path = "auth_state_oss.rs"]
+pub mod auth_state;
+#[cfg(not(feature = "oss_release"))]
 mod auth_view_body;
+#[cfg(not(feature = "oss_release"))]
 pub mod auth_view_modal;
+#[cfg(feature = "oss_release")]
+#[path = "auth_view_modal_oss.rs"]
+pub mod auth_view_modal;
+#[cfg(not(feature = "oss_release"))]
 mod auth_view_shared_helpers;
+#[cfg(not(feature = "oss_release"))]
 pub mod credentials;
+#[cfg(feature = "oss_release")]
+#[path = "credentials_oss.rs"]
+pub mod credentials;
+#[cfg(not(feature = "oss_release"))]
 mod login_error_modal;
+#[cfg(not(feature = "oss_release"))]
 mod login_failure_notification;
+#[cfg(feature = "oss_release")]
+#[path = "login_failure_notification_oss.rs"]
+mod login_failure_notification;
+#[cfg(not(feature = "oss_release"))]
 pub mod login_slide;
+#[cfg(feature = "oss_release")]
+#[path = "login_slide_oss.rs"]
+pub mod login_slide;
+#[cfg(not(feature = "oss_release"))]
 pub mod needs_sso_link_view;
+#[cfg(feature = "oss_release")]
+#[path = "needs_sso_link_view_oss.rs"]
+pub mod needs_sso_link_view;
+#[cfg(not(feature = "oss_release"))]
 pub mod paste_auth_token_modal;
+#[cfg(feature = "oss_release")]
+#[path = "paste_auth_token_modal_oss.rs"]
+pub mod paste_auth_token_modal;
+#[cfg(not(feature = "oss_release"))]
+pub mod user;
+#[cfg(feature = "oss_release")]
+#[path = "user_oss.rs"]
 pub mod user;
 pub mod user_uid;
 #[cfg(target_family = "wasm")]
@@ -60,10 +104,15 @@ use crate::{report_if_error, send_telemetry_sync_from_app_ctx};
 pub const API_KEY_PREFIX: &str = "wk-";
 
 pub fn init(app: &mut AppContext) {
+    #[cfg(not(feature = "oss_release"))]
     auth_view_modal::init(app);
+    #[cfg(not(feature = "oss_release"))]
     auth_view_body::init(app);
+    #[cfg(not(feature = "oss_release"))]
     auth_override_warning_body::init(app);
+    #[cfg(not(feature = "oss_release"))]
     login_slide::init(app);
+    #[cfg(not(feature = "oss_release"))]
     paste_auth_token_modal::init(app);
 }
 

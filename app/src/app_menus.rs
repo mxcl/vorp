@@ -70,8 +70,11 @@ pub fn menu_bar(ctx: &mut AppContext) -> MenuBar {
         make_new_blocks_menu(ctx),
     ];
 
+    #[cfg(not(feature = "oss_release"))]
     if !crate::terminal_only::is_enabled() {
         menus.push(make_new_ai_menu(ctx));
+    }
+    if !crate::terminal_only::is_enabled() {
         menus.push(make_new_drive_menu(ctx));
     }
 
@@ -392,6 +395,7 @@ fn make_new_view_menu(ctx: &AppContext) -> Menu {
             updateable_custom_item_without_checkmark(CustomAction::NavigationPalette, ctx),
             updateable_custom_item_without_checkmark(CustomAction::LaunchConfigPalette, ctx),
             updateable_custom_item_without_checkmark(CustomAction::FilesPalette, ctx),
+            #[cfg(not(feature = "oss_release"))]
             updateable_custom_item_without_checkmark(CustomAction::ToggleConversationListView, ctx),
             updateable_custom_item_without_checkmark(CustomAction::ToggleProjectExplorer, ctx),
             updateable_custom_item_without_checkmark(CustomAction::ToggleGlobalSearch, ctx),
@@ -527,6 +531,7 @@ fn make_new_tab_menu(ctx: &AppContext) -> Menu {
     Menu::new("Tab", items)
 }
 
+#[cfg(not(feature = "oss_release"))]
 fn make_new_ai_menu(ctx: &AppContext) -> Menu {
     let mut items = vec![updateable_custom_item_without_checkmark(
         CustomAction::NewAgentModePane,
@@ -606,6 +611,7 @@ fn make_new_drive_menu(ctx: &AppContext) -> Menu {
     let mut items = vec![
         updateable_custom_item_without_checkmark(CustomAction::NewPersonalWorkflow, ctx),
         updateable_custom_item_without_checkmark(CustomAction::NewPersonalNotebook, ctx),
+        #[cfg(not(feature = "oss_release"))]
         updateable_custom_item_without_checkmark(CustomAction::NewPersonalAIPrompt, ctx),
     ];
     items.push(updateable_custom_item_without_checkmark(
@@ -616,6 +622,7 @@ fn make_new_drive_menu(ctx: &AppContext) -> Menu {
         MenuItem::Separator,
         updateable_custom_item_without_checkmark(CustomAction::NewTeamWorkflow, ctx),
         updateable_custom_item_without_checkmark(CustomAction::NewTeamNotebook, ctx),
+        #[cfg(not(feature = "oss_release"))]
         updateable_custom_item_without_checkmark(CustomAction::NewTeamAIPrompt, ctx),
     ]);
     items.push(updateable_custom_item_without_checkmark(
@@ -627,7 +634,9 @@ fn make_new_drive_menu(ctx: &AppContext) -> Menu {
         updateable_custom_item_without_checkmark(CustomAction::ToggleWarpDrive, ctx),
         updateable_custom_item_without_checkmark(CustomAction::SearchDrive, ctx),
         updateable_custom_item_without_checkmark(CustomAction::OpenTeamSettings, ctx),
+        #[cfg(not(feature = "oss_release"))]
         updateable_custom_item_without_checkmark(CustomAction::OpenAIFactCollection, ctx),
+        #[cfg(not(feature = "oss_release"))]
         updateable_custom_item_without_checkmark(CustomAction::OpenMCPServerCollection, ctx),
     ]);
 
@@ -1010,6 +1019,7 @@ fn make_new_elements_menu_items(ctx: &AppContext) -> Vec<MenuItem> {
         )),
     ];
 
+    #[cfg(not(feature = "oss_release"))]
     if !crate::terminal_only::is_enabled() {
         new_elements_menu.extend([
             MenuItem::Custom(CustomMenuItem::new(
@@ -1102,6 +1112,7 @@ fn open_new_default_tab_or_window(ctx: &mut AppContext) {
 
 /// Dispatch events to open an agent tab in the active window
 /// or make a new window if there is no active window.
+#[cfg(not(feature = "oss_release"))]
 fn open_new_agent_tab_or_window(ctx: &mut AppContext) {
     if let Some(wid) = WindowManager::handle(ctx).as_ref(ctx).active_window() {
         ctx.dispatch_custom_action(CustomAction::NewAgentTab, wid)

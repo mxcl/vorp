@@ -5,6 +5,7 @@ use itertools::Itertools;
 use lazy_static::lazy_static;
 use pathfinder_color::ColorU;
 use string_offset::{ByteOffset, CharOffset};
+#[cfg(feature = "notebook_syntax_highlighting")]
 use syntect::{
     easy::HighlightLines,
     highlighting::{self, Theme, ThemeSet},
@@ -39,6 +40,8 @@ use warpui::{
     WeakModelHandle, WindowId,
 };
 
+#[cfg(feature = "notebook_syntax_highlighting")]
+use crate::Assets;
 use crate::{
     appearance::Appearance,
     completer::SessionAgnosticContext,
@@ -62,7 +65,6 @@ use crate::{
     },
     view_components::{Dropdown, DropdownItem},
     workflows::{workflow::Workflow, WorkflowType},
-    Assets,
 };
 
 use super::{
@@ -113,6 +115,7 @@ impl CachedHighlightColors {
     }
 }
 
+#[cfg(feature = "notebook_syntax_highlighting")]
 struct CodeHighlightResult {
     origin_text: String,
     colors: Vec<(Range<ByteOffset>, AnsiColorIdentifier)>,
@@ -134,6 +137,7 @@ pub struct NotebookCommand {
     syntax_highlighting_handle: Option<SpawnedFutureHandle>,
     cached_highlight_delta: Option<CachedHighlightColors>,
 
+    #[cfg(feature = "notebook_syntax_highlighting")]
     syntax_config: Option<(SyntaxSet, Theme)>,
 
     handle: WeakModelHandle<Self>,
@@ -191,6 +195,7 @@ impl NotebookCommand {
             dropdown
         });
 
+        #[cfg(feature = "notebook_syntax_highlighting")]
         let syntax_config = {
             let ps = SyntaxSet::load_defaults_newlines();
             if let Some(asset) = Assets::get("bundled/syntax_theme/base16.tmTheme") {
@@ -229,6 +234,7 @@ impl NotebookCommand {
             syntax_highlighting_handle: None,
             cached_highlight_delta: None,
             debounce_highlighting_tx,
+            #[cfg(feature = "notebook_syntax_highlighting")]
             syntax_config,
             handle: ctx.handle(),
         };
@@ -308,20 +314,26 @@ impl NotebookCommand {
             // Skip highlighting for default code.
             CodeBlockType::Code { lang } if lang == "text" => (),
             CodeBlockType::Code { lang } => {
-                let Some((syntax_set, syntax_theme)) = self.syntax_config.clone() else {
-                    return;
-                };
+                #[cfg(feature = "notebook_syntax_highlighting")]
+                {
+                    let Some((syntax_set, syntax_theme)) = self.syntax_config.clone() else {
+                        return;
+                    };
 
-                self.syntax_highlighting_handle = Some(ctx.spawn(
-                    parse_code_into_style_ranges(buffer_text, lang, syntax_set, syntax_theme),
-                    |notebook_command, result, ctx| {
-                        notebook_command.update_buffer_with_parsed_code_syntax(result, ctx);
-                    },
-                ));
+                    self.syntax_highlighting_handle = Some(ctx.spawn(
+                        parse_code_into_style_ranges(buffer_text, lang, syntax_set, syntax_theme),
+                        |notebook_command, result, ctx| {
+                            notebook_command.update_buffer_with_parsed_code_syntax(result, ctx);
+                        },
+                    ));
+                }
+                #[cfg(not(feature = "notebook_syntax_highlighting"))]
+                let _ = lang;
             }
         }
     }
 
+    #[cfg(feature = "notebook_syntax_highlighting")]
     fn update_buffer_with_parsed_code_syntax(
         &mut self,
         highlight_result: Option<CodeHighlightResult>,
@@ -724,6 +736,7 @@ impl ChildModelHandle for ModelHandle<NotebookCommand> {
 }
 
 // Parse code into style ranges based on the current ANSI color and language.
+#[cfg(feature = "notebook_syntax_highlighting")]
 async fn parse_code_into_style_ranges(
     buffer_text: String,
     language: String,
@@ -762,6 +775,7 @@ async fn parse_code_into_style_ranges(
 }
 
 // We use base16 theme here so the colors could translate fully to terminal ANSI color.
+#[cfg(feature = "notebook_syntax_highlighting")]
 pub fn to_ansi_color(color: highlighting::Color) -> Option<AnsiColorIdentifier> {
     match color.r {
         0x00 => Some(AnsiColorIdentifier::Black),

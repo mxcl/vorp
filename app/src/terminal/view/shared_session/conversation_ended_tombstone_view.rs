@@ -277,6 +277,7 @@ impl ConversationEndedTombstoneView {
                         },
                         ctx
                     );
+                    #[cfg(not(feature = "oss_release"))]
                     ctx.dispatch_typed_action(&WorkspaceAction::OpenNotebook {
                         id: SyncId::ServerId((*notebook_uid).into()),
                     });

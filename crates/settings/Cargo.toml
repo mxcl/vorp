@@ -25,3 +25,4 @@ warpui_extras = { workspace = true, features = ["user_preferences-toml"] }
 
 [features]
 integration_tests = []
+settings_schema_registry = []

@@ -33,6 +33,7 @@ use super::{
     ManagedSecretValue, ResumePayload, SavePoint, ThirdPartyHarness,
 };
 mod parent_bridge;
+#[cfg(not(feature = "oss_release"))]
 mod wake_driver;
 
 #[cfg(test)]
@@ -51,6 +52,7 @@ use parent_bridge::{MessageBridge, MessageBridgeCleanupDisposition};
 #[cfg(test)]
 use shell_words::quote as shell_quote;
 #[cfg(test)]
+#[cfg(all(test, not(feature = "oss_release")))]
 use wake_driver::{ClaudeWakeRemoteContext, CLAUDE_WAKE_PROMPT_FILE_NAME};
 
 pub(crate) struct ClaudeHarness;

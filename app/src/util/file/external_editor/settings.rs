@@ -115,6 +115,7 @@ define_settings_group!(EditorSettings, settings: [
         toml_path: "code.editor.prefer_tabbed_editor_view",
         description: "Whether to prefer opening files in a tabbed editor view.",
     },
+    #[cfg(not(feature = "oss_release"))]
     open_conversation_layout_preference: OpenConversationLayoutPreference {
         type: OpenConversationPreference,
         default: OpenConversationPreference::NewTab,
@@ -123,6 +124,14 @@ define_settings_group!(EditorSettings, settings: [
         private: false,
         toml_path: "agents.warp_agent.other.open_conversation_layout_preference",
         description: "Whether to open agent conversations in a new tab or a split pane.",
+    },
+    #[cfg(feature = "oss_release")]
+    open_conversation_layout_preference: OpenConversationLayoutPreference {
+        type: OpenConversationPreference,
+        default: OpenConversationPreference::NewTab,
+        supported_platforms: SupportedPlatforms::ALL,
+        sync_to_cloud: SyncToCloud::Never,
+        private: true,
     },
 ]);
 

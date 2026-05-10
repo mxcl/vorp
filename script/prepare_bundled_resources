@@ -58,6 +58,10 @@ if [ -d "$RESOURCES_SRC/bundled" ]; then
   echo "Copying bundled resources to $DEST_DIR/bundled"
   rm -rf "$DEST_DIR/bundled"
   cp -R "$RESOURCES_SRC/bundled" "$DEST_DIR/bundled"
+  if [ "$CHANNEL" = "oss" ]; then
+    echo "Removing bundled AI/MCP skills from OSS resources"
+    rm -rf "$DEST_DIR/bundled/skills" "$DEST_DIR/bundled/mcp_skills"
+  fi
 else
   echo "Warning: No bundled directory found at $RESOURCES_SRC/bundled" >&2
 fi
@@ -141,7 +145,11 @@ if [ "${SKIP_SETTINGS_SCHEMA:-}" != "1" ]; then
     if [ -n "$CARGO_PROFILE" ]; then
       SCHEMA_CMD+=(--profile "$CARGO_PROFILE")
     fi
-    SCHEMA_CMD+=(--manifest-path "$REPO_ROOT/Cargo.toml" --bin generate_settings_schema --)
+    SCHEMA_CMD+=(--manifest-path "$REPO_ROOT/Cargo.toml" --bin generate_settings_schema)
+    if [ "$CHANNEL" = "oss" ]; then
+      SCHEMA_CMD+=(--no-default-features --features release_bundle,extern_plist,oss_release,gui,settings_schema_registry)
+    fi
+    SCHEMA_CMD+=(--)
     if [ -n "$CHANNEL" ]; then
       SCHEMA_CMD+=(--channel "$CHANNEL")
     fi

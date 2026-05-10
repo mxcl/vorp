@@ -8,6 +8,7 @@ use futures::StreamExt;
 use instant::Instant;
 use warpui::r#async::Timer;
 
+use crate::reqwest_eventsource;
 use crate::server::server_api::ai::AgentRunEvent;
 use crate::server::server_api::ServerApi;
 

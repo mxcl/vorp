@@ -22,6 +22,7 @@ use crate::search::data_source::{Query, QueryResult};
 use crate::search::mixer::DataSourceRunErrorWrapper;
 use crate::search::slash_command_menu::fuzzy_match::SlashCommandFuzzyMatchResult;
 use crate::search::slash_command_menu::static_commands::Availability;
+#[cfg(not(feature = "oss_release"))]
 use crate::terminal::cli_agent_sessions::{
     CLIAgentInputState, CLIAgentSessionsModel, CLIAgentSessionsModelEvent,
 };
@@ -33,16 +34,16 @@ use warp_core::ui::Icon as WarpIcon;
 use super::AcceptSlashCommandOrSavedPrompt;
 use crate::{
     ai::blocklist::{
+        BlocklistAIHistoryEvent,
         agent_view::{AgentViewController, AgentViewControllerEvent},
         block::cli_controller::{CLISubagentController, CLISubagentEvent},
-        BlocklistAIHistoryEvent,
     },
     search::{
-        slash_command_menu::{
-            static_commands::commands::{self, COMMAND_REGISTRY},
-            SlashCommandId, StaticCommand,
-        },
         SyncDataSource,
+        slash_command_menu::{
+            SlashCommandId, StaticCommand,
+            static_commands::commands::{self, COMMAND_REGISTRY},
+        },
     },
     settings::{AISettings, AISettingsChangedEvent, InputSettings, InputSettingsChangedEvent},
     terminal::model::session::active_session::{ActiveSession, ActiveSessionEvent},
@@ -128,6 +129,7 @@ impl SlashCommandDataSource {
                 me.recompute_active_commands(ctx);
             }
         });
+        #[cfg(not(feature = "oss_release"))]
         ctx.subscribe_to_model(
             &CLIAgentSessionsModel::handle(ctx),
             move |me, event, ctx| {
@@ -248,6 +250,7 @@ impl SlashCommandDataSource {
             session_context |= Availability::NOT_CLOUD_AGENT;
         }
 
+        #[cfg(not(feature = "oss_release"))]
         let is_orchestration_enabled = AISettings::as_ref(ctx).is_orchestration_enabled(ctx);
 
         // Hide /host when no default host is configured (env var or workspace setting).
@@ -257,7 +260,7 @@ impl SlashCommandDataSource {
             .is_some()
             || UserWorkspaces::as_ref(ctx).default_host_slug().is_some();
 
-        #[cfg(not(target_family = "wasm"))]
+        #[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
         let active_conversation_is_cloud_oz = self.active_conversation_is_cloud_oz(ctx);
 
         let old_active_command_count = self.active_commands_by_id.len();
@@ -266,7 +269,15 @@ impl SlashCommandDataSource {
                 .all_commands_by_id()
                 .filter(|(_, command)| command.is_active(session_context))
                 .filter(|(_, command)| {
-                    command.name != commands::ORCHESTRATE_NAME || is_orchestration_enabled
+                    #[cfg(not(feature = "oss_release"))]
+                    {
+                        command.name != commands::ORCHESTRATE_NAME || is_orchestration_enabled
+                    }
+                    #[cfg(feature = "oss_release")]
+                    {
+                        let _ = command;
+                        true
+                    }
                 })
                 // The static `/feedback` command is an AI-off fallback for the richer bundled
                 // `feedback` skill. Hide it whenever the bundled skill will actually take over,
@@ -279,19 +290,30 @@ impl SlashCommandDataSource {
                 // and non-Oz cloud runs (Claude, Gemini) are filtered out so the slash menu
                 // doesn't surface a no-op command.
                 .filter(|(_, command)| {
-                    #[cfg(not(target_family = "wasm"))]
+                    #[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
                     {
                         command.name != commands::CONTINUE_LOCALLY.name
                             || active_conversation_is_cloud_oz
                     }
-                    #[cfg(target_family = "wasm")]
+                    #[cfg(any(target_family = "wasm", feature = "oss_release"))]
                     {
                         let _ = command;
                         true
                     }
                 })
                 // /host is only useful when a default self-hosted host is configured.
-                .filter(|(_, command)| command.name != commands::HOST.name || has_default_host)
+                .filter(|(_, command)| {
+                    #[cfg(not(feature = "oss_release"))]
+                    {
+                        command.name != commands::HOST.name || has_default_host
+                    }
+                    #[cfg(feature = "oss_release")]
+                    {
+                        let _ = command;
+                        let _ = has_default_host;
+                        true
+                    }
+                })
                 // When CLI agent input is open, restrict to the explicit allowlist.
                 .filter(|(_, command)| {
                     !is_cli_agent_input
@@ -335,7 +357,16 @@ impl SlashCommandDataSource {
 
     /// Returns `true` if the CLI agent rich input is currently open for this terminal.
     pub fn is_cli_agent_input_open(&self, ctx: &AppContext) -> bool {
-        CLIAgentSessionsModel::as_ref(ctx).is_input_open(self.terminal_view_id)
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = ctx;
+            false
+        }
+
+        #[cfg(not(feature = "oss_release"))]
+        {
+            CLIAgentSessionsModel::as_ref(ctx).is_input_open(self.terminal_view_id)
+        }
     }
 
     /// Returns the supported skill providers for the active CLI agent, or `None` if
@@ -344,10 +375,19 @@ impl SlashCommandDataSource {
         &self,
         ctx: &AppContext,
     ) -> Option<&'static [ai::skills::SkillProvider]> {
-        CLIAgentSessionsModel::as_ref(ctx)
-            .session(self.terminal_view_id)
-            .filter(|s| matches!(s.input_state, CLIAgentInputState::Open { .. }))
-            .map(|s| s.agent.supported_skill_providers())
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = ctx;
+            None
+        }
+
+        #[cfg(not(feature = "oss_release"))]
+        {
+            CLIAgentSessionsModel::as_ref(ctx)
+                .session(self.terminal_view_id)
+                .filter(|s| matches!(s.input_state, CLIAgentInputState::Open { .. }))
+                .map(|s| s.agent.supported_skill_providers())
+        }
     }
 
     /// Returns true when the active conversation is associated with a cloud Oz

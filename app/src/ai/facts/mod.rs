@@ -1,21 +1,30 @@
 use crate::ai::agent::SuggestedLoggingId;
-use crate::drive::items::{ai_fact::WarpDriveAIFact, WarpDriveItem};
-use crate::server::{ids::SyncId, sync_queue::QueueItem};
-use crate::{
-    cloud_object::{
-        model::{
-            generic_string_model::{GenericStringModel, GenericStringObjectId, StringModel},
-            json_model::{JsonModel, JsonSerializer},
-        },
-        GenericCloudObject, GenericStringObjectFormat, GenericStringObjectUniqueKey,
-        JsonObjectType, Revision, ServerCloudObject,
+use crate::cloud_object::{
+    model::{
+        generic_string_model::{GenericStringModel, GenericStringObjectId, StringModel},
+        json_model::{JsonModel, JsonSerializer},
     },
-    drive::CloudObjectTypeAndId,
+    GenericCloudObject, GenericStringObjectFormat, GenericStringObjectUniqueKey, JsonObjectType,
+    Revision, ServerCloudObject,
 };
+#[cfg(not(feature = "oss_release"))]
+use crate::drive::items::ai_fact::WarpDriveAIFact;
+use crate::drive::items::WarpDriveItem;
+#[cfg(not(feature = "oss_release"))]
+use crate::drive::CloudObjectTypeAndId;
+use crate::server::{ids::SyncId, sync_queue::QueueItem};
 use serde::{Deserialize, Serialize};
 use warp_core::ui::appearance::Appearance;
 
+#[cfg(not(feature = "oss_release"))]
 pub mod manager;
+#[cfg(feature = "oss_release")]
+#[path = "manager_oss.rs"]
+pub mod manager;
+#[cfg(not(feature = "oss_release"))]
+pub mod view;
+#[cfg(feature = "oss_release")]
+#[path = "view_oss.rs"]
 pub mod view;
 pub use manager::AIFactManager;
 pub use view::{AIFactView, AIFactViewEvent};
@@ -111,13 +120,22 @@ impl StringModel for AIFact {
         _appearance: &Appearance,
         ai_fact: &CloudAIFact,
     ) -> Option<Box<dyn WarpDriveItem>> {
-        Some(Box::new(WarpDriveAIFact::new(
-            CloudObjectTypeAndId::GenericStringObject {
-                object_type: GenericStringObjectFormat::Json(JsonObjectType::AIFact),
-                id,
-            },
-            ai_fact.clone(),
-        )))
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = (id, ai_fact);
+            None
+        }
+
+        #[cfg(not(feature = "oss_release"))]
+        {
+            Some(Box::new(WarpDriveAIFact::new(
+                CloudObjectTypeAndId::GenericStringObject {
+                    object_type: GenericStringObjectFormat::Json(JsonObjectType::AIFact),
+                    id,
+                },
+                ai_fact.clone(),
+            )))
+        }
     }
 }
 

@@ -3,6 +3,10 @@
 //! the Blocklist (between blocks) while app banners are pinned to the top of the window.
 mod agent_mode_setup;
 mod alias_expansion;
+#[cfg(not(feature = "oss_release"))]
+mod anonymous_user_ai_sign_up;
+#[cfg(feature = "oss_release")]
+#[path = "anonymous_user_ai_sign_up_oss.rs"]
 mod anonymous_user_ai_sign_up;
 mod aws_bedrock_login;
 mod aws_cli_not_installed;

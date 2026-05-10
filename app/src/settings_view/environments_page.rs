@@ -51,7 +51,7 @@ use std::collections::HashMap;
 use warp_core::ui::color::blend::Blend;
 use warp_core::ui::theme::color::internal_colors;
 use warp_editor::editor::NavigationKey;
-use warp_graphql::scalars::time::ServerTimestamp;
+use crate::server::timestamp::ServerTimestamp;
 use warpui::{
     elements::{
         Align, Border, ChildAnchor, Clipped, ConstrainedBox, Container, CornerRadius,
@@ -77,8 +77,10 @@ use new_environment_button::NewEnvironmentButtonView;
 #[cfg(not(target_family = "wasm"))]
 #[allow(unused_imports)] // IntegrationsClient trait is used in fetch_github_repos
 use {
-    crate::server::server_api::{integrations::IntegrationsClient, ServerApiProvider},
-    warp_graphql::queries::user_github_info::UserGithubInfoResult,
+    crate::server::server_api::{
+        integrations::{IntegrationsClient, UserGithubInfoResult},
+        ServerApiProvider,
+    },
 };
 
 const PAGE_TITLE_TEXT: &str = "Environments";
@@ -1450,8 +1452,7 @@ impl EnvironmentsPageWidget {
                 icon: Icon::Github,
                 title: "Quick setup",
                 badge: Some("Suggested"),
-                subtitle:
-                    "Select the GitHub repositories you’d like to work with and we’ll suggest a base image and config",
+                subtitle: "Select the GitHub repositories you’d like to work with and we’ll suggest a base image and config",
                 action_button: github_button,
                 compact_action_button: github_button_compact,
                 icon_size,
@@ -1464,8 +1465,7 @@ impl EnvironmentsPageWidget {
                 icon: Icon::Terminal,
                 title: "Use the agent",
                 badge: None,
-                subtitle:
-                    "Choose a locally set up project and we’ll help you set up an environment based on it",
+                subtitle: "Choose a locally set up project and we’ll help you set up an environment based on it",
                 action_button: local_repos_button,
                 compact_action_button: local_repos_button_compact,
                 icon_size,

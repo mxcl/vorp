@@ -3,26 +3,27 @@ use std::{
     io::{self, IsTerminal as _, Read},
 };
 
+use crate::warp_managed_secrets::{
+    client::SecretOwner, ManagedSecret, ManagedSecretManager, ManagedSecretOwnerType,
+    ManagedSecretType, ManagedSecretValue,
+};
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use comfy_table::Cell;
 use inquire::{Confirm, InquireError, Password};
 use serde::Serialize;
+#[cfg(not(feature = "oss_release"))]
+use warp_cli::secret::{AnthropicMethod, CreateProvider};
 use warp_cli::{
     agent::OutputFormat,
     scope::ObjectScope,
     secret::{
-        AnthropicMethod, CreateProvider, CreateSecretArgs, DeleteSecretArgs, ListSecretsArgs,
-        SecretCommand, SecretType, UpdateSecretArgs, ValueArgs,
+        CreateSecretArgs, DeleteSecretArgs, ListSecretsArgs, SecretCommand, SecretType,
+        UpdateSecretArgs, ValueArgs,
     },
     GlobalOptions,
 };
 use warp_core::features::FeatureFlag;
-use warp_graphql::{
-    managed_secrets::{ManagedSecret, ManagedSecretType},
-    object::SpaceType,
-};
-use warp_managed_secrets::{client::SecretOwner, ManagedSecretManager, ManagedSecretValue};
 use warpui::{platform::TerminationMode, AppContext, SingletonEntity as _};
 
 use crate::{
@@ -94,11 +95,13 @@ enum SecretInput {
         value_args: ValueArgs,
     },
     /// Multi-field Bedrock API key secret with dedicated CLI flags.
+    #[cfg(not(feature = "oss_release"))]
     Bedrock {
         bedrock_api_key: Option<String>,
         region: Option<String>,
     },
     /// Multi-field Bedrock access key secret with dedicated CLI flags.
+    #[cfg(not(feature = "oss_release"))]
     BedrockAccessKey {
         access_key_id: Option<String>,
         secret_access_key: Option<String>,
@@ -122,10 +125,12 @@ impl SecretInput {
                 };
                 Ok(Some(make_simple_secret_value(secret_type, &raw)))
             }
+            #[cfg(not(feature = "oss_release"))]
             SecretInput::Bedrock {
                 bedrock_api_key,
                 region,
             } => read_bedrock_secret_value(bedrock_api_key, region),
+            #[cfg(not(feature = "oss_release"))]
             SecretInput::BedrockAccessKey {
                 access_key_id,
                 secret_access_key,
@@ -144,55 +149,68 @@ impl SecretInput {
 /// Create a new secret. Dispatches to the provider subcommand if present.
 fn create_secret(ctx: &mut AppContext, args: CreateSecretArgs) -> Result<()> {
     // Resolve provider subcommand into common fields plus a deferred value reader.
-    let (name, input, description, scope) = match args.provider {
-        Some(CreateProvider::Anthropic(anthropic)) => match anthropic.method {
-            AnthropicMethod::ApiKey(a) => (
-                a.common.name,
-                SecretInput::Simple {
-                    secret_type: SecretType::AnthropicApiKey,
-                    value_args: a.value,
+    let (name, input, description, scope) = {
+        #[cfg(not(feature = "oss_release"))]
+        {
+            match args.provider {
+                Some(CreateProvider::Anthropic(anthropic)) => match anthropic.method {
+                    AnthropicMethod::ApiKey(a) => (
+                        a.common.name,
+                        SecretInput::Simple {
+                            secret_type: SecretType::AnthropicApiKey,
+                            value_args: a.value,
+                        },
+                        a.common.description,
+                        a.common.scope,
+                    ),
+                    AnthropicMethod::BedrockApiKey(a) => (
+                        a.common.name,
+                        SecretInput::Bedrock {
+                            bedrock_api_key: a.bedrock_api_key,
+                            region: a.region,
+                        },
+                        a.common.description,
+                        a.common.scope,
+                    ),
+                    AnthropicMethod::BedrockAccessKey(a) => (
+                        a.common.name,
+                        SecretInput::BedrockAccessKey {
+                            access_key_id: a.access_key_id,
+                            secret_access_key: a.secret_access_key,
+                            session_token: a.session_token,
+                            region: a.region,
+                        },
+                        a.common.description,
+                        a.common.scope,
+                    ),
                 },
-                a.common.description,
-                a.common.scope,
-            ),
-            AnthropicMethod::BedrockApiKey(a) => (
-                a.common.name,
-                SecretInput::Bedrock {
-                    bedrock_api_key: a.bedrock_api_key,
-                    region: a.region,
-                },
-                a.common.description,
-                a.common.scope,
-            ),
-            AnthropicMethod::BedrockAccessKey(a) => (
-                a.common.name,
-                SecretInput::BedrockAccessKey {
-                    access_key_id: a.access_key_id,
-                    secret_access_key: a.secret_access_key,
-                    session_token: a.session_token,
-                    region: a.region,
-                },
-                a.common.description,
-                a.common.scope,
-            ),
-        },
-        None => {
-            let name = args.name.ok_or_else(|| {
-                anyhow::anyhow!("Secret name is required. Usage: oz secret create <NAME>")
-            })?;
-            (
-                name,
-                SecretInput::Simple {
-                    secret_type: args.secret_type,
-                    value_args: args.value,
-                },
-                args.description,
-                args.scope,
-            )
+                None => simple_create_secret_args(args)?,
+            }
+        }
+        #[cfg(feature = "oss_release")]
+        {
+            simple_create_secret_args(args)?
         }
     };
 
     create_secret_with_input(ctx, name, input, description, scope)
+}
+
+fn simple_create_secret_args(
+    args: CreateSecretArgs,
+) -> Result<(String, SecretInput, Option<String>, ObjectScope)> {
+    let name = args.name.ok_or_else(|| {
+        anyhow::anyhow!("Secret name is required. Usage: oz secret create <NAME>")
+    })?;
+    Ok((
+        name,
+        SecretInput::Simple {
+            secret_type: args.secret_type,
+            value_args: args.value,
+        },
+        args.description,
+        args.scope,
+    ))
 }
 
 /// Shared creation logic: refreshes metadata, resolves the owner, reads the secret value, and
@@ -481,11 +499,13 @@ fn list_secrets(
             Ok(secrets) => {
                 let secret_infos = secrets.into_iter().map(|secret| {
                     let owner = match secret.owner.type_ {
-                        SpaceType::User => Owner::User {
-                            user_uid: UserUid::new(secret.owner.uid.inner()),
+                        ManagedSecretOwnerType::User => Owner::User {
+                            user_uid: UserUid::new(managed_secret_owner_uid(&secret.owner)),
                         },
-                        SpaceType::Team => Owner::Team {
-                            team_uid: ServerId::from_string_lossy(secret.owner.uid.inner()),
+                        ManagedSecretOwnerType::Team => Owner::Team {
+                            team_uid: ServerId::from_string_lossy(managed_secret_owner_uid(
+                                &secret.owner,
+                            )),
                         },
                     };
 
@@ -551,7 +571,9 @@ fn read_simple_secret_value(args: &ValueArgs) -> Result<Option<String>> {
 fn make_simple_secret_value(secret_type: SecretType, raw: &str) -> ManagedSecretValue {
     match secret_type {
         SecretType::RawValue => ManagedSecretValue::raw_value(raw),
+        #[cfg(not(feature = "oss_release"))]
         SecretType::AnthropicApiKey => ManagedSecretValue::anthropic_api_key(raw),
+        #[cfg(not(feature = "oss_release"))]
         SecretType::AnthropicBedrockApiKey => {
             // Bedrock secrets are multi-field and handled via SecretInput::Bedrock.
             unreachable!("Bedrock secrets should not go through make_simple_secret_value")
@@ -569,13 +591,16 @@ fn make_secret_value_from_gql_type(
         ManagedSecretType::RawValue | ManagedSecretType::Dotenvx => {
             Ok(ManagedSecretValue::raw_value(raw))
         }
+        #[cfg(not(feature = "oss_release"))]
         ManagedSecretType::AnthropicApiKey => Ok(ManagedSecretValue::anthropic_api_key(raw)),
+        #[cfg(not(feature = "oss_release"))]
         ManagedSecretType::AnthropicBedrockAccessKey => {
             // Bedrock access key secrets cannot be updated through the generic raw-string path.
             Err(anyhow::anyhow!(
                 "Bedrock access key secrets cannot be updated via `--value`; re-create the secret instead"
             ))
         }
+        #[cfg(not(feature = "oss_release"))]
         ManagedSecretType::AnthropicBedrockApiKey => {
             // Bedrock secrets cannot be updated through the generic raw-string path.
             // The caller should use the dedicated Bedrock creation flow instead.
@@ -587,6 +612,7 @@ fn make_secret_value_from_gql_type(
 }
 
 /// Read a Bedrock API key secret from dedicated CLI flags or interactive prompts.
+#[cfg(not(feature = "oss_release"))]
 fn read_bedrock_secret_value(
     bedrock_api_key: Option<String>,
     region: Option<String>,
@@ -644,6 +670,7 @@ fn read_bedrock_secret_value(
 /// `session_token` is optional: if the user passes an empty `--session-token`
 /// value or hits Enter at the interactive prompt, no session token is stored.
 /// This supports persistent IAM credentials, which do not require a session token.
+#[cfg(not(feature = "oss_release"))]
 fn read_bedrock_access_key_secret_value(
     access_key_id: Option<String>,
     secret_access_key: Option<String>,
@@ -756,21 +783,38 @@ fn find_secret_type(
         .find(|s| {
             s.name == name
                 && match owner {
-                    SecretOwner::CurrentUser => matches!(s.owner.type_, SpaceType::User),
+                    SecretOwner::CurrentUser => {
+                        matches!(s.owner.type_, ManagedSecretOwnerType::User)
+                    }
                     SecretOwner::Team { team_uid } => {
-                        matches!(s.owner.type_, SpaceType::Team) && s.owner.uid.inner() == team_uid
+                        matches!(s.owner.type_, ManagedSecretOwnerType::Team)
+                            && managed_secret_owner_uid(&s.owner) == team_uid
                     }
                 }
         })
         .map(|s| s.type_)
 }
 
+fn managed_secret_owner_uid(owner: &crate::warp_managed_secrets::ManagedSecretOwner) -> &str {
+    #[cfg(feature = "warp_managed_secrets")]
+    {
+        owner.uid.inner()
+    }
+    #[cfg(not(feature = "warp_managed_secrets"))]
+    {
+        &owner.uid
+    }
+}
+
 fn format_secret_type(type_: &ManagedSecretType) -> String {
     match type_ {
         ManagedSecretType::RawValue => "Raw Value".to_string(),
         ManagedSecretType::Dotenvx => "dotenvx".to_string(),
+        #[cfg(not(feature = "oss_release"))]
         ManagedSecretType::AnthropicApiKey => "Anthropic API Key".to_string(),
+        #[cfg(not(feature = "oss_release"))]
         ManagedSecretType::AnthropicBedrockAccessKey => "Anthropic Bedrock Access Key".to_string(),
+        #[cfg(not(feature = "oss_release"))]
         ManagedSecretType::AnthropicBedrockApiKey => "Anthropic Bedrock API Key".to_string(),
     }
 }

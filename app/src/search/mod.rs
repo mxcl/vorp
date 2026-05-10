@@ -1,4 +1,8 @@
 pub mod action;
+#[cfg(not(feature = "oss_release"))]
+pub mod ai_context_menu;
+#[cfg(feature = "oss_release")]
+#[path = "ai_context_menu_oss.rs"]
 pub mod ai_context_menu;
 mod ai_queries;
 pub(crate) mod async_snapshot_data_source;
@@ -13,12 +17,14 @@ mod filter_chip_renderer;
 pub mod item;
 pub mod macros;
 pub mod mixer;
+#[cfg(not(feature = "oss_release"))]
 pub mod notebook_embedding;
 mod notebooks;
 mod palette_styles;
 pub mod result_renderer;
 mod search_bar;
 pub mod search_results_menu;
+#[cfg(all(not(target_family = "wasm"), feature = "use_tantivy_search"))]
 pub mod searcher;
 pub mod slash_command_menu;
 pub mod welcome_palette;

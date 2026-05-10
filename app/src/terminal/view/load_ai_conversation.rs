@@ -10,7 +10,9 @@ use crate::ai::blocklist::agent_view::{
     AgentViewEntryBlockParams, AgentViewEntryOrigin, DismissalStrategy, EphemeralMessage,
 };
 use crate::ai::blocklist::block::cli_controller::CLISubagentController;
-use crate::ai::blocklist::history_model::{CLIAgentConversation, CloudConversationData};
+#[cfg(not(feature = "oss_release"))]
+use crate::ai::blocklist::history_model::CLIAgentConversation;
+use crate::ai::blocklist::history_model::CloudConversationData;
 use crate::ai::blocklist::BlocklistAIContextModel;
 use crate::terminal::input::message_bar::Message as InputMessage;
 use crate::terminal::input::message_bar::MessageItem;
@@ -115,6 +117,7 @@ pub enum ConversationRestorationInNewPaneType {
     },
 
     /// Load a CLI agent conversation from its downloaded snapshot.
+    #[cfg(not(feature = "oss_release"))]
     HistoricalCLIAgent {
         conversation: CLIAgentConversation,
         should_use_live_appearance: bool,
@@ -137,7 +140,9 @@ impl ConversationRestorationInNewPaneType {
             Self::Forked {
                 has_initial_query, ..
             } => !has_initial_query,
-            Self::Historical { .. } | Self::HistoricalCLIAgent { .. } => true,
+            Self::Historical { .. } => true,
+            #[cfg(not(feature = "oss_release"))]
+            Self::HistoricalCLIAgent { .. } => true,
         }
     }
 
@@ -148,8 +153,9 @@ impl ConversationRestorationInNewPaneType {
             Self::Historical {
                 should_use_live_appearance,
                 ..
-            }
-            | Self::HistoricalCLIAgent {
+            } => FeatureFlag::AgentView.is_enabled() || *should_use_live_appearance,
+            #[cfg(not(feature = "oss_release"))]
+            Self::HistoricalCLIAgent {
                 should_use_live_appearance,
                 ..
             } => FeatureFlag::AgentView.is_enabled() || *should_use_live_appearance,
@@ -163,6 +169,7 @@ impl ConversationRestorationInNewPaneType {
             Self::Historical { conversation, .. } | Self::Forked { conversation, .. } => {
                 conversation.initial_working_directory()
             }
+            #[cfg(not(feature = "oss_release"))]
             Self::HistoricalCLIAgent { conversation, .. } => {
                 conversation.metadata.working_directory.clone()
             }
@@ -277,12 +284,18 @@ impl TerminalView {
                         );
                     }
                     CloudConversationData::CLIAgent(cli_conversation) => {
-                        if FeatureFlag::AgentHarness.is_enabled() {
-                            me.restore_cli_agent_block_snapshot(cli_conversation.block);
-                        } else {
-                            log::warn!(
+                        #[cfg(feature = "oss_release")]
+                        let _ = cli_conversation;
+
+                        #[cfg(not(feature = "oss_release"))]
+                        {
+                            if FeatureFlag::AgentHarness.is_enabled() {
+                                me.restore_cli_agent_block_snapshot(cli_conversation.block);
+                            } else {
+                                log::warn!(
                                 "AgentHarness flag is disabled; ignoring CLI agent block snapshot"
                             );
+                            }
                         }
                     }
                 }
@@ -658,6 +671,7 @@ impl TerminalView {
             ConversationRestorationInNewPaneType::Forked { conversation, .. } => {
                 vec![RestoredAIConversation::new(conversation)]
             }
+            #[cfg(not(feature = "oss_release"))]
             ConversationRestorationInNewPaneType::HistoricalCLIAgent { conversation, .. } => {
                 if FeatureFlag::AgentHarness.is_enabled() {
                     self.restore_cli_agent_block_snapshot(conversation.block);

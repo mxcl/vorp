@@ -5,7 +5,10 @@ use crate::{
         document::ai_document_model::AIDocumentId,
         execution_profiles::AIExecutionProfile,
         facts::AIFact,
-        mcp::{MCPServer, TemplatableMCPServer},
+        mcp::{
+            gallery::{MCPJsonTemplate, MCPTemplateVariable},
+            MCPGalleryTemplate, MCPServer, TemplatableMCPServer,
+        },
     },
     channel::ChannelState,
     cloud_object::{
@@ -23,6 +26,7 @@ use crate::{
         ObjectPermissionUpdateResult, ObjectPermissionsUpdateData, ObjectType, ObjectsToUpdate,
         Owner, Revision, RevisionAndLastEditor, ServerCloudObject, ServerFolder, ServerMetadata,
         ServerNotebook, ServerObject, ServerPermissions, ServerWorkflow, UpdateCloudObjectResult,
+        UpdatedObjectVersions, AccessLevel,
     },
     drive::{folders::FolderId, sharing::SharingAccessLevel},
     env_vars::EnvVarCollection,
@@ -50,6 +54,7 @@ use cynic::{MutationBuilder, QueryBuilder, SubscriptionBuilder};
 use mockall::{automock, predicate::*};
 use std::collections::HashMap;
 use warp_core::report_error;
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::{
     error::UserFacingErrorInterface,
     generic_string_object::GenericStringObjectInput,
@@ -136,7 +141,6 @@ use warp_graphql::{
     },
     notebook::{UpdateNotebookEditAccessInput, UpdateNotebookEditAccessResult},
     object::CloudObjectWithDescendants,
-    object_permissions::AccessLevel,
     queries::{
         get_cloud_environments::{
             GetCloudEnvironmentsQuery, GetCloudEnvironmentsQueryVariables,
@@ -154,6 +158,19 @@ use warp_graphql::{
         get_warp_drive_updates::GetWarpDriveUpdates, start_graphql_streaming_operation,
     },
 };
+
+#[cfg(not(feature = "oss_release"))]
+fn updated_object_input(
+    input: UpdatedObjectVersions,
+) -> warp_graphql::queries::get_updated_cloud_objects::UpdatedObjectInput {
+    warp_graphql::queries::get_updated_cloud_objects::UpdatedObjectInput {
+        uid: input.uid.into(),
+        actions_ts: input.actions_ts.map(Into::into),
+        metadata_ts: input.metadata_ts.map(Into::into),
+        permissions_ts: input.permissions_ts.map(Into::into),
+        revision_ts: input.revision_ts.into(),
+    }
+}
 
 /// Identifies a guest to remove from an object.
 #[derive(Clone, Debug)]
@@ -333,6 +350,7 @@ pub trait ObjectClient: 'static + Send + Sync {
 
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(not(feature = "oss_release"))]
 impl ObjectClient for ServerApi {
     async fn create_workflow(
         &self,
@@ -366,7 +384,7 @@ impl ObjectClient for ServerApi {
                             revision: output.revision_ts.into(),
                             last_editor_uid: metadata.last_editor_uid.map(|uid| uid.into_inner()),
                         },
-                        metadata_ts: metadata.metadata_last_updated_ts,
+                        metadata_ts: metadata.metadata_last_updated_ts.into(),
                         server_id_and_type: ServerIdAndType {
                             id: workflow_id.to_server_id(),
                             id_type: ObjectIdType::Workflow,
@@ -476,7 +494,7 @@ impl ObjectClient for ServerApi {
                                     .last_editor_uid
                                     .map(|uid| uid.into_inner()),
                             },
-                            metadata_ts: metadata.metadata_last_updated_ts,
+                            metadata_ts: metadata.metadata_last_updated_ts.into(),
                             server_id_and_type: ServerIdAndType {
                                 id: object_id.to_server_id(),
                                 id_type: ObjectIdType::GenericStringObject,
@@ -545,7 +563,7 @@ impl ObjectClient for ServerApi {
                             revision: output.revision_ts.into(),
                             last_editor_uid: metadata.last_editor_uid.map(|uid| uid.into_inner()),
                         },
-                        metadata_ts: metadata.metadata_last_updated_ts,
+                        metadata_ts: metadata.metadata_last_updated_ts.into(),
                         server_id_and_type: ServerIdAndType {
                             id: gso_id.to_server_id(),
                             id_type: ObjectIdType::GenericStringObject,
@@ -612,7 +630,7 @@ impl ObjectClient for ServerApi {
                             revision: output.revision_ts.into(),
                             last_editor_uid: metadata.last_editor_uid.map(|uid| uid.into_inner()),
                         },
-                        metadata_ts: metadata.metadata_last_updated_ts,
+                        metadata_ts: metadata.metadata_last_updated_ts.into(),
                         server_id_and_type: ServerIdAndType {
                             id: notebook_id.to_server_id(),
                             id_type: ObjectIdType::Notebook,
@@ -704,7 +722,7 @@ impl ObjectClient for ServerApi {
                             revision: metadata.revision_ts.into(),
                             last_editor_uid: metadata.last_editor_uid.map(|uid| uid.into_inner()),
                         },
-                        metadata_ts: metadata.metadata_last_updated_ts,
+                        metadata_ts: metadata.metadata_last_updated_ts.into(),
                         server_id_and_type: ServerIdAndType {
                             id: folder_id.to_server_id(),
                             id_type: ObjectIdType::Folder,
@@ -886,11 +904,35 @@ impl ObjectClient for ServerApi {
 
         let variables = GetUpdatedCloudObjectsVariables {
             input: UpdatedCloudObjectsInput {
-                folders: Some(objects_to_update.folders),
+                folders: Some(
+                    objects_to_update
+                        .folders
+                        .into_iter()
+                        .map(updated_object_input)
+                        .collect(),
+                ),
                 force_refresh,
-                generic_string_objects: Some(objects_to_update.generic_string_objects),
-                notebooks: Some(objects_to_update.notebooks),
-                workflows: Some(objects_to_update.workflows),
+                generic_string_objects: Some(
+                    objects_to_update
+                        .generic_string_objects
+                        .into_iter()
+                        .map(updated_object_input)
+                        .collect(),
+                ),
+                notebooks: Some(
+                    objects_to_update
+                        .notebooks
+                        .into_iter()
+                        .map(updated_object_input)
+                        .collect(),
+                ),
+                workflows: Some(
+                    objects_to_update
+                        .workflows
+                        .into_iter()
+                        .map(updated_object_input)
+                        .collect(),
+                ),
             },
             request_context: get_request_context(),
         };
@@ -1140,7 +1182,15 @@ impl ObjectClient for ServerApi {
                     })
                     .unwrap_or_default();
 
-                let mcp_gallery = output.mcp_gallery.unwrap_or_default();
+                let mcp_gallery = output
+                    .mcp_gallery
+                    .map(|templates| {
+                        templates
+                            .into_iter()
+                            .map(mcp_gallery_template)
+                            .collect()
+                    })
+                    .unwrap_or_default();
 
                 let response = InitialLoadResponse {
                     updated_notebooks,
@@ -1447,7 +1497,7 @@ impl ObjectClient for ServerApi {
         let variables = SetObjectLinkPermissionsVariables {
             input: SetObjectLinkPermissionsInput {
                 uid: cynic::Id::new(object_id),
-                access_level: access_level.into(),
+                access_level: AccessLevel::from(access_level).into(),
             },
             request_context: get_request_context(),
         };
@@ -1502,7 +1552,7 @@ impl ObjectClient for ServerApi {
         let variables = AddObjectGuestsVariables {
             input: AddObjectGuestsInput {
                 object_uid: cynic::Id::new(object_id),
-                access_level,
+                access_level: access_level.into(),
                 user_emails: guest_emails,
             },
             request_context: get_request_context(),
@@ -1543,7 +1593,7 @@ impl ObjectClient for ServerApi {
         let variables = UpdateObjectGuestsVariables {
             input: UpdateObjectGuestsInput {
                 object_uid: cynic::Id::new(object_id),
-                access_level,
+                access_level: access_level.into(),
                 emails: Some(guest_emails),
             },
             request_context: get_request_context(),
@@ -1632,6 +1682,7 @@ impl ObjectClient for ServerApi {
 
 /// Parse the serialized model for a GSO and add it to the format-specific entry in `map`,
 /// or report an error if parsing fails.
+#[cfg(not(feature = "oss_release"))]
 fn parse_server_gso<T, S>(
     map: &mut HashMap<GenericStringObjectFormat, Vec<Box<dyn ServerObject>>>,
     format: GenericStringObjectFormat,
@@ -1651,5 +1702,275 @@ fn parse_server_gso<T, S>(
             map.entry(format).or_default().push(Box::new(object));
         }
         Err(err) => report_error!(err.context(format!("Failed to convert {format:?} {uid}"))),
+    }
+}
+
+#[cfg(not(feature = "oss_release"))]
+fn mcp_gallery_template(
+    template: warp_graphql::mcp_gallery_template::MCPGalleryTemplate,
+) -> MCPGalleryTemplate {
+    MCPGalleryTemplate {
+        description: template.description,
+        gallery_item_id: template.gallery_item_id,
+        instructions_in_markdown: template.instructions_in_markdown,
+        json_template: MCPJsonTemplate {
+            json: template.json_template.json,
+            variables: template
+                .json_template
+                .variables
+                .into_iter()
+                .map(|variable| MCPTemplateVariable {
+                    key: variable.key,
+                    allowed_values: variable.allowed_values,
+                })
+                .collect(),
+        },
+        template: template.template,
+        title: template.title,
+        version: template.version,
+    }
+}
+
+#[cfg(feature = "oss_release")]
+fn cloud_objects_unavailable<T>() -> Result<T> {
+    Err(anyhow!(
+        "Cloud object server APIs are not available in this build"
+    ))
+}
+
+#[cfg(feature = "oss_release")]
+fn cloud_object_create_unavailable() -> CreateCloudObjectResult {
+    CreateCloudObjectResult::UserFacingError(
+        "Cloud object server APIs are not available in this build".to_string(),
+    )
+}
+
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(feature = "oss_release")]
+impl ObjectClient for ServerApi {
+    async fn create_workflow(
+        &self,
+        _request: CreateObjectRequest,
+    ) -> Result<CreateCloudObjectResult> {
+        Ok(cloud_object_create_unavailable())
+    }
+
+    async fn update_workflow(
+        &self,
+        _workflow_id: WorkflowId,
+        _data: SerializedModel,
+        _revision: Option<Revision>,
+    ) -> Result<UpdateCloudObjectResult<ServerWorkflow>> {
+        cloud_objects_unavailable()
+    }
+
+    async fn bulk_create_generic_string_objects(
+        &self,
+        _owner: Owner,
+        _objects: &[BulkCreateGenericStringObjectsRequest],
+    ) -> Result<BulkCreateCloudObjectResult> {
+        Ok(BulkCreateCloudObjectResult::Success {
+            created_cloud_objects: Vec::new(),
+        })
+    }
+
+    async fn create_generic_string_object(
+        &self,
+        _format: GenericStringObjectFormat,
+        _uniqueness_key: Option<GenericStringObjectUniqueKey>,
+        _request: CreateObjectRequest,
+    ) -> Result<CreateCloudObjectResult> {
+        Ok(cloud_object_create_unavailable())
+    }
+
+    async fn create_notebook(
+        &self,
+        _request: CreateObjectRequest,
+    ) -> Result<CreateCloudObjectResult> {
+        Ok(cloud_object_create_unavailable())
+    }
+
+    async fn update_notebook(
+        &self,
+        _notebook_id: NotebookId,
+        _title: Option<String>,
+        _data: Option<SerializedModel>,
+        _revision: Option<Revision>,
+    ) -> Result<UpdateCloudObjectResult<ServerNotebook>> {
+        cloud_objects_unavailable()
+    }
+
+    async fn create_folder(
+        &self,
+        _request: CreateObjectRequest,
+    ) -> Result<CreateCloudObjectResult> {
+        Ok(cloud_object_create_unavailable())
+    }
+
+    async fn update_folder(
+        &self,
+        _folder_id: FolderId,
+        _name: SerializedModel,
+    ) -> Result<UpdateCloudObjectResult<ServerFolder>> {
+        cloud_objects_unavailable()
+    }
+
+    async fn update_generic_string_object(
+        &self,
+        _object_id: GenericStringObjectId,
+        _model: SerializedModel,
+        _revision: Option<Revision>,
+    ) -> Result<UpdateCloudObjectResult<Box<dyn ServerObject>>> {
+        cloud_objects_unavailable()
+    }
+
+    async fn grab_notebook_edit_access(&self, _notebook_id: NotebookId) -> Result<ServerMetadata> {
+        cloud_objects_unavailable()
+    }
+
+    async fn give_up_notebook_edit_access(
+        &self,
+        _notebook_id: NotebookId,
+    ) -> Result<ServerMetadata> {
+        cloud_objects_unavailable()
+    }
+
+    async fn get_warp_drive_updates(
+        &self,
+        _message_sender: Sender<ObjectUpdateMessage>,
+        stream_ready_sender: Sender<()>,
+    ) -> Result<()> {
+        let _ = stream_ready_sender.send(()).await;
+        Ok(())
+    }
+
+    async fn fetch_changed_objects(
+        &self,
+        _objects_to_update: ObjectsToUpdate,
+        _force_refresh: bool,
+    ) -> Result<InitialLoadResponse> {
+        Ok(InitialLoadResponse::default())
+    }
+
+    async fn fetch_single_cloud_object(&self, _id: ServerId) -> Result<GetCloudObjectResponse> {
+        cloud_objects_unavailable()
+    }
+
+    async fn transfer_notebook_owner(
+        &self,
+        _notebook_id: NotebookId,
+        _owner: Owner,
+    ) -> Result<bool> {
+        Ok(false)
+    }
+
+    async fn transfer_workflow_owner(
+        &self,
+        _workflow_id: WorkflowId,
+        _owner: Owner,
+    ) -> Result<bool> {
+        Ok(false)
+    }
+
+    async fn transfer_generic_string_object_owner(
+        &self,
+        _workflow_id: GenericStringObjectId,
+        _owner: Owner,
+    ) -> Result<bool> {
+        Ok(false)
+    }
+
+    async fn trash_object(&self, _id: ServerId) -> Result<bool> {
+        Ok(false)
+    }
+
+    async fn untrash_object(&self, _id: ServerId) -> Result<ObjectMetadataUpdateResult> {
+        Ok(ObjectMetadataUpdateResult::Failure)
+    }
+
+    async fn delete_object(&self, id: ServerId) -> Result<ObjectDeleteResult> {
+        Ok(ObjectDeleteResult::Success {
+            deleted_ids: vec![SyncId::ServerId(id)],
+        })
+    }
+
+    async fn empty_trash(&self, _owner: Owner) -> Result<ObjectDeleteResult> {
+        Ok(ObjectDeleteResult::Success {
+            deleted_ids: Vec::new(),
+        })
+    }
+
+    async fn move_object(
+        &self,
+        _id: ServerId,
+        _folder_id: Option<FolderId>,
+        _owner: Owner,
+        _object_type: ObjectType,
+    ) -> Result<bool> {
+        Ok(false)
+    }
+
+    async fn record_object_action(
+        &self,
+        _id: ServerId,
+        _action_type: ObjectActionType,
+        _timestamp: DateTime<Utc>,
+        _data: Option<String>,
+    ) -> Result<ObjectActionHistory> {
+        cloud_objects_unavailable()
+    }
+
+    async fn leave_object(&self, id: ServerId) -> Result<ObjectDeleteResult> {
+        Ok(ObjectDeleteResult::Success {
+            deleted_ids: vec![SyncId::ServerId(id)],
+        })
+    }
+
+    async fn set_object_link_permissions(
+        &self,
+        _object_id: ServerId,
+        _access_level: SharingAccessLevel,
+    ) -> Result<ObjectPermissionUpdateResult> {
+        Ok(ObjectPermissionUpdateResult::Failure)
+    }
+
+    async fn remove_object_link_permissions(
+        &self,
+        _object_id: ServerId,
+    ) -> Result<ObjectPermissionUpdateResult> {
+        Ok(ObjectPermissionUpdateResult::Failure)
+    }
+
+    async fn add_object_guests(
+        &self,
+        _object_id: ServerId,
+        _guest_emails: Vec<String>,
+        _access_level: AccessLevel,
+    ) -> Result<ObjectPermissionsUpdateData> {
+        cloud_objects_unavailable()
+    }
+
+    async fn update_object_guests(
+        &self,
+        _object_id: ServerId,
+        _guest_emails: Vec<String>,
+        _access_level: AccessLevel,
+    ) -> Result<ServerPermissions> {
+        cloud_objects_unavailable()
+    }
+
+    async fn remove_object_guest(
+        &self,
+        _object_id: ServerId,
+        _guest: GuestIdentifier,
+    ) -> Result<ServerPermissions> {
+        cloud_objects_unavailable()
+    }
+
+    async fn fetch_environment_last_task_run_timestamps(
+        &self,
+    ) -> Result<HashMap<String, DateTime<Utc>>> {
+        Ok(HashMap::new())
     }
 }

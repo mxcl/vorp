@@ -27,6 +27,10 @@ use super::llms::{LLMContextWindow, LLMId, LLMPreferences};
 
 pub const PROFILE_NAME_MAX_LENGTH: usize = 50;
 
+#[cfg(not(feature = "oss_release"))]
+pub mod editor;
+#[cfg(feature = "oss_release")]
+#[path = "editor_oss.rs"]
 pub mod editor;
 pub mod model_menu_items;
 pub mod profiles;

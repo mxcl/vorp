@@ -10,6 +10,29 @@ use uuid::Uuid;
 use warpui::{Entity, ModelContext, SingletonEntity};
 
 #[derive(Clone, Debug)]
+pub struct MCPTemplateVariable {
+    pub key: String,
+    pub allowed_values: Option<Vec<String>>,
+}
+
+#[derive(Clone, Debug)]
+pub struct MCPJsonTemplate {
+    pub json: String,
+    pub variables: Vec<MCPTemplateVariable>,
+}
+
+#[derive(Clone, Debug)]
+pub struct MCPGalleryTemplate {
+    pub description: String,
+    pub gallery_item_id: String,
+    pub instructions_in_markdown: Option<String>,
+    pub json_template: MCPJsonTemplate,
+    pub template: String,
+    pub title: String,
+    pub version: i32,
+}
+
+#[derive(Clone, Debug)]
 pub struct GalleryMCPServer {
     uuid: Uuid,
     title: String,
@@ -130,7 +153,7 @@ impl MCPGalleryManager {
     /// Update gallery items from the server response
     pub fn update_gallery_items(
         &mut self,
-        templates: Vec<warp_graphql::mcp_gallery_template::MCPGalleryTemplate>,
+        templates: Vec<MCPGalleryTemplate>,
         ctx: &mut ModelContext<Self>,
     ) {
         let mut gallery_items = HashMap::new();

@@ -1,4 +1,8 @@
 mod accessibility;
+#[cfg(not(feature = "oss_release"))]
+pub mod ai;
+#[cfg(feature = "oss_release")]
+#[path = "ai_oss.rs"]
 pub mod ai;
 mod alias_expansion;
 pub mod app_icon;

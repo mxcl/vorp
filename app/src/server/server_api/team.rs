@@ -5,63 +5,82 @@ use crate::workspaces::team::{DiscoverableTeam, MembershipRole};
 use crate::workspaces::workspace::Workspace;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+#[cfg(not(feature = "oss_release"))]
 use cynic::{MutationBuilder, QueryBuilder};
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::add_invite_link_domain_restriction::{
     AddInviteLinkDomainRestriction, AddInviteLinkDomainRestrictionInput,
     AddInviteLinkDomainRestrictionResult, AddInviteLinkDomainRestrictionVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::create_team::{
     CreateTeam, CreateTeamInput, CreateTeamResult, CreateTeamVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::delete_invite_link_domain_restriction::{
     DeleteInviteLinkDomainRestriction, DeleteInviteLinkDomainRestrictionInput,
     DeleteInviteLinkDomainRestrictionResult, DeleteInviteLinkDomainRestrictionVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::delete_team_invite::{
     DeleteTeamInvite, DeleteTeamInviteInput, DeleteTeamInviteResult, DeleteTeamInviteVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::join_team_with_team_discovery::{
     JoinTeamWithTeamDiscovery, JoinTeamWithTeamDiscoveryInput, JoinTeamWithTeamDiscoveryResult,
     JoinTeamWithTeamDiscoveryVariables, TeamDiscoveryEntrypoint,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::remove_user_from_team::{
     RemoveUserFromTeam, RemoveUserFromTeamInput, RemoveUserFromTeamResult,
     RemoveUserFromTeamVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::rename_team::{
     RenameTeam, RenameTeamInput, RenameTeamResult, RenameTeamVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::reset_invite_links::{
     ResetInviteLinks, ResetInviteLinksInput, ResetInviteLinksResult, ResetInviteLinksVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::send_team_invite_email::{
     SendTeamInviteEmail, SendTeamInviteEmailInput, SendTeamInviteEmailResult,
     SendTeamInviteEmailVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::set_is_invite_link_enabled::{
     SetIsInviteLinkEnabled, SetIsInviteLinkEnabledInput, SetIsInviteLinkEnabledResult,
     SetIsInviteLinkEnabledVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::set_team_discoverability::{
     SetTeamDiscoverability, SetTeamDiscoverabilityInput, SetTeamDiscoverabilityResult,
     SetTeamDiscoverabilityVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::set_team_member_role::{
     SetTeamMemberRole, SetTeamMemberRoleInput, SetTeamMemberRoleResult, SetTeamMemberRoleVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::transfer_team_ownership::{
     TransferTeamOwnership, TransferTeamOwnershipInput, TransferTeamOwnershipResult,
     TransferTeamOwnershipVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::queries::get_discoverable_teams::{
     GetDiscoverableTeams, GetDiscoverableTeamsVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::queries::get_workspaces_metadata_for_user::{
     GetWorkspacesMetadataForUser, GetWorkspacesMetadataForUserVariables, PricingInfoResult,
 };
 
+#[cfg(not(feature = "oss_release"))]
 use crate::server::graphql::{get_request_context, get_user_facing_error_message};
 use crate::server::ids::ServerId;
+#[cfg(feature = "oss_release")]
+use crate::workspaces::user_workspaces::WorkspacesMetadataResponse;
 use crate::workspaces::user_workspaces::{CreateTeamResponse, WorkspacesMetadataWithPricing};
 
 #[cfg(test)]
@@ -166,6 +185,7 @@ pub trait TeamClient: 'static + Send + Sync {
 
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(not(feature = "oss_release"))]
 impl TeamClient for ServerApi {
     async fn workspaces_metadata(&self) -> Result<WorkspacesMetadataWithPricing> {
         let variables = GetWorkspacesMetadataForUserVariables {
@@ -222,12 +242,12 @@ impl TeamClient for ServerApi {
                 }
             }
             AddInviteLinkDomainRestrictionResult::UserFacingError(user_facing_error) => {
-                return Err(anyhow!(get_user_facing_error_message(user_facing_error)))
+                return Err(anyhow!(get_user_facing_error_message(user_facing_error)));
             }
             AddInviteLinkDomainRestrictionResult::Unknown => {
                 return Err(anyhow!(
                     "unknown error while adding invite link domain restriction"
-                ))
+                ));
             }
         }
 
@@ -261,12 +281,12 @@ impl TeamClient for ServerApi {
                 }
             }
             DeleteInviteLinkDomainRestrictionResult::UserFacingError(user_facing_error) => {
-                return Err(anyhow!(get_user_facing_error_message(user_facing_error)))
+                return Err(anyhow!(get_user_facing_error_message(user_facing_error)));
             }
             DeleteInviteLinkDomainRestrictionResult::Unknown => {
                 return Err(anyhow!(
                     "unknown error while deleting invite link domain restriction"
-                ))
+                ));
             }
         }
 
@@ -724,5 +744,149 @@ impl TeamClient for ServerApi {
                 Err(anyhow!("unknown error while setting team member role"))
             }
         }
+    }
+}
+
+#[cfg(feature = "oss_release")]
+fn empty_workspaces_metadata() -> WorkspacesMetadataWithPricing {
+    WorkspacesMetadataWithPricing {
+        metadata: WorkspacesMetadataResponse {
+            workspaces: Vec::new(),
+            joinable_teams: Vec::new(),
+            experiments: None,
+            feature_model_choices: None,
+        },
+        pricing_info: None,
+    }
+}
+
+#[cfg(feature = "oss_release")]
+fn team_unavailable<T>() -> Result<T> {
+    Err(anyhow!("Team server APIs are not available in this build"))
+}
+
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(feature = "oss_release")]
+impl TeamClient for ServerApi {
+    async fn workspaces_metadata(&self) -> Result<WorkspacesMetadataWithPricing> {
+        Ok(empty_workspaces_metadata())
+    }
+
+    async fn add_invite_link_domain_restriction(
+        &self,
+        _team_uid: ServerId,
+        _domain: String,
+    ) -> Result<WorkspacesMetadataWithPricing> {
+        Ok(empty_workspaces_metadata())
+    }
+
+    async fn delete_invite_link_domain_restriction(
+        &self,
+        _team_uid: ServerId,
+        _domain_uid: ServerId,
+    ) -> Result<WorkspacesMetadataWithPricing> {
+        Ok(empty_workspaces_metadata())
+    }
+
+    async fn create_team(
+        &self,
+        _name: String,
+        _entrypoint: CloudObjectEventEntrypoint,
+        _discoverable: Option<bool>,
+    ) -> Result<CreateTeamResponse> {
+        team_unavailable()
+    }
+
+    async fn remove_user_from_team(
+        &self,
+        _user_uid: UserUid,
+        _team_uid: ServerId,
+        _entrypoint: CloudObjectEventEntrypoint,
+    ) -> Result<WorkspacesMetadataWithPricing> {
+        Ok(empty_workspaces_metadata())
+    }
+
+    async fn leave_team(
+        &self,
+        _user_uid: UserUid,
+        _team_uid: ServerId,
+        _entrypoint: CloudObjectEventEntrypoint,
+    ) -> Result<WorkspacesMetadataWithPricing> {
+        Ok(empty_workspaces_metadata())
+    }
+
+    async fn join_team_with_team_discovery(
+        &self,
+        _team_uid: ServerId,
+    ) -> Result<WorkspacesMetadataWithPricing> {
+        Ok(empty_workspaces_metadata())
+    }
+
+    async fn send_team_invite_email(
+        &self,
+        _team_uid: ServerId,
+        _email: String,
+    ) -> Result<WorkspacesMetadataWithPricing> {
+        Ok(empty_workspaces_metadata())
+    }
+
+    async fn delete_team_invite(
+        &self,
+        _team_uid: ServerId,
+        _email: String,
+    ) -> Result<WorkspacesMetadataWithPricing> {
+        Ok(empty_workspaces_metadata())
+    }
+
+    async fn get_discoverable_teams(&self) -> Result<Vec<DiscoverableTeam>> {
+        Ok(Vec::new())
+    }
+
+    async fn rename_team(
+        &self,
+        _new_name: String,
+        _team_uid: ServerId,
+    ) -> Result<WorkspacesMetadataWithPricing> {
+        Ok(empty_workspaces_metadata())
+    }
+
+    async fn reset_invite_links(
+        &self,
+        _team_uid: ServerId,
+    ) -> Result<WorkspacesMetadataWithPricing> {
+        Ok(empty_workspaces_metadata())
+    }
+
+    async fn set_is_invite_link_enabled(
+        &self,
+        _team_uid: ServerId,
+        _new_value: bool,
+    ) -> Result<WorkspacesMetadataWithPricing> {
+        Ok(empty_workspaces_metadata())
+    }
+
+    async fn set_team_discoverability(
+        &self,
+        _team_uid: ServerId,
+        _discoverable: bool,
+    ) -> Result<WorkspacesMetadataWithPricing> {
+        Ok(empty_workspaces_metadata())
+    }
+
+    async fn transfer_team_ownership(
+        &self,
+        _new_owner_email: String,
+    ) -> Result<WorkspacesMetadataWithPricing> {
+        Ok(empty_workspaces_metadata())
+    }
+
+    async fn set_team_member_role(
+        &self,
+        _user_uid: UserUid,
+        _team_uid: ServerId,
+        _role: MembershipRole,
+    ) -> Result<WorkspacesMetadataWithPricing> {
+        Ok(empty_workspaces_metadata())
     }
 }

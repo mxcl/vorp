@@ -26,12 +26,14 @@ use crate::ai::{
         SavePoint, ThirdPartyHarness,
     },
 };
+use crate::server::server_api::ai::AgentTaskState;
 use crate::terminal::cli_agent_sessions::plugin_manager::{
     plugin_manager_for, CliAgentPluginManager,
 };
 use crate::terminal::cli_agent_sessions::{
     CLIAgentSessionStatus, CLIAgentSessionsModel, CLIAgentSessionsModelEvent,
 };
+use crate::warp_managed_secrets::ManagedSecretValue;
 use crate::{
     ai::{
         agent::{
@@ -85,8 +87,6 @@ use warp_cli::agent::{Harness, OutputFormat};
 use warp_cli::mcp::MCPSpec;
 use warp_cli::share::ShareRequest;
 use warp_core::{features::FeatureFlag, report_error, report_if_error, safe_debug, safe_info};
-use warp_graphql::ai::AgentTaskState;
-use warp_managed_secrets::ManagedSecretValue;
 use warpui::{
     r#async::{FutureExt, TimeoutError},
     AppContext, Entity, ModelContext, ModelHandle, ModelSpawner, SingletonEntity,
@@ -544,9 +544,11 @@ impl AgentDriver {
         for (name, secret) in &secrets {
             let (env_name, env_value) = match secret {
                 ManagedSecretValue::RawValue { value } => (name.as_str(), value.as_str()),
+                #[cfg(not(feature = "oss_release"))]
                 ManagedSecretValue::AnthropicApiKey { api_key } => {
                     ("ANTHROPIC_API_KEY", api_key.as_str())
                 }
+                #[cfg(not(feature = "oss_release"))]
                 ManagedSecretValue::AnthropicBedrockAccessKey {
                     aws_access_key_id,
                     aws_secret_access_key,
@@ -576,6 +578,7 @@ impl AgentDriver {
                     }
                     continue; // Skip the single-var insert below since we handled all vars inline.
                 }
+                #[cfg(not(feature = "oss_release"))]
                 ManagedSecretValue::AnthropicBedrockApiKey {
                     aws_bearer_token_bedrock,
                     aws_region,

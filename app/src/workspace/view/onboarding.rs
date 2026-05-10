@@ -88,6 +88,11 @@ impl Workspace {
         tutorial: OnboardingTutorial,
         ctx: &mut ViewContext<Self>,
     ) {
+        if cfg!(feature = "oss_release") {
+            let _ = (tutorial, ctx);
+            return;
+        }
+
         // Onboarding requires a real user to interact with it; skip when running
         // in a headless mode like the SDK/CLI.
         if !AppExecutionMode::as_ref(ctx).can_show_onboarding() {
@@ -150,6 +155,11 @@ impl Workspace {
         intention: OnboardingIntention,
         ctx: &mut ViewContext<Self>,
     ) {
+        if cfg!(feature = "oss_release") {
+            let _ = (has_project, intention, ctx);
+            return;
+        }
+
         // Onboarding requires a real user to interact with it; skip when running
         // in a headless mode like the SDK/CLI.
         if !AppExecutionMode::as_ref(ctx).can_show_onboarding() {
@@ -215,6 +225,11 @@ impl Workspace {
         intention: OnboardingIntention,
         ctx: &mut ViewContext<Self>,
     ) {
+        if cfg!(feature = "oss_release") {
+            let _ = (intention, ctx);
+            return;
+        }
+
         let Some(terminal_view_handle) = self.active_session_view(ctx) else {
             log::warn!("No active terminal view for post-setup onboarding tutorial");
             return;
@@ -251,6 +266,11 @@ impl Workspace {
     }
 
     pub(crate) fn should_show_agent_onboarding(&self, ctx: &mut ViewContext<Self>) -> bool {
+        if cfg!(feature = "oss_release") {
+            let _ = ctx;
+            return false;
+        }
+
         if crate::terminal_only::is_enabled() {
             return false;
         }

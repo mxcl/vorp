@@ -13,12 +13,16 @@ use super::{
     CloudObjectTypeAndId, DriveObjectType,
 };
 
+#[cfg(not(feature = "oss_release"))]
 pub mod ai_fact;
+#[cfg(not(feature = "oss_release"))]
 pub mod ai_fact_collection;
 pub mod env_var_collection;
 pub mod folder;
 pub mod item;
+#[cfg(not(feature = "oss_release"))]
 pub mod mcp_server;
+#[cfg(not(feature = "oss_release"))]
 pub mod mcp_server_collection;
 pub mod notebook;
 pub mod space;

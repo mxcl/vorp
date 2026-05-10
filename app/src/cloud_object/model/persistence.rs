@@ -21,10 +21,10 @@ use crate::workflows::workflow_enum::{CloudWorkflowEnum, CloudWorkflowEnumModel,
 use crate::workflows::{CloudWorkflow, CloudWorkflowModel};
 use crate::workspaces::user_workspaces::UserWorkspaces;
 
+use crate::server::timestamp::ServerTimestamp;
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::sync::mpsc::SyncSender;
-use warp_graphql::scalars::time::ServerTimestamp;
 
 use warpui::{AppContext, Entity, ModelContext, SingletonEntity};
 
@@ -533,6 +533,7 @@ impl CloudModel {
             ServerCloudObject::ScheduledAmbientAgent(scheduled_ambient_agent) => {
                 self.upsert_from_server_object(scheduled_ambient_agent, ctx);
             }
+            #[cfg(not(feature = "oss_release"))]
             ServerCloudObject::CloudAgentConfig(cloud_agent_config) => {
                 self.upsert_from_server_object(cloud_agent_config, ctx);
             }

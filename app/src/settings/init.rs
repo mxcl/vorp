@@ -3,8 +3,9 @@ use warp_core::features::FeatureFlag;
 use warpui::{rendering::GPUPowerPreference, AppContext, SingletonEntity};
 use warpui_extras::user_preferences;
 
+#[cfg(not(feature = "oss_release"))]
+use crate::ai::cloud_agent_settings::CloudAgentSettings;
 use crate::{
-    ai::cloud_agent_settings::CloudAgentSettings,
     appearance,
     banner::BannerState,
     drive::settings::WarpDriveSettings,
@@ -74,6 +75,7 @@ pub fn register_all_settings(ctx: &mut AppContext) {
     ChangelogSettings::register(ctx);
     GeneralSettings::register(ctx);
     AISettings::register_and_subscribe_to_events(ctx);
+    #[cfg(not(feature = "oss_release"))]
     CloudAgentSettings::register(ctx);
     ScrollSettings::register(ctx);
     SelectionSettings::register(ctx);

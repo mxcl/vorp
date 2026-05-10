@@ -6,6 +6,7 @@ use crate::settings::ai::DefaultSessionMode;
 use crate::settings::{AISettings, CodeSettings};
 use crate::workspace::tab_settings::TabSettings;
 use crate::workspaces::user_workspaces::UserWorkspaces;
+use ai::LLMId;
 use onboarding::slides::{AgentAutonomy, AgentDevelopmentSettings};
 use onboarding::{SelectedSettings, SessionDefault, UICustomizationSettings};
 use settings::Setting as _;
@@ -40,9 +41,12 @@ pub fn apply_onboarding_settings(selected_settings: &SelectedSettings, app: &mut
                     apply_ui_customization_settings(ui, false, app);
                 }
                 AISettings::handle(app).update(app, |settings, ctx| {
+                    #[cfg(not(feature = "oss_release"))]
                     report_if_error!(settings
                         .should_render_cli_agent_footer
                         .set_value(*cli_agent_toolbar_enabled, ctx));
+                    #[cfg(feature = "oss_release")]
+                    let _ = cli_agent_toolbar_enabled;
                     report_if_error!(settings
                         .show_agent_notifications
                         .set_value(*show_agent_notifications, ctx));
@@ -121,9 +125,12 @@ fn apply_agent_settings(agent_settings: &AgentDevelopmentSettings, app: &mut App
     let workspace_autonomy_settings = UserWorkspaces::as_ref(app).ai_autonomy_settings();
 
     AISettings::handle(app).update(app, |settings, ctx| {
+        #[cfg(not(feature = "oss_release"))]
         report_if_error!(settings
             .should_render_cli_agent_footer
             .set_value(agent_settings.cli_agent_toolbar_enabled, ctx));
+        #[cfg(feature = "oss_release")]
+        let _ = agent_settings.cli_agent_toolbar_enabled;
         report_if_error!(settings
             .show_agent_notifications
             .set_value(agent_settings.show_agent_notifications, ctx));
@@ -153,7 +160,7 @@ fn apply_agent_settings(agent_settings: &AgentDevelopmentSettings, app: &mut App
 
         profiles.set_base_model(
             default_profile_id,
-            Some(agent_settings.selected_model_id.clone()),
+            Some(LLMId::from(agent_settings.selected_model_id.as_str())),
             ctx,
         );
 

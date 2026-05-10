@@ -91,6 +91,7 @@ impl ZeroState {
             {
                 valid_filters.push(QueryFilter::AgentModeWorkflows);
             }
+            #[cfg(not(feature = "oss_release"))]
             valid_filters.push(QueryFilter::Notebooks);
 
             valid_filters.push(QueryFilter::EnvironmentVariables);

@@ -22,6 +22,10 @@ use crate::view_components::DismissibleToast;
 use crate::workspace::ToastStack;
 use crate::workspace::WorkspaceAction;
 
+#[cfg(not(feature = "oss_release"))]
+pub mod buttons;
+#[cfg(feature = "oss_release")]
+#[path = "buttons_oss.rs"]
 pub mod buttons;
 pub use buttons::{ArtifactButtonsRow, ArtifactButtonsRowEvent};
 
@@ -208,6 +212,7 @@ impl From<api::message::artifact_event::PlanArtifact> for Artifact {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl TryFrom<warp_graphql::ai::AIConversationArtifact> for Artifact {
     type Error = ();
 

@@ -12,6 +12,7 @@ use lazy_static::lazy_static;
 use pathfinder_color::ColorU;
 use serde::{Deserialize, Serialize};
 use warp_core::command::ExitCode;
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::{
     ai::{
         RequestLimitInfo as RequestLimitInfoGraphql,
@@ -21,9 +22,22 @@ use warp_graphql::{
 };
 
 pub mod execution_context;
+#[cfg(not(feature = "oss_release"))]
 pub mod panel;
+#[cfg(feature = "oss_release")]
+#[path = "panel_oss.rs"]
+pub mod panel;
+#[cfg(not(feature = "oss_release"))]
 pub mod requests;
+#[cfg(feature = "oss_release")]
+#[path = "requests_oss.rs"]
+pub mod requests;
+#[cfg(not(feature = "oss_release"))]
 pub mod transcript;
+#[cfg(not(feature = "oss_release"))]
+pub mod utils;
+#[cfg(feature = "oss_release")]
+#[path = "utils_oss.rs"]
 pub mod utils;
 
 #[cfg(test)]
@@ -110,6 +124,7 @@ impl From<AIGeneratedCommand> for Workflow {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<GeneratedCommand> for AIGeneratedCommand {
     fn from(value: GeneratedCommand) -> Self {
         AIGeneratedCommand {
@@ -135,6 +150,7 @@ pub enum GenerateCommandsFromNaturalLanguageError {
     Other,
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<GenerateCommandsFailureType> for GenerateCommandsFromNaturalLanguageError {
     fn from(value: GenerateCommandsFailureType) -> Self {
         match value {
@@ -146,6 +162,7 @@ impl From<GenerateCommandsFailureType> for GenerateCommandsFromNaturalLanguageEr
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<RequestLimitRefreshDurationGraphql> for RequestLimitRefreshDuration {
     fn from(value: RequestLimitRefreshDurationGraphql) -> Self {
         match value {
@@ -158,13 +175,14 @@ impl From<RequestLimitRefreshDurationGraphql> for RequestLimitRefreshDuration {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<RequestLimitInfoGraphql> for RequestLimitInfo {
     fn from(value: RequestLimitInfoGraphql) -> Self {
         RequestLimitInfo {
             is_unlimited: value.is_unlimited,
             limit: value.request_limit as usize,
             num_requests_used_since_refresh: value.requests_used_since_last_refresh as usize,
-            next_refresh_time: value.next_refresh_time,
+            next_refresh_time: value.next_refresh_time.into(),
             request_limit_refresh_duration: value.request_limit_refresh_duration.into(),
             is_unlimited_voice: value.is_unlimited_voice,
             voice_request_limit: value.voice_request_limit as usize,

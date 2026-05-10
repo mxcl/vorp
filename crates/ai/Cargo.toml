@@ -6,10 +6,25 @@ publish.workspace = true
 license.workspace = true
 
 [features]
+default = ["computer_use_runtime", "graphql_runtime", "mcp_model_types"]
+computer_use_runtime = ["dep:computer_use"]
+graphql_runtime = ["dep:warp_graphql"]
 jemalloc = []
-local_fs = []
+local_fs = [
+    "dep:async-fs",
+    "dep:arborium",
+    "graphql_runtime",
+    "dep:languages",
+    "dep:notify-debouncer-full",
+    "dep:repo_metadata",
+    "dep:syntax_tree",
+    "dep:watcher",
+    "tokio/rt-multi-thread",
+]
 test-util = []
 crash_reporting = ["dep:sentry"]
+mcp_model_types = ["dep:rmcp"]
+oss_release = []
 
 [dependencies]
 async-channel.workspace = true
@@ -17,7 +32,7 @@ async-trait.workspace = true
 bincode.workspace = true
 bytes.workspace = true
 cfg-if.workspace = true
-computer_use.workspace = true
+computer_use = { workspace = true, optional = true }
 dunce.workspace = true
 prost-types.workspace = true
 serde.workspace = true
@@ -40,12 +55,12 @@ strum.workspace = true
 strum_macros.workspace = true
 warpui.workspace = true
 warpui_extras = { workspace = true, features = ["default"] }
-warp_graphql.workspace = true
+warp_graphql = { workspace = true, optional = true }
 warp_multi_agent_api.workspace = true
 dirs.workspace = true
 lazy_static.workspace = true
 regex.workspace = true
-rmcp.workspace = true
+rmcp = { workspace = true, optional = true }
 sha2 = "0.10.8"
 strsim.workspace = true
 thiserror.workspace = true
@@ -59,7 +74,7 @@ warp_util.workspace = true
 chrono.workspace = true
 persistence.workspace = true
 priority-queue = "2.3.1"
-repo_metadata.workspace = true
+repo_metadata = { workspace = true, optional = true }
 uuid.workspace = true
 unicode-width.workspace = true
 
@@ -67,13 +82,12 @@ unicode-width.workspace = true
 nix.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-async-fs.workspace = true
-arborium.workspace = true
-languages.workspace = true
-syntax_tree.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread"] }
-watcher.workspace = true
-notify-debouncer-full.workspace = true
+async-fs = { workspace = true, optional = true }
+arborium = { workspace = true, optional = true }
+languages = { workspace = true, optional = true }
+syntax_tree = { workspace = true, optional = true }
+watcher = { workspace = true, optional = true }
+notify-debouncer-full = { workspace = true, optional = true }
 
 [dev-dependencies]
 filetime = "0.2.25"

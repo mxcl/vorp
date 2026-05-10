@@ -103,7 +103,9 @@ use crate::ai::llms::{LLMPreferences, LLMPreferencesEvent};
 use crate::ai::onboarding::{
     apply_free_tier_default_model_override, build_onboarding_models, current_onboarding_auth_state,
 };
+#[cfg(not(feature = "oss_release"))]
 use crate::pricing::{PricingInfoModel, PricingInfoModelEvent};
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::billing::StripeSubscriptionPlan;
 
 use warpui::elements::{
@@ -361,19 +363,22 @@ pub fn init(app: &mut AppContext) {
         RootView::open_cloud_conversation_in_existing_window,
     );
 
-    app.add_global_action("root_view:create_environment", create_environment);
-    app.add_global_action(
-        "root_view:create_environment_and_run",
-        create_environment_and_run,
-    );
-    app.add_action(
-        "root_view:create_environment_in_existing_window",
-        RootView::create_environment_in_existing_window,
-    );
-    app.add_action(
-        "root_view:create_environment_in_existing_window_and_run",
-        RootView::create_environment_in_existing_window_and_run,
-    );
+    #[cfg(not(feature = "oss_release"))]
+    {
+        app.add_global_action("root_view:create_environment", create_environment);
+        app.add_global_action(
+            "root_view:create_environment_and_run",
+            create_environment_and_run,
+        );
+        app.add_action(
+            "root_view:create_environment_in_existing_window",
+            RootView::create_environment_in_existing_window,
+        );
+        app.add_action(
+            "root_view:create_environment_in_existing_window_and_run",
+            RootView::create_environment_in_existing_window_and_run,
+        );
+    }
     app.add_global_action(
         "root_view:open_drive_object_new_window",
         open_warp_drive_object,
@@ -410,14 +415,17 @@ pub fn init(app: &mut AppContext) {
         RootView::open_mcp_settings_in_existing_window,
     );
 
-    app.add_global_action(
-        "root_view:open_codex_in_new_window",
-        open_codex_in_new_window,
-    );
-    app.add_action(
-        "root_view:open_codex_in_existing_window",
-        RootView::open_codex_in_existing_window,
-    );
+    #[cfg(not(feature = "oss_release"))]
+    {
+        app.add_global_action(
+            "root_view:open_codex_in_new_window",
+            open_codex_in_new_window,
+        );
+        app.add_action(
+            "root_view:open_codex_in_existing_window",
+            RootView::open_codex_in_existing_window,
+        );
+    }
 
     app.add_global_action(
         "root_view:open_linear_issue_work_in_new_window",
@@ -900,6 +908,7 @@ fn open_conversation_viewer(conversation_id: &ServerConversationToken, ctx: &mut
 }
 
 /// Opens a new window and starts the guided `/create-environment` setup flow.
+#[cfg(not(feature = "oss_release"))]
 fn create_environment(arg: &CreateEnvironmentArg, ctx: &mut AppContext) {
     if crate::terminal_only::is_enabled() {
         return;
@@ -937,6 +946,7 @@ fn create_environment(arg: &CreateEnvironmentArg, ctx: &mut AppContext) {
 }
 
 /// Opens a new window and starts the guided `/create-environment` setup flow immediately.
+#[cfg(not(feature = "oss_release"))]
 fn create_environment_and_run(arg: &CreateEnvironmentArg, ctx: &mut AppContext) {
     if crate::terminal_only::is_enabled() {
         return;
@@ -1036,6 +1046,7 @@ fn open_mcp_settings_in_new_window(args: &OpenMCPSettingsArgs, ctx: &mut AppCont
 }
 
 /// Opens a new window and shows the Codex modal.
+#[cfg(not(feature = "oss_release"))]
 fn open_codex_in_new_window(_: &(), ctx: &mut AppContext) {
     if crate::terminal_only::is_enabled() {
         return;
@@ -1605,11 +1616,19 @@ const HAS_COMPLETED_ONBOARDING_KEY: &str = "HasCompletedOnboarding";
 
 /// Returns whether the user has completed the onboarding slides locally (before login).
 pub(crate) fn has_completed_local_onboarding(ctx: &AppContext) -> bool {
-    ctx.private_user_preferences()
-        .read_value(HAS_COMPLETED_ONBOARDING_KEY)
-        .unwrap_or_default()
-        .and_then(|s| serde_json::from_str::<bool>(&s).ok())
-        .unwrap_or(false)
+    #[cfg(feature = "oss_release")]
+    {
+        let _ = ctx;
+        true
+    }
+    #[cfg(not(feature = "oss_release"))]
+    {
+        ctx.private_user_preferences()
+            .read_value(HAS_COMPLETED_ONBOARDING_KEY)
+            .unwrap_or_default()
+            .and_then(|s| serde_json::from_str::<bool>(&s).ok())
+            .unwrap_or(false)
+    }
 }
 
 /// Persists the local onboarding-completed flag so we don't show onboarding again.
@@ -1933,9 +1952,18 @@ impl RootView {
     }
 
     fn build_plan_yearly_price_cents(ctx: &AppContext) -> Option<i32> {
-        PricingInfoModel::as_ref(ctx)
-            .plan_pricing(&StripeSubscriptionPlan::Build)
-            .map(|p| p.yearly_plan_price_per_month_usd_cents)
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = ctx;
+            return None;
+        }
+
+        #[cfg(not(feature = "oss_release"))]
+        {
+            PricingInfoModel::as_ref(ctx)
+                .plan_pricing(&StripeSubscriptionPlan::Build)
+                .map(|p| p.yearly_plan_price_per_month_usd_cents)
+        }
     }
 
     fn create_agent_onboarding_view(
@@ -1975,18 +2003,21 @@ impl RootView {
         });
 
         // Subscribe to pricing updates so the badge stays current.
-        let onboarding_view_for_pricing = onboarding_view.clone();
-        ctx.subscribe_to_model(
-            &PricingInfoModel::handle(ctx),
-            move |_, _, event, ctx| match event {
-                PricingInfoModelEvent::PricingInfoUpdated => {
-                    let cents = Self::build_plan_yearly_price_cents(ctx);
-                    onboarding_view_for_pricing.update(ctx, |view, ctx| {
-                        view.set_agent_price_cents(cents, ctx);
-                    });
-                }
-            },
-        );
+        #[cfg(not(feature = "oss_release"))]
+        {
+            let onboarding_view_for_pricing = onboarding_view.clone();
+            ctx.subscribe_to_model(
+                &PricingInfoModel::handle(ctx),
+                move |_, _, event, ctx| match event {
+                    PricingInfoModelEvent::PricingInfoUpdated => {
+                        let cents = Self::build_plan_yearly_price_cents(ctx);
+                        onboarding_view_for_pricing.update(ctx, |view, ctx| {
+                            view.set_agent_price_cents(cents, ctx);
+                        });
+                    }
+                },
+            );
+        }
 
         let onboarding_view_clone = onboarding_view.clone();
         ctx.subscribe_to_model(
@@ -2693,6 +2724,7 @@ impl RootView {
     }
 
     /// Adds a tab and starts the guided `/create-environment` setup flow.
+    #[cfg(not(feature = "oss_release"))]
     fn create_environment_in_existing_window(
         &mut self,
         arg: &CreateEnvironmentArg,
@@ -2738,6 +2770,7 @@ impl RootView {
     }
 
     /// Adds a tab and starts the guided `/create-environment` setup flow immediately.
+    #[cfg(not(feature = "oss_release"))]
     fn create_environment_in_existing_window_and_run(
         &mut self,
         arg: &CreateEnvironmentArg,
@@ -2924,6 +2957,7 @@ impl RootView {
     }
 
     /// Opens the Codex modal in an existing window.
+    #[cfg(not(feature = "oss_release"))]
     pub fn open_codex_in_existing_window(&mut self, _: &(), ctx: &mut ViewContext<Self>) -> bool {
         if crate::terminal_only::is_enabled() {
             return false;

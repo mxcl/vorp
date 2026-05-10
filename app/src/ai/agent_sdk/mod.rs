@@ -19,8 +19,10 @@ use crate::ai::agent_sdk::mcp_config::build_mcp_servers_from_specs;
 use crate::ai::aws_credentials::refresh_aws_credentials;
 use crate::ai::llms::LLMId;
 use crate::auth::auth_manager::{AuthManager, AuthManagerEvent};
+use crate::auth::credentials::AuthOwnerType;
 use crate::cloud_object::model::persistence::CloudModel;
 use crate::server::server_api::ai::AIClient;
+use crate::warp_managed_secrets::ManagedSecretManager;
 use crate::workflows::workflow::Workflow;
 use ai::api_keys::{ApiKeyManager, AwsCredentialsRefreshStrategy};
 use anyhow::Context;
@@ -44,7 +46,6 @@ use warp_core::features::FeatureFlag;
 use warp_isolation_platform::IsolationPlatformError;
 #[cfg(not(target_family = "wasm"))]
 use warp_logging::log_file_path;
-use warp_managed_secrets::ManagedSecretManager;
 use warpui::ModelSpawner;
 use warpui::{platform::TerminationMode, AppContext, SingletonEntity};
 
@@ -60,14 +61,15 @@ use crate::{
     terminal::view::ConversationRestorationInNewPaneType,
 };
 use driver::AgentDriverError;
-use warp_graphql::object_permissions::OwnerType;
 
 use crate::ai::attachment_utils::attachments_download_dir;
 use crate::ai::skills::{
     clone_repo_for_skill, resolve_skill_spec, ResolveSkillError, ResolvedSkill,
 };
 
-pub(crate) use driver::harness::{task_env_vars, validate_cli_installed, ClaudeHarness};
+#[cfg(not(feature = "oss_release"))]
+pub(crate) use driver::harness::ClaudeHarness;
+pub(crate) use driver::harness::{task_env_vars, validate_cli_installed};
 pub use driver::AgentDriver;
 use telemetry::CliTelemetryEvent;
 use warp_cli::agent::{Harness, Prompt, RunAgentArgs};
@@ -98,6 +100,10 @@ mod provider;
 pub(crate) mod retry;
 mod schedule;
 mod secret;
+#[cfg(not(feature = "oss_release"))]
+mod telemetry;
+#[cfg(feature = "oss_release")]
+#[path = "telemetry_oss.rs"]
 mod telemetry;
 #[cfg(test)]
 mod test_support;
@@ -107,7 +113,7 @@ mod text_layout;
 fn maybe_warn_team_api_key(ctx: &AppContext) {
     let auth_state = AuthStateProvider::handle(ctx).as_ref(ctx).get();
     let owner_type = auth_state.api_key_owner_type();
-    if !matches!(owner_type, Some(OwnerType::Team)) {
+    if !matches!(owner_type, Some(AuthOwnerType::Team)) {
         return;
     }
 

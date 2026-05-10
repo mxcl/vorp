@@ -19,7 +19,7 @@ pub mod text {
             SuggestPromptResult, TodoOperation, UploadArtifactResult, WebFetchStatus,
             WebSearchStatus, WriteToLongRunningShellCommandResult,
         },
-        AIAgentActionResultType,
+        rmcp, AIAgentActionResultType,
     };
 
     /// Format an agent input as a human-readable string. For action results, it's assumed that
@@ -573,7 +573,7 @@ pub mod json {
             SearchCodebaseResult, SubagentCall, TodoOperation, UploadArtifactResult,
             WriteToLongRunningShellCommandResult,
         },
-        AIAgentActionResultType,
+        rmcp, AIAgentActionResultType,
     };
 
     use crate::ai::agent::comment::ReviewComment;

@@ -11,6 +11,12 @@ pub(super) enum AntivirusInfoTelemetryEvent {
 }
 
 impl TelemetryEvent for AntivirusInfoTelemetryEvent {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         AntivirusInfoTelemetryEventDiscriminants::from(self).name()
     }
@@ -23,6 +29,12 @@ impl TelemetryEvent for AntivirusInfoTelemetryEvent {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         AntivirusInfoTelemetryEventDiscriminants::from(self).description()
     }
@@ -37,12 +49,24 @@ impl TelemetryEvent for AntivirusInfoTelemetryEvent {
         }
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
         warp_core::telemetry::enum_events::<Self>()
+    }
+
+    #[cfg(feature = "oss_release")]
+    fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
+        std::iter::empty()
     }
 }
 
 impl TelemetryEventDesc for AntivirusInfoTelemetryEventDiscriminants {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         match self {
             AntivirusInfoTelemetryEventDiscriminants::AntivirusDetected => {
@@ -51,6 +75,12 @@ impl TelemetryEventDesc for AntivirusInfoTelemetryEventDiscriminants {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         match self {
             AntivirusInfoTelemetryEventDiscriminants::AntivirusDetected => {

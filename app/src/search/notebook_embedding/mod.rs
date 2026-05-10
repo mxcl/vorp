@@ -1,6 +1,7 @@
 use crate::cloud_object::{Owner, Space};
 
 mod embedded_fuzzy_match;
+#[cfg(not(feature = "oss_release"))]
 mod notebooks;
 pub mod searcher;
 pub mod view;

@@ -49,6 +49,7 @@ pub enum CommandSearchItemAction {
     AcceptWorkflow(AcceptedWorkflow),
 
     /// The user accepted the notebook search item.
+    #[cfg(not(feature = "oss_release"))]
     AcceptNotebook(SyncId),
 
     /// The user accepted an EVC search item.

@@ -8,6 +8,12 @@ pub enum DefaultSlashCommandBinding {
     PerPlatform(PerPlatformKeystroke),
 }
 
+#[cfg(feature = "oss_release")]
+pub fn default_binding_for_command(_name: &'static str) -> DefaultSlashCommandBinding {
+    DefaultSlashCommandBinding::None
+}
+
+#[cfg(not(feature = "oss_release"))]
 pub fn default_binding_for_command(name: &'static str) -> DefaultSlashCommandBinding {
     match name {
         "/agent" => DefaultSlashCommandBinding::PerPlatform(PerPlatformKeystroke {

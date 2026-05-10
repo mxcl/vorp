@@ -175,6 +175,7 @@ impl AIExecutionProfilesModel {
                         },
                     },
                     // When running as a CLI, we ignore the GUI default and use a more permissive default.
+                    #[cfg(not(feature = "oss_release"))]
                     LaunchMode::CommandLine { is_sandboxed, computer_use_override, .. } => {
                         DefaultProfileState::Cli {
                             profile: AIExecutionProfile::create_default_cli_profile(*is_sandboxed, *computer_use_override),

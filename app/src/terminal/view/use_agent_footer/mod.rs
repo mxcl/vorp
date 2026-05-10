@@ -1086,93 +1086,136 @@ impl UseAgentToolbar {
     ) -> Self {
         let button_size = ButtonSize::XSmall;
 
-        let button = ctx.add_typed_action_view(|ctx| {
-            ActionButton::new(
-                "Use agent",
-                AgentFooterButtonTheme::new(Some(terminal_model.clone())),
-            )
-            .with_icon(Icon::Oz)
-            .with_keybinding(KeystrokeSource::Fixed(USE_AGENT_KEYSTROKE.clone()), ctx)
-            .with_size(button_size)
-            .with_tooltip("Ask the Warp agent to assist")
-            .with_tooltip_alignment(TooltipAlignment::Left)
-            .on_click(|ctx| {
-                ctx.dispatch_typed_action(TerminalAction::SetInputModeAgent);
-            })
-        });
-        let give_control_back_button = ctx.add_typed_action_view(|ctx| {
-            ActionButton::new(
-                "Give control back to agent",
-                AgentFooterButtonTheme::new(Some(terminal_model.clone())),
-            )
-            .with_icon(Icon::Oz)
-            .with_keybinding(KeystrokeSource::Fixed(USE_AGENT_KEYSTROKE.clone()), ctx)
-            .with_size(button_size)
-            .with_tooltip("Ask the Warp agent to resume")
-            .with_tooltip_alignment(TooltipAlignment::Left)
-            .on_click(|ctx| {
-                ctx.dispatch_typed_action(TerminalAction::SetInputModeAgent);
-            })
-        });
-        let dismiss_button = ctx.add_typed_action_view(|_| {
-            ActionButton::new(
-                "Dismiss",
-                AgentFooterButtonTheme::new(Some(terminal_model.clone())),
-            )
-            .on_click(|ctx| {
-                ctx.dispatch_typed_action(UseAgentToolbarAction::Dismiss { permanently: false });
-            })
-            .with_size(button_size)
-        });
-        let dont_show_again_button = ctx.add_typed_action_view(|_| {
-            ActionButton::new(
-                "Don't show again",
-                AgentFooterButtonTheme::new(Some(terminal_model.clone())),
-            )
-            .on_click(|ctx| {
-                ctx.dispatch_typed_action(UseAgentToolbarAction::Dismiss { permanently: true });
-            })
-            .with_size(button_size)
-        });
+        #[cfg(feature = "oss_release")]
+        {
+            let placeholder_button = |ctx: &mut ViewContext<Self>| {
+                ctx.add_typed_action_view(|_| {
+                    ActionButton::new("", AgentFooterButtonTheme::new(None)).with_size(button_size)
+                })
+            };
+            let button = placeholder_button(ctx);
+            let give_control_back_button = placeholder_button(ctx);
+            let dismiss_button = placeholder_button(ctx);
+            let dont_show_again_button = placeholder_button(ctx);
 
-        // Subscribe to agent input footer events to forward CLI-relevant ones.
-        ctx.subscribe_to_view(&agent_input_footer, |me, _, event, ctx| {
-            me.handle_agent_input_footer_event(event, ctx);
-        });
+            let warpify_footer_view = ctx
+                .add_typed_action_view(|ctx| WarpifyFooterView::new(terminal_model.clone(), ctx));
 
-        let warpify_footer_view =
-            ctx.add_typed_action_view(|ctx| WarpifyFooterView::new(terminal_model.clone(), ctx));
+            ctx.subscribe_to_view(&warpify_footer_view, |me, _, event, ctx| {
+                me.handle_warpify_footer_event(event, ctx);
+            });
 
-        ctx.subscribe_to_view(&warpify_footer_view, |me, _, event, ctx| {
-            me.handle_warpify_footer_event(event, ctx);
-        });
+            ctx.subscribe_to_model(model_event_dispatcher, |me, _, event, ctx| {
+                if let ModelEvent::TerminalModeSwapped(..) = event {
+                    me.notify_and_notify_children(ctx);
+                }
+            });
 
-        ctx.subscribe_to_model(model_event_dispatcher, |me, _, event, ctx| {
-            if let ModelEvent::TerminalModeSwapped(..) = event {
+            return Self {
+                terminal_view_id,
+                button,
+                give_control_back_button,
+                dismiss_button,
+                dont_show_again_button,
+                agent_input_footer,
+                warpify_footer_view,
+                terminal_model,
+                did_user_dismiss: false,
+            };
+        }
+
+        #[cfg(not(feature = "oss_release"))]
+        {
+            let button = ctx.add_typed_action_view(|ctx| {
+                ActionButton::new(
+                    "Use agent",
+                    AgentFooterButtonTheme::new(Some(terminal_model.clone())),
+                )
+                .with_icon(Icon::Oz)
+                .with_keybinding(KeystrokeSource::Fixed(USE_AGENT_KEYSTROKE.clone()), ctx)
+                .with_size(button_size)
+                .with_tooltip("Ask the Warp agent to assist")
+                .with_tooltip_alignment(TooltipAlignment::Left)
+                .on_click(|ctx| {
+                    ctx.dispatch_typed_action(TerminalAction::SetInputModeAgent);
+                })
+            });
+            let give_control_back_button = ctx.add_typed_action_view(|ctx| {
+                ActionButton::new(
+                    "Give control back to agent",
+                    AgentFooterButtonTheme::new(Some(terminal_model.clone())),
+                )
+                .with_icon(Icon::Oz)
+                .with_keybinding(KeystrokeSource::Fixed(USE_AGENT_KEYSTROKE.clone()), ctx)
+                .with_size(button_size)
+                .with_tooltip("Ask the Warp agent to resume")
+                .with_tooltip_alignment(TooltipAlignment::Left)
+                .on_click(|ctx| {
+                    ctx.dispatch_typed_action(TerminalAction::SetInputModeAgent);
+                })
+            });
+            let dismiss_button = ctx.add_typed_action_view(|_| {
+                ActionButton::new(
+                    "Dismiss",
+                    AgentFooterButtonTheme::new(Some(terminal_model.clone())),
+                )
+                .on_click(|ctx| {
+                    ctx.dispatch_typed_action(UseAgentToolbarAction::Dismiss {
+                        permanently: false,
+                    });
+                })
+                .with_size(button_size)
+            });
+            let dont_show_again_button = ctx.add_typed_action_view(|_| {
+                ActionButton::new(
+                    "Don't show again",
+                    AgentFooterButtonTheme::new(Some(terminal_model.clone())),
+                )
+                .on_click(|ctx| {
+                    ctx.dispatch_typed_action(UseAgentToolbarAction::Dismiss { permanently: true });
+                })
+                .with_size(button_size)
+            });
+
+            // Subscribe to agent input footer events to forward CLI-relevant ones.
+            ctx.subscribe_to_view(&agent_input_footer, |me, _, event, ctx| {
+                me.handle_agent_input_footer_event(event, ctx);
+            });
+
+            let warpify_footer_view = ctx
+                .add_typed_action_view(|ctx| WarpifyFooterView::new(terminal_model.clone(), ctx));
+
+            ctx.subscribe_to_view(&warpify_footer_view, |me, _, event, ctx| {
+                me.handle_warpify_footer_event(event, ctx);
+            });
+
+            ctx.subscribe_to_model(model_event_dispatcher, |me, _, event, ctx| {
+                if let ModelEvent::TerminalModeSwapped(..) = event {
+                    me.notify_and_notify_children(ctx);
+                }
+            });
+
+            // Re-render when the CLI agent session state changes (e.g. status updates
+            // from the plugin, session started/ended).
+            let cli_agent_sessions = CLIAgentSessionsModel::handle(ctx);
+            ctx.subscribe_to_model(&cli_agent_sessions, move |me, _, event, ctx| {
+                if event.terminal_view_id() != terminal_view_id {
+                    return;
+                }
                 me.notify_and_notify_children(ctx);
-            }
-        });
+            });
 
-        // Re-render when the CLI agent session state changes (e.g. status updates
-        // from the plugin, session started/ended).
-        let cli_agent_sessions = CLIAgentSessionsModel::handle(ctx);
-        ctx.subscribe_to_model(&cli_agent_sessions, move |me, _, event, ctx| {
-            if event.terminal_view_id() != terminal_view_id {
-                return;
+            Self {
+                terminal_view_id,
+                button,
+                give_control_back_button,
+                dismiss_button,
+                dont_show_again_button,
+                agent_input_footer,
+                warpify_footer_view,
+                terminal_model,
+                did_user_dismiss: false,
             }
-            me.notify_and_notify_children(ctx);
-        });
-
-        Self {
-            terminal_view_id,
-            button,
-            give_control_back_button,
-            dismiss_button,
-            dont_show_again_button,
-            agent_input_footer,
-            warpify_footer_view,
-            terminal_model,
-            did_user_dismiss: false,
         }
     }
 
@@ -1331,80 +1374,93 @@ impl View for UseAgentToolbar {
     }
 
     fn render(&self, app: &AppContext) -> Box<dyn Element> {
-        // If a warpify mode is set, delegate rendering to the warpify footer view.
-        if self.warpify_footer_view.as_ref(app).mode().is_some() {
-            return ChildView::new(&self.warpify_footer_view).finish();
-        }
+        #[cfg(feature = "oss_release")]
+        {
+            if self.warpify_footer_view.as_ref(app).mode().is_some() {
+                return ChildView::new(&self.warpify_footer_view).finish();
+            }
 
-        // Hide the toolbar entirely when CLI rich input is open,
-        // since the Input view renders its own footer in that state.
-        if CLIAgentSessionsModel::as_ref(app).is_input_open(self.terminal_view_id) {
             return Empty::new().finish();
         }
 
-        // If a CLI agent is detected, delegate rendering to the CLI agent footer view.
-        // Wrap with horizontal padding matching the terminal view padding so the footer
-        // aligns consistently with the input context (which inherits terminal padding).
-        if self.cli_agent(app).is_some() {
-            let mut container = Container::new(ChildView::new(&self.agent_input_footer).finish())
-                .with_horizontal_padding(*super::PADDING_LEFT);
+        #[cfg(not(feature = "oss_release"))]
+        {
+            // If a warpify mode is set, delegate rendering to the warpify footer view.
+            if self.warpify_footer_view.as_ref(app).mode().is_some() {
+                return ChildView::new(&self.warpify_footer_view).finish();
+            }
 
-            // Apply the alt screen background on this outer container so it covers
-            // the horizontal padding area as well, preventing a visible color mismatch
-            // between the padding and the footer content.
+            // Hide the toolbar entirely when CLI rich input is open,
+            // since the Input view renders its own footer in that state.
+            if CLIAgentSessionsModel::as_ref(app).is_input_open(self.terminal_view_id) {
+                return Empty::new().finish();
+            }
+
+            // If a CLI agent is detected, delegate rendering to the CLI agent footer view.
+            // Wrap with horizontal padding matching the terminal view padding so the footer
+            // aligns consistently with the input context (which inherits terminal padding).
+            if self.cli_agent(app).is_some() {
+                let mut container =
+                    Container::new(ChildView::new(&self.agent_input_footer).finish())
+                        .with_horizontal_padding(*super::PADDING_LEFT);
+
+                // Apply the alt screen background on this outer container so it covers
+                // the horizontal padding area as well, preventing a visible color mismatch
+                // between the padding and the footer content.
+                let terminal_model = self.terminal_model.lock();
+                if terminal_model.is_alt_screen_active() {
+                    if let Some(bg_color) = terminal_model.alt_screen().inferred_bg_color() {
+                        container = container.with_background(bg_color);
+                    }
+                }
+
+                return container.finish();
+            }
+
             let terminal_model = self.terminal_model.lock();
+
+            let active_block = terminal_model.block_list().active_block();
+            let show_give_control_back_button = active_block.is_eligible_for_agent_handoff();
+            let show_dismiss_actions = active_block.requested_command_action_id().is_none();
+
+            let mut button_row = Flex::row()
+                .with_spacing(4.)
+                .with_main_axis_size(MainAxisSize::Max)
+                .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                .with_child(
+                    ChildView::new(if show_give_control_back_button {
+                        &self.give_control_back_button
+                    } else {
+                        &self.button
+                    })
+                    .finish(),
+                );
+
+            if show_dismiss_actions {
+                button_row = button_row
+                    .with_child(Expanded::new(1., Empty::new().finish()).finish())
+                    .with_child(ChildView::new(&self.dismiss_button).finish());
+
+                if !show_give_control_back_button {
+                    button_row = button_row
+                        .with_child(ChildView::new(&self.dont_show_again_button).finish());
+                }
+            }
+
+            let mut container = Container::new(button_row.finish())
+                .with_horizontal_padding(*super::PADDING_LEFT)
+                .with_vertical_padding(4.);
+
             if terminal_model.is_alt_screen_active() {
                 if let Some(bg_color) = terminal_model.alt_screen().inferred_bg_color() {
                     container = container.with_background(bg_color);
                 }
+            } else if terminal_model.block_list().agent_view_state().is_inline() {
+                container = container.with_background(agent_view_bg_fill(app));
             }
 
-            return container.finish();
+            container.finish()
         }
-
-        let terminal_model = self.terminal_model.lock();
-
-        let active_block = terminal_model.block_list().active_block();
-        let show_give_control_back_button = active_block.is_eligible_for_agent_handoff();
-        let show_dismiss_actions = active_block.requested_command_action_id().is_none();
-
-        let mut button_row = Flex::row()
-            .with_spacing(4.)
-            .with_main_axis_size(MainAxisSize::Max)
-            .with_cross_axis_alignment(CrossAxisAlignment::Center)
-            .with_child(
-                ChildView::new(if show_give_control_back_button {
-                    &self.give_control_back_button
-                } else {
-                    &self.button
-                })
-                .finish(),
-            );
-
-        if show_dismiss_actions {
-            button_row = button_row
-                .with_child(Expanded::new(1., Empty::new().finish()).finish())
-                .with_child(ChildView::new(&self.dismiss_button).finish());
-
-            if !show_give_control_back_button {
-                button_row =
-                    button_row.with_child(ChildView::new(&self.dont_show_again_button).finish());
-            }
-        }
-
-        let mut container = Container::new(button_row.finish())
-            .with_horizontal_padding(*super::PADDING_LEFT)
-            .with_vertical_padding(4.);
-
-        if terminal_model.is_alt_screen_active() {
-            if let Some(bg_color) = terminal_model.alt_screen().inferred_bg_color() {
-                container = container.with_background(bg_color);
-            }
-        } else if terminal_model.block_list().agent_view_state().is_inline() {
-            container = container.with_background(agent_view_bg_fill(app));
-        }
-
-        container.finish()
     }
 }
 

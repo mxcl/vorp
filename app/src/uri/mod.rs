@@ -5,6 +5,7 @@ pub mod web_intent_parser;
 #[cfg(target_family = "wasm")]
 pub mod browser_url_handler;
 
+#[cfg(not(feature = "oss_release"))]
 use crate::ai::active_agent_views_model::{ActiveAgentViewsModel, ConversationOrTaskId};
 use crate::ai::agent::api::ServerConversationToken;
 use crate::drive::OpenWarpDriveObjectSettings;
@@ -22,6 +23,7 @@ use crate::{cloud_object::ObjectType, workspace::ToastStack};
 use crate::{drive::OpenWarpDriveObjectArgs, view_components::DismissibleToast};
 use crate::{features::FeatureFlag, workspace::active_terminal_in_window};
 
+#[cfg(not(feature = "oss_release"))]
 use crate::ai::ambient_agents::github_auth_notifier::GitHubAuthNotifier;
 use crate::settings_view::{OpenTeamsSettingsModalArgs, SettingsSection};
 use crate::user_config::load_launch_configs;
@@ -370,6 +372,7 @@ impl UriHost {
                                 ctx,
                             );
                         }
+                        #[cfg(not(feature = "oss_release"))]
                         "billing_and_usage" => {
                             if crate::terminal_only::is_enabled() {
                                 return;
@@ -383,6 +386,7 @@ impl UriHost {
                                 ctx,
                             );
                         }
+                        #[cfg(not(feature = "oss_release"))]
                         "environments" => {
                             if crate::terminal_only::is_enabled() {
                                 return;
@@ -407,6 +411,7 @@ impl UriHost {
                                 );
                             }
                         }
+                        #[cfg(not(feature = "oss_release"))]
                         "mcp" => {
                             if crate::terminal_only::is_enabled() {
                                 return;
@@ -425,6 +430,7 @@ impl UriHost {
                                 ctx,
                             );
                         }
+                        #[cfg(not(feature = "oss_release"))]
                         "platform" => {
                             if crate::terminal_only::is_enabled() {
                                 return;
@@ -468,6 +474,7 @@ impl UriHost {
                     }
                 }
             }
+            #[cfg(not(feature = "oss_release"))]
             UriHost::Codex => {
                 dispatch_action_in_new_or_existing_window(
                     primary_window_id,
@@ -477,6 +484,8 @@ impl UriHost {
                     ctx,
                 );
             }
+            #[cfg(feature = "oss_release")]
+            UriHost::Codex => {}
             UriHost::Linear => match LinearAction::parse(url) {
                 Ok(LinearAction::WorkOnIssue) => {
                     let args = LinearIssueWork::from_url(url);
@@ -761,10 +770,15 @@ enum Action {
     NewWindow,
     Docker,
     OpenRepo,
+    #[cfg(not(feature = "oss_release"))]
     CloudAgentSetup,
+    #[cfg(not(feature = "oss_release"))]
     NewCloudAgentConversation,
+    #[cfg(not(feature = "oss_release"))]
     NewAgentConversation,
+    #[cfg(not(feature = "oss_release"))]
     CreateEnvironment { repos: Vec<String> },
+    #[cfg(not(feature = "oss_release"))]
     FocusCloudMode,
 }
 
@@ -774,16 +788,23 @@ impl Action {
             return false;
         }
 
-        matches!(
-            self,
-            Self::Docker
-                | Self::OpenRepo
-                | Self::CloudAgentSetup
-                | Self::NewCloudAgentConversation
-                | Self::NewAgentConversation
-                | Self::CreateEnvironment { .. }
-                | Self::FocusCloudMode
-        )
+        #[cfg(feature = "oss_release")]
+        {
+            matches!(self, Self::Docker | Self::OpenRepo)
+        }
+        #[cfg(not(feature = "oss_release"))]
+        {
+            matches!(
+                self,
+                Self::Docker
+                    | Self::OpenRepo
+                    | Self::CloudAgentSetup
+                    | Self::NewCloudAgentConversation
+                    | Self::NewAgentConversation
+                    | Self::CreateEnvironment { .. }
+                    | Self::FocusCloudMode
+            )
+        }
     }
 
     fn parse(url: &Url) -> Result<Self> {
@@ -792,9 +813,13 @@ impl Action {
             "/new_window" => Ok(Self::NewWindow),
             "/docker/open_subshell" => Ok(Self::Docker),
             "/open-repo" => Ok(Self::OpenRepo),
+            #[cfg(not(feature = "oss_release"))]
             "/cloud_agent_setup" => Ok(Self::CloudAgentSetup),
+            #[cfg(not(feature = "oss_release"))]
             "/new_cloud_agent_conversation" => Ok(Self::NewCloudAgentConversation),
+            #[cfg(not(feature = "oss_release"))]
             "/new_agent_conversation" => Ok(Self::NewAgentConversation),
+            #[cfg(not(feature = "oss_release"))]
             "/create_environment" => {
                 let repos = url
                     .query_pairs()
@@ -803,6 +828,7 @@ impl Action {
 
                 Ok(Self::CreateEnvironment { repos })
             }
+            #[cfg(not(feature = "oss_release"))]
             "/focus_cloud_mode" => Ok(Self::FocusCloudMode),
             _ => Err(anyhow!(
                 "Received \"action\" intent with unexpected action: {}",
@@ -867,6 +893,7 @@ impl Action {
                     log::warn!("no workspace views in window {window_id} for open repo action");
                 }
             }
+            #[cfg(not(feature = "oss_release"))]
             Action::CloudAgentSetup => {
                 let window_id =
                     primary_window_id.or_else(|| Some(open_new_window_get_handles(None, ctx).0));
@@ -893,6 +920,7 @@ impl Action {
                     );
                 }
             }
+            #[cfg(not(feature = "oss_release"))]
             Action::NewCloudAgentConversation => {
                 let window_id =
                     primary_window_id.or_else(|| Some(open_new_window_get_handles(None, ctx).0));
@@ -921,6 +949,7 @@ impl Action {
                     );
                 }
             }
+            #[cfg(not(feature = "oss_release"))]
             Action::NewAgentConversation => {
                 let window_id =
                     primary_window_id.or_else(|| Some(open_new_window_get_handles(None, ctx).0));
@@ -941,6 +970,7 @@ impl Action {
                     workspace.handle_action(&WorkspaceAction::AddAgentTab, ctx);
                 });
             }
+            #[cfg(not(feature = "oss_release"))]
             Action::CreateEnvironment { repos } => {
                 use crate::root_view::CreateEnvironmentArg;
 
@@ -965,6 +995,7 @@ impl Action {
                     ctx.dispatch_global_action("root_view:create_environment", &arg);
                 }
             }
+            #[cfg(not(feature = "oss_release"))]
             Action::FocusCloudMode => {
                 // Notify that GitHub auth completed so views can refresh
                 GitHubAuthNotifier::handle(ctx).update(ctx, |notifier, ctx| {
@@ -1026,9 +1057,9 @@ impl Action {
     fn window_behavior_hint(&self) -> WindowBehaviorHint {
         use WindowBehaviorHint as W;
         match self {
-            Self::Docker
-            | Self::CreateEnvironment { .. }
-            | Self::OpenRepo
+            Self::Docker | Self::OpenRepo => W::default(),
+            #[cfg(not(feature = "oss_release"))]
+            Self::CreateEnvironment { .. }
             | Self::CloudAgentSetup
             | Self::NewCloudAgentConversation
             | Self::NewAgentConversation

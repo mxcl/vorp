@@ -1,3 +1,4 @@
+#[cfg(not(feature = "oss_release"))]
 mod convert;
 
 use std::{fmt::Display, ops::Range, path::PathBuf, time::Duration};
@@ -8,6 +9,8 @@ use strum_macros::EnumDiscriminants;
 use uuid::Uuid;
 use warp_terminal::model::BlockId;
 
+#[cfg(feature = "oss_release")]
+use crate::diff_validation::V4AHunk;
 use crate::{
     agent::{
         action_result::{
@@ -23,10 +26,30 @@ use crate::{
         },
         AIAgentCitation, FileLocations,
     },
+    computer_use,
     diff_validation::ParsedDiff,
     document::AIDocumentId,
     skills::SkillReference,
 };
+
+#[cfg(feature = "oss_release")]
+trait NoneIfDefault
+where
+    Self: Sized + Default,
+{
+    fn none_if_default(self) -> Option<Self>;
+}
+
+#[cfg(feature = "oss_release")]
+impl NoneIfDefault for String {
+    fn none_if_default(self) -> Option<Self> {
+        if self == Self::default() {
+            None
+        } else {
+            Some(self)
+        }
+    }
+}
 pub use warp_multi_agent_api::LifecycleEventType;
 
 #[derive(Debug, Clone, Eq, PartialEq, EnumDiscriminants)]
@@ -174,6 +197,58 @@ pub enum AIAgentActionType {
     /// `base_prompt + "\n\n" + agent_run_configs[i].prompt` (or just
     /// `base_prompt` when the per-agent `prompt` is empty).
     RunAgents(RunAgentsRequest),
+}
+
+#[cfg(feature = "oss_release")]
+impl From<warp_multi_agent_api::message::tool_call::ApplyFileDiffs> for AIAgentActionType {
+    fn from(value: warp_multi_agent_api::message::tool_call::ApplyFileDiffs) -> Self {
+        let diff_edits = value.diffs.into_iter().map(|file_diff| {
+            FileEdit::Edit(ParsedDiff::StrReplaceEdit {
+                search: file_diff.search.none_if_default(),
+                replace: file_diff.replace.none_if_default(),
+                file: file_diff.file_path.none_if_default(),
+            })
+        });
+        let v4a_updates = value.v4a_updates.into_iter().map(|v4a_update| {
+            FileEdit::Edit(ParsedDiff::V4AEdit {
+                file: v4a_update.file_path.none_if_default(),
+                move_to: v4a_update.move_to.clone().none_if_default(),
+                hunks: v4a_update
+                    .hunks
+                    .into_iter()
+                    .map(|hunk| V4AHunk {
+                        change_context: hunk.change_context,
+                        pre_context: hunk.pre_context,
+                        old: hunk.old,
+                        new: hunk.new,
+                        post_context: hunk.post_context,
+                    })
+                    .collect(),
+            })
+        });
+        let file_deletes = value
+            .deleted_files
+            .into_iter()
+            .map(|file_delete| FileEdit::Delete {
+                file: file_delete.file_path.none_if_default(),
+            });
+        let new_file_edits = value
+            .new_files
+            .into_iter()
+            .map(|new_file| FileEdit::Create {
+                file: new_file.file_path.none_if_default(),
+                content: new_file.content.none_if_default(),
+            });
+
+        AIAgentActionType::RequestFileEdits {
+            file_edits: diff_edits
+                .chain(v4a_updates)
+                .chain(new_file_edits)
+                .chain(file_deletes)
+                .collect(),
+            title: Some(value.summary),
+        }
+    }
 }
 
 /// Run-wide + per-agent configuration for a `RunAgents` tool call.

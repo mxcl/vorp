@@ -569,7 +569,7 @@ impl WorkingDirectoriesModel {
             })
         } else {
             log::error!(
-                "WorkingDirectoriesModel did not find CodeReviewView for repo path {:?}",
+                "WorkingDirectoriesModel did not find review pane for repo path {:?}",
                 repo_path
             );
         }

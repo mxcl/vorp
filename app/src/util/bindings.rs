@@ -27,7 +27,8 @@ use warpui::{AppContext, SingletonEntity};
 pub const MAC_MENUS_CONTEXT: DescriptionContext = DescriptionContext::Custom("mac_menus");
 
 // CustomActions are attached to menu items, and may be attached to Bindings.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Sequence)]
+#[derive(Copy, Clone, PartialEq, Eq, Sequence)]
+#[cfg_attr(not(feature = "oss_release"), derive(Debug))]
 #[repr(isize)]
 pub enum CustomAction {
     NewTab,
@@ -135,6 +136,13 @@ pub enum CustomAction {
     GoToLine,
     ToggleGlobalSearch,
     ToggleConversationListView,
+}
+
+#[cfg(feature = "oss_release")]
+impl std::fmt::Debug for CustomAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("CustomAction")
+    }
 }
 
 lazy_static! {

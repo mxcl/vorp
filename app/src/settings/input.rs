@@ -153,6 +153,7 @@ define_settings_group!(InputSettings,
             sync_to_cloud: SyncToCloud::Never,
             private: true,
         },
+        #[cfg(not(feature = "oss_release"))]
         show_agent_tips: ShowAgentTips {
             type: bool,
             default: true,
@@ -161,6 +162,14 @@ define_settings_group!(InputSettings,
             private: false,
             toml_path: "agents.warp_agent.input.show_agent_tips",
             description: "Whether agent tips are displayed in the input.",
+        },
+        #[cfg(feature = "oss_release")]
+        show_agent_tips: ShowAgentTips {
+            type: bool,
+            default: false,
+            supported_platforms: SupportedPlatforms::ALL,
+            sync_to_cloud: SyncToCloud::Never,
+            private: true,
         },
         // Whether to show the terminal input message bar (contextual hints at the bottom of terminal input).
         // Only applicable when FeatureFlag::AgentView is enabled.

@@ -78,6 +78,12 @@ pub enum LspTelemetryEvent {
 }
 
 impl TelemetryEvent for LspTelemetryEvent {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         LspTelemetryEventDiscriminants::from(self).name()
     }
@@ -147,6 +153,12 @@ impl TelemetryEvent for LspTelemetryEvent {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         LspTelemetryEventDiscriminants::from(self).description()
     }
@@ -159,12 +171,24 @@ impl TelemetryEvent for LspTelemetryEvent {
         false
     }
 
+    #[cfg(feature = "oss_release")]
+    fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
+        std::iter::empty()
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
         warp_core::telemetry::enum_events::<Self>()
     }
 }
 
 impl TelemetryEventDesc for LspTelemetryEventDiscriminants {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         match self {
             Self::ServerEnabled => "Lsp.ServerEnabled",
@@ -180,6 +204,12 @@ impl TelemetryEventDesc for LspTelemetryEventDiscriminants {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         match self {
             Self::ServerEnabled => "User enabled an LSP server for a workspace",

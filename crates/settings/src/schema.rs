@@ -62,40 +62,43 @@ macro_rules! submit_schema_entry {
         default: $default:tt,
         value_type: $type:ty $(,)?
     ) => {
-        $crate::_inventory::submit! {
-            $crate::schema::SettingSchemaEntry {
-                storage_key: {
-                    const KEY: &str = match $toml_path {
-                        Some(path) => $crate::toml_path_storage_key(path),
-                        None => $fallback_key,
-                    };
-                    KEY
-                },
-                description: $desc,
-                hierarchy: {
-                    const HIER: Option<&str> = match $toml_path {
-                        Some(path) => $crate::toml_path_hierarchy(path),
-                        None => None,
-                    };
-                    HIER
-                },
-                is_private: $private,
-                feature_flag: $flag,
-                supported_platforms_fn: || $plat,
-                default_value_fn: || {
-                    let val: $type = $default;
-                    serde_json::to_string(&val).expect("default value should serialize")
-                },
-                schema_fn: <$type as $crate::_settings_value::SettingsValue>::file_schema,
-                file_default_value_fn: || {
-                    use $crate::_settings_value::SettingsValue as _;
-                    let val: $type = $default;
-                    let file_value = val.to_file_value();
-                    serde_json::to_string(&file_value).expect("default file value should serialize")
-                },
-                max_table_depth: $mtd,
+        #[cfg(feature = "settings_schema_registry")]
+        const _: () = {
+            $crate::_inventory::submit! {
+                $crate::schema::SettingSchemaEntry {
+                    storage_key: {
+                        const KEY: &str = match $toml_path {
+                            Some(path) => $crate::toml_path_storage_key(path),
+                            None => $fallback_key,
+                        };
+                        KEY
+                    },
+                    description: $desc,
+                    hierarchy: {
+                        const HIER: Option<&str> = match $toml_path {
+                            Some(path) => $crate::toml_path_hierarchy(path),
+                            None => None,
+                        };
+                        HIER
+                    },
+                    is_private: $private,
+                    feature_flag: $flag,
+                    supported_platforms_fn: || $plat,
+                    default_value_fn: || {
+                        let val: $type = $default;
+                        serde_json::to_string(&val).expect("default value should serialize")
+                    },
+                    schema_fn: <$type as $crate::_settings_value::SettingsValue>::file_schema,
+                    file_default_value_fn: || {
+                        use $crate::_settings_value::SettingsValue as _;
+                        let val: $type = $default;
+                        let file_value = val.to_file_value();
+                        serde_json::to_string(&file_value).expect("default file value should serialize")
+                    },
+                    max_table_depth: $mtd,
+                }
             }
-        }
+        };
     };
 }
 

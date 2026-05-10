@@ -1,5 +1,6 @@
 use crate::ai::blocklist::agent_view::{agent_view_bg_fill, AgentViewState};
 use crate::ai::blocklist::{ai_brand_color, ATTACH_AS_AGENT_MODE_CONTEXT_TEXT};
+#[cfg(not(feature = "oss_release"))]
 use crate::ai_assistant::{AI_ASSISTANT_SVG_PATH, ASK_AI_ASSISTANT_TEXT};
 use crate::appearance::Appearance;
 use crate::drive::settings::WarpDriveSettings;
@@ -1136,7 +1137,11 @@ impl BlockListElement {
             .finish(),
         );
 
-        if AISettings::as_ref(app).is_any_ai_enabled(app) {
+        if AISettings::as_ref(app).is_any_ai_enabled(app)
+            && (FeatureFlag::AgentMode.is_enabled()
+                || FeatureFlag::AgentView.is_enabled()
+                || cfg!(not(feature = "oss_release")))
+        {
             let icon = Container::new(
                 ConstrainedBox::new(if FeatureFlag::AgentView.is_enabled() {
                     UIIcon::Icon::Paperclip
@@ -1147,7 +1152,16 @@ impl BlockListElement {
                         .to_warpui_icon(icon_color.into())
                         .finish()
                 } else {
-                    Icon::new(AI_ASSISTANT_SVG_PATH, icon_color).finish()
+                    #[cfg(not(feature = "oss_release"))]
+                    {
+                        Icon::new(AI_ASSISTANT_SVG_PATH, icon_color).finish()
+                    }
+                    #[cfg(feature = "oss_release")]
+                    {
+                        UIIcon::Icon::Stars
+                            .to_warpui_icon(icon_color.into())
+                            .finish()
+                    }
                 })
                 .with_height(16.)
                 .with_width(16.)
@@ -1173,10 +1187,17 @@ impl BlockListElement {
                     )
                 }
             } else {
-                (
-                    Some(TerminalAction::AskAIAssistant { block_index }),
-                    ASK_AI_ASSISTANT_TEXT,
-                )
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    (
+                        Some(TerminalAction::AskAIAssistant { block_index }),
+                        ASK_AI_ASSISTANT_TEXT,
+                    )
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    (None, "")
+                }
             };
 
             let tooltip = ToolbeltButtonTooltip {

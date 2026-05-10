@@ -18,10 +18,12 @@ use crate::ai::agent_conversations_model::{
     ConversationOrTask,
 };
 use crate::ai::blocklist::BlocklistAIHistoryModel;
-use crate::terminal::cli_agent_sessions::listener::agent_supports_rich_status;
-use crate::terminal::cli_agent_sessions::CLIAgentSessionsModel;
-use crate::terminal::view::TerminalView;
 use crate::terminal::CLIAgent;
+#[cfg(not(feature = "oss_release"))]
+use crate::terminal::cli_agent_sessions::{
+    CLIAgentSession, CLIAgentSessionsModel, listener::agent_supports_rich_status,
+};
+use crate::terminal::view::TerminalView;
 use crate::ui_components::icon_with_status::IconWithStatusVariant;
 
 /// Returns the agent-icon variant for a live [`TerminalView`], or `None` when the terminal is
@@ -35,6 +37,15 @@ use crate::ui_components::icon_with_status::IconWithStatusVariant;
 /// 3. Live ambient pre-dispatch or a selected local conversation falls through to the
 ///    no-task waterfall.
 /// 4. Everything else returns `None` so the caller renders a plain-terminal indicator.
+#[cfg(feature = "oss_release")]
+pub(crate) fn terminal_view_agent_icon_variant(
+    _terminal_view: &TerminalView,
+    _app: &AppContext,
+) -> Option<IconWithStatusVariant> {
+    None
+}
+
+#[cfg(not(feature = "oss_release"))]
 pub(crate) fn terminal_view_agent_icon_variant(
     terminal_view: &TerminalView,
     app: &AppContext,
@@ -67,7 +78,10 @@ pub(crate) fn terminal_view_agent_icon_variant(
             agent: session.agent,
             has_listener: session.listener.is_some(),
             status: session.status.to_conversation_status(),
+            #[cfg(not(feature = "oss_release"))]
             supports_rich_status: agent_supports_rich_status(&session.agent),
+            #[cfg(feature = "oss_release")]
+            supports_rich_status: false,
         }),
         selected_third_party_cli_agent: terminal_view
             .ambient_agent_view_model()

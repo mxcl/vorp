@@ -8,7 +8,6 @@ use chrono::{DateTime, Duration, Utc};
 use parking_lot::RwLock;
 use uuid::Uuid;
 use warp_core::channel::{Channel, ChannelState};
-use warp_graphql::object_permissions::OwnerType;
 use warpui::{AppContext, Entity, SingletonEntity};
 
 use crate::{
@@ -19,7 +18,7 @@ use crate::{
 use super::{
     anonymous_id::get_or_create_anonymous_id,
     auth_manager::user_persistence::PersistedUser,
-    credentials::Credentials,
+    credentials::{AuthOwnerType, Credentials},
     user::{AnonymousUserType, FirebaseAuthTokens, PersonalObjectLimits, PrincipalType, User},
     UserUid, API_KEY_PREFIX,
 };
@@ -461,13 +460,13 @@ impl AuthState {
     }
 
     /// Returns the owner type of the currently-authenticated API key.
-    pub fn api_key_owner_type(&self) -> Option<OwnerType> {
+    pub fn api_key_owner_type(&self) -> Option<AuthOwnerType> {
         self.credentials.read().as_ref()?.api_key_owner_type()
     }
 }
 
 // Adapter for the [`warp_managed_secrets`] crate, which needs to access the current user.
-impl warp_managed_secrets::ActorProvider for AuthState {
+impl crate::warp_managed_secrets::ActorProvider for AuthState {
     fn actor_uid(&self) -> Option<String> {
         self.user_id().map(|uid| uid.as_string())
     }

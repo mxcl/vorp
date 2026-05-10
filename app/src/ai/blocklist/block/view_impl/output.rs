@@ -575,6 +575,7 @@ pub(super) fn render(props: Props, app: &AppContext) -> Box<dyn Element> {
                                 app,
                             ));
                         }
+                        #[cfg(not(feature = "oss_release"))]
                         AIAgentOutputMessageType::Action(AIAgentAction {
                             action:
                                 AIAgentActionType::ReadMCPResource {
@@ -590,6 +591,7 @@ pub(super) fn render(props: Props, app: &AppContext) -> Box<dyn Element> {
                             let name = uri.as_ref().unwrap_or(name);
                             output_items.add_child(render_read_mcp_resource(props, id, name, app));
                         }
+                        #[cfg(not(feature = "oss_release"))]
                         AIAgentOutputMessageType::Action(AIAgentAction {
                             action: AIAgentActionType::CallMCPTool { .. },
                             id,
@@ -720,6 +722,7 @@ pub(super) fn render(props: Props, app: &AppContext) -> Box<dyn Element> {
                                 output_items.add_child(edit_document);
                             }
                         }
+                        #[cfg(not(feature = "oss_release"))]
                         AIAgentOutputMessageType::Action(AIAgentAction {
                             action: AIAgentActionType::UseComputer(request),
                             id,
@@ -741,6 +744,7 @@ pub(super) fn render(props: Props, app: &AppContext) -> Box<dyn Element> {
                                 app,
                             ));
                         }
+                        #[cfg(not(feature = "oss_release"))]
                         AIAgentOutputMessageType::Action(AIAgentAction {
                             action: AIAgentActionType::UploadArtifact(request),
                             id,
@@ -749,6 +753,7 @@ pub(super) fn render(props: Props, app: &AppContext) -> Box<dyn Element> {
                             should_render_footer = false;
                             output_items.add_child(render_upload_artifact(props, id, request, app));
                         }
+                        #[cfg(not(feature = "oss_release"))]
                         AIAgentOutputMessageType::Action(AIAgentAction {
                             action: AIAgentActionType::RequestComputerUse(request),
                             id,
@@ -758,6 +763,7 @@ pub(super) fn render(props: Props, app: &AppContext) -> Box<dyn Element> {
                             output_items
                                 .add_child(render_request_computer_use(props, id, request, app));
                         }
+                        #[cfg(not(feature = "oss_release"))]
                         AIAgentOutputMessageType::Action(AIAgentAction {
                             action:
                                 AIAgentActionType::StartAgent {
@@ -782,6 +788,7 @@ pub(super) fn render(props: Props, app: &AppContext) -> Box<dyn Element> {
                                 app,
                             ));
                         }
+                        #[cfg(not(feature = "oss_release"))]
                         AIAgentOutputMessageType::Action(AIAgentAction {
                             action: AIAgentActionType::RunAgents(_req),
                             id,
@@ -801,6 +808,7 @@ pub(super) fn render(props: Props, app: &AppContext) -> Box<dyn Element> {
                                 }
                             }
                         }
+                        #[cfg(not(feature = "oss_release"))]
                         AIAgentOutputMessageType::Action(AIAgentAction {
                             action:
                                 AIAgentActionType::SendMessageToAgent {
@@ -823,6 +831,7 @@ pub(super) fn render(props: Props, app: &AppContext) -> Box<dyn Element> {
                                 app,
                             ));
                         }
+                        #[cfg(not(feature = "oss_release"))]
                         AIAgentOutputMessageType::Action(AIAgentAction {
                             action: AIAgentActionType::InsertCodeReviewComments { repo_path, .. },
                             id,
@@ -2618,6 +2627,7 @@ fn render_comment_addressed_header(comment: &ReviewComment, app: &AppContext) ->
     renderable_action.render(app).finish()
 }
 
+#[cfg(not(feature = "oss_release"))]
 fn render_read_mcp_resource(
     props: Props,
     action_id: &AIAgentActionId,
@@ -2664,6 +2674,7 @@ fn render_read_mcp_resource(
     renderable_action.render(app).finish()
 }
 
+#[cfg(not(feature = "oss_release"))]
 fn format_upload_artifact_text(
     request: &UploadArtifactRequest,
     result: Option<&UploadArtifactResult>,
@@ -2695,6 +2706,7 @@ fn format_upload_artifact_text(
     lines.join("\n")
 }
 
+#[cfg(not(feature = "oss_release"))]
 fn render_upload_artifact(
     props: Props,
     action_id: &AIAgentActionId,
@@ -2750,6 +2762,7 @@ fn render_upload_artifact(
     renderable_action.render(app).finish()
 }
 
+#[cfg(not(feature = "oss_release"))]
 fn render_use_computer(
     props: Props,
     action_id: &AIAgentActionId,
@@ -2804,6 +2817,7 @@ fn render_use_computer(
     renderable_action.render(app).finish()
 }
 
+#[cfg(not(feature = "oss_release"))]
 fn render_request_computer_use(
     props: Props,
     action_id: &AIAgentActionId,

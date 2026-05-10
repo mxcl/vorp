@@ -7,8 +7,8 @@ use crate::{
     ai::{
         agent::conversation::AIConversationId,
         execution_profiles::{
-            profiles::{AIExecutionProfilesModel, ClientProfileId},
             AIExecutionProfile, ActionPermission, AskUserQuestionPermission, WriteToPtyPermission,
+            profiles::{AIExecutionProfilesModel, ClientProfileId},
         },
     },
     report_if_error,
@@ -17,9 +17,10 @@ use crate::{
 };
 use warp_core::execution_mode::AppExecutionMode;
 
-use crate::ai::mcp::mcp_provider_from_file_path;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 use crate::ai::mcp::TemplatableMCPServerManager;
+#[cfg(not(feature = "oss_release"))]
+use crate::ai::mcp::mcp_provider_from_file_path;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -731,7 +732,19 @@ impl BlocklistAIPermissions {
         self.determine_write_permissions_from_active_profile(terminal_view_id, ctx)
     }
 
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "oss_release"))]
+    pub fn can_call_mcp_tool(
+        &self,
+        _server_id: Option<&uuid::Uuid>,
+        _name: &str,
+        _conversation_id: &AIConversationId,
+        _terminal_view_id: Option<EntityId>,
+        _ctx: &AppContext,
+    ) -> bool {
+        false
+    }
+
+    #[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
     pub fn can_call_mcp_tool(
         &self,
         server_id: Option<&uuid::Uuid>,
@@ -763,7 +776,20 @@ impl BlocklistAIPermissions {
     }
 
     /// Returns whether or not Agent Mode can automatically read the given MCP resource.
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "oss_release"))]
+    pub fn can_read_mcp_resource(
+        &self,
+        _server_id: Option<&uuid::Uuid>,
+        _name: &str,
+        _uri: Option<&str>,
+        _conversation_id: &AIConversationId,
+        _terminal_view_id: Option<EntityId>,
+        _ctx: &AppContext,
+    ) -> bool {
+        false
+    }
+
+    #[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
     pub fn can_read_mcp_resource(
         &self,
         server_id: Option<&uuid::Uuid>,
@@ -797,7 +823,7 @@ impl BlocklistAIPermissions {
 
     /// Checks whether the given MCP server (identified by its template UUID) is permitted
     /// to be used based on the current MCP permission setting and allowlist/denylist.
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
     fn can_use_mcp_server(
         &self,
         conversation_id: &AIConversationId,
@@ -1183,6 +1209,13 @@ impl BlocklistAIPermissions {
 fn check_protected_write_paths(paths: &[PathBuf]) -> Option<FileWritePermission> {
     // MCP config files are always protected from auto-write to prevent security risks
     // from injecting arbitrary context into the agent.
+    #[cfg(feature = "oss_release")]
+    {
+        let _ = paths;
+        None
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     if paths
         .iter()
         .any(|p| mcp_provider_from_file_path(p).is_some())

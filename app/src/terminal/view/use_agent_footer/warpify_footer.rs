@@ -15,7 +15,9 @@ use crate::{
     view_components::action_button::{ActionButton, ButtonSize, KeystrokeSource, TooltipAlignment},
 };
 
-use super::{AgentFooterButtonTheme, USE_AGENT_KEYSTROKE};
+use super::AgentFooterButtonTheme;
+#[cfg(not(feature = "oss_release"))]
+use super::USE_AGENT_KEYSTROKE;
 use crate::terminal::view::block_banner::WarpificationMode;
 
 /// Footer view rendered for detected subshell/SSH commands, offering both
@@ -43,6 +45,12 @@ impl WarpifyFooterView {
                 })
         });
 
+        #[cfg(feature = "oss_release")]
+        let use_agent_button = ctx.add_typed_action_view(|_ctx| {
+            ActionButton::new("", AgentFooterButtonTheme::new(None)).with_size(button_size)
+        });
+
+        #[cfg(not(feature = "oss_release"))]
         let use_agent_button = ctx.add_typed_action_view(|ctx| {
             ActionButton::new("Use agent", AgentFooterButtonTheme::new(None))
                 .with_icon(Icon::Oz)
@@ -132,8 +140,16 @@ impl View for WarpifyFooterView {
             .with_spacing(4.)
             .with_main_axis_size(MainAxisSize::Max)
             .with_cross_axis_alignment(CrossAxisAlignment::Center)
-            .with_child(ChildView::new(&self.warpify_button).finish())
-            .with_child(ChildView::new(&self.use_agent_button).finish())
+            .with_child(ChildView::new(&self.warpify_button).finish());
+
+        #[cfg(not(feature = "oss_release"))]
+        let button_row = {
+            let mut button_row = button_row;
+            button_row.add_child(ChildView::new(&self.use_agent_button).finish());
+            button_row
+        };
+
+        let button_row = button_row
             .with_child(Expanded::new(1., Empty::new().finish()).finish())
             .with_child(ChildView::new(&self.dismiss_button).finish());
 

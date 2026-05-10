@@ -32,7 +32,7 @@ use warp_core::features::FeatureFlag;
 use warpui::windowing::WindowManager;
 use warpui::{AppContext, Entity, ModelContext, SingletonEntity};
 
-#[cfg(feature = "local_fs")]
+#[cfg(all(feature = "local_fs", not(feature = "oss_release")))]
 use crate::code::language_server_shutdown_manager::LanguageServerShutdownManager;
 #[cfg(feature = "local_fs")]
 use crate::code::lsp_telemetry::LspTelemetryEvent;
@@ -1106,6 +1106,7 @@ impl PersistedWorkspace {
         }
 
         // Once we start a LSP server, also start the garbage collection process if it is not active.
+        #[cfg(not(feature = "oss_release"))]
         LanguageServerShutdownManager::handle(ctx).update(ctx, |shutdown_manager, ctx| {
             if !shutdown_manager.has_in_progress_scan() {
                 shutdown_manager.schedule_next_scan(ctx);

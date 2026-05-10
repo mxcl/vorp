@@ -10,10 +10,11 @@ use mockall::automock;
 
 use super::ServerApi;
 use crate::ai::agent::conversation::AIConversationId;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 use crate::ai::agent_sdk::retry::with_bounded_retry;
 use crate::ai::ambient_agents::AmbientAgentTaskId;
 use crate::ai::artifacts::Artifact;
+#[cfg(not(feature = "oss_release"))]
 use crate::server::server_api::auth::AuthClient;
 
 /// A presigned upload target returned by the server.
@@ -44,21 +45,25 @@ pub struct SnapshotFileInfo {
 /// they requested by position. The server does not include filenames on the
 /// response entries — see the `UploadSnapshotResponse` schema in
 /// `warp-server`'s `public_api/openapi.yaml`.
+#[cfg(not(feature = "oss_release"))]
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct SnapshotUploadResponse {
     pub uploads: Vec<UploadTarget>,
 }
 
+#[cfg(not(feature = "oss_release"))]
 #[derive(serde::Serialize)]
 struct CreateExternalConversationRequest {
     format: String,
 }
 
+#[cfg(not(feature = "oss_release"))]
 #[derive(serde::Deserialize)]
 struct CreateExternalConversationResponse {
     conversation_id: String,
 }
 
+#[cfg(not(feature = "oss_release"))]
 #[derive(serde::Serialize)]
 struct GetUploadTargetRequest {
     conversation_id: String,
@@ -101,11 +106,13 @@ pub struct ReportArtifactResponse {
     pub artifact_uid: String,
 }
 
+#[cfg(not(feature = "oss_release"))]
 #[derive(serde::Serialize)]
 struct NotifyUserRequest {
     message: String,
 }
 
+#[cfg(not(feature = "oss_release"))]
 #[derive(serde::Serialize)]
 struct FinishTaskRequest {
     success: bool,
@@ -170,6 +177,7 @@ pub trait HarnessSupportClient: 'static + Send + Sync {
     fn http_client(&self) -> &http_client::Client;
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl ServerApi {
     pub(crate) async fn get_public_api_response_for_task(
         &self,
@@ -241,6 +249,7 @@ impl ServerApi {
         }
     }
 
+    #[cfg(not(feature = "oss_release"))]
     pub(crate) async fn resolve_prompt_for_task(
         &self,
         task_id: &AmbientAgentTaskId,
@@ -256,6 +265,7 @@ impl ServerApi {
             .with_context(|| format!("Failed to deserialize response from {url}"))
     }
 
+    #[cfg(not(feature = "oss_release"))]
     pub(crate) async fn fetch_transcript_for_task(
         &self,
         task_id: &AmbientAgentTaskId,
@@ -283,6 +293,25 @@ impl ServerApi {
     }
 }
 
+#[cfg(feature = "oss_release")]
+impl ServerApi {
+    pub(crate) async fn resolve_prompt_for_task(
+        &self,
+        _task_id: &AmbientAgentTaskId,
+        _request: ResolvePromptRequest,
+    ) -> Result<ResolvedHarnessPrompt> {
+        Err(anyhow::anyhow!("Harness support is unavailable in OSS builds"))
+    }
+
+    pub(crate) async fn fetch_transcript_for_task(
+        &self,
+        _task_id: &AmbientAgentTaskId,
+    ) -> Result<bytes::Bytes> {
+        Err(anyhow::anyhow!("Harness support is unavailable in OSS builds"))
+    }
+}
+
+#[cfg(not(feature = "oss_release"))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 impl HarnessSupportClient for ServerApi {
@@ -387,6 +416,63 @@ impl HarnessSupportClient for ServerApi {
                 "fetch_transcript is not supported on wasm; agent_sdk is not built on this target"
             );
         }
+    }
+
+    fn http_client(&self) -> &http_client::Client {
+        &self.client
+    }
+}
+
+#[cfg(feature = "oss_release")]
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+impl HarnessSupportClient for ServerApi {
+    async fn create_external_conversation(&self, _format: &str) -> Result<AIConversationId> {
+        Err(anyhow::anyhow!("Harness support is unavailable in OSS builds"))
+    }
+
+    async fn get_transcript_upload_target(
+        &self,
+        _conversation_id: &AIConversationId,
+    ) -> Result<UploadTarget> {
+        Err(anyhow::anyhow!("Harness support is unavailable in OSS builds"))
+    }
+
+    async fn get_block_snapshot_upload_target(
+        &self,
+        _conversation_id: &AIConversationId,
+    ) -> Result<UploadTarget> {
+        Err(anyhow::anyhow!("Harness support is unavailable in OSS builds"))
+    }
+
+    async fn resolve_prompt(
+        &self,
+        _request: ResolvePromptRequest,
+    ) -> Result<ResolvedHarnessPrompt> {
+        Err(anyhow::anyhow!("Harness support is unavailable in OSS builds"))
+    }
+
+    async fn report_artifact(&self, _artifact: &Artifact) -> Result<ReportArtifactResponse> {
+        Err(anyhow::anyhow!("Harness support is unavailable in OSS builds"))
+    }
+
+    async fn notify_user(&self, _message: &str) -> Result<()> {
+        Err(anyhow::anyhow!("Harness support is unavailable in OSS builds"))
+    }
+
+    async fn finish_task(&self, _success: bool, _summary: &str) -> Result<()> {
+        Err(anyhow::anyhow!("Harness support is unavailable in OSS builds"))
+    }
+
+    async fn get_snapshot_upload_targets(
+        &self,
+        _request: &SnapshotUploadRequest,
+    ) -> Result<Vec<UploadTarget>> {
+        Err(anyhow::anyhow!("Harness support is unavailable in OSS builds"))
+    }
+
+    async fn fetch_transcript(&self) -> Result<bytes::Bytes> {
+        Err(anyhow::anyhow!("Harness support is unavailable in OSS builds"))
     }
 
     fn http_client(&self) -> &http_client::Client {

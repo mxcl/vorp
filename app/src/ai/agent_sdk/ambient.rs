@@ -12,6 +12,7 @@ use crate::ai::ambient_agents::AmbientAgentTaskState;
 use crate::ai::ambient_agents::{AgentConfigSnapshot, AmbientAgentTask, AmbientAgentTaskId};
 use crate::ai::artifacts::Artifact;
 use crate::auth::AuthStateProvider;
+use crate::reqwest_eventsource;
 use crate::server::server_api::ai::{
     AIClient, AgentMessageHeader, AgentRunEvent, AgentSource, ArtifactType, ExecutionLocation,
     ListAgentMessagesRequest, ReadAgentMessageResponse, RunSortBy, RunSortOrder,

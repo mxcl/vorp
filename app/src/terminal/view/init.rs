@@ -12,7 +12,7 @@ use crate::terminal::input::{
     SET_INPUT_MODE_AGENT_ACTION_NAME, SET_INPUT_MODE_TERMINAL_ACTION_NAME,
 };
 use crate::terminal::shared_session::SharedSessionActionSource;
-use crate::terminal::ssh::error::{SshErrorBlockAction, SSH_ERROR_BLOCK_VISIBLE_KEY};
+use crate::terminal::ssh::error::{SSH_ERROR_BLOCK_VISIBLE_KEY, SshErrorBlockAction};
 use crate::terminal::view::passive_suggestions::PromptSuggestionResolution;
 use crate::terminal::view::{
     LONG_RUNNING_AGENT_REQUESTED_COMMAND_CONTEXT_KEY,
@@ -23,12 +23,12 @@ use crate::util::bindings::{cmd_or_ctrl_shift, is_binding_pty_compliant};
 use crate::{
     channel::{Channel, ChannelState},
     features::FeatureFlag,
+    terminal::TerminalView,
     terminal::model::{
         escape_sequences::{self, EscCodes},
         selection::SelectionDirection,
     },
     terminal::shared_session::SharedSessionStatus,
-    terminal::TerminalView,
     util::bindings::CustomAction,
 };
 use warp_core::context_flag::ContextFlag;
@@ -36,9 +36,9 @@ use warpui::keymap::ContextPredicate;
 use warpui::keymap::{BindingDescription, PerPlatformKeystroke};
 use warpui::platform::OperatingSystem;
 use warpui::{
+    AppContext,
     keymap::{EditableBinding, FixedBinding},
     units::IntoLines,
-    AppContext,
 };
 
 pub const TOGGLE_BLOCK_FILTER_KEYBINDING: &str =
@@ -320,6 +320,7 @@ pub fn init(app: &mut AppContext) {
         // Two contexts match this binding:
         // 1. Terminal context when CLI agent footer is visible (opens rich input)
         // 2. EditorView context when rich input is already open (closes rich input, fix for #9286)
+        #[cfg(not(feature = "oss_release"))]
         EditableBinding::new(
             OPEN_CLI_AGENT_RICH_INPUT_KEYBINDING,
             "Toggle CLI Agent Rich Input",
@@ -802,6 +803,7 @@ pub fn init(app: &mut AppContext) {
         // to avoid cluttering the keybindings UI. At the end of the day, these
         // map to the same logic, and we should be able to distinguish whether
         // this is a block selection or text selection later on.
+        #[cfg(not(feature = "oss_release"))]
         EditableBinding::new(
             "terminal:ask_ai_assistant",
             "Ask Warp AI about Selection",
@@ -819,6 +821,7 @@ pub fn init(app: &mut AppContext) {
         ),
     ]);
 
+    #[cfg(not(feature = "oss_release"))]
     app.register_editable_bindings([
         EditableBinding::new(
             "terminal:ask_ai_assistant_last_block",

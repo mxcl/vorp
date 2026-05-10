@@ -2,6 +2,10 @@ pub(crate) mod conversation;
 pub(crate) mod conversation_yaml;
 pub(crate) mod todos;
 
+#[cfg(not(feature = "oss_release"))]
+pub(crate) mod api;
+#[cfg(feature = "oss_release")]
+#[path = "api_oss.rs"]
 pub(crate) mod api;
 pub(crate) mod comment;
 pub(crate) mod icons;
@@ -25,6 +29,7 @@ use crate::code::editor_management::CodeSource;
 use crate::code_review::comments::{
     AttachedReviewComment as CodeReviewComment, ReviewCommentBatch,
 };
+use crate::rmcp;
 use crate::search::slash_command_menu::static_commands::commands;
 use crate::server::server_api::AIApiError;
 use ai::agent::orchestration_config::{OrchestrationConfig, OrchestrationConfigStatus};

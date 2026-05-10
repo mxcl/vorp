@@ -3,10 +3,8 @@ use std::collections::HashSet;
 ///
 /// Allows opening and saving files in a single, central model.  Subscribers can watch for content
 /// when files are loaded, and request that content be saved to disk.
-use std::future::Future;
 use std::io;
 use std::ops::Range;
-use std::pin::Pin;
 use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 use std::{
@@ -14,16 +12,20 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use remote_server::client::RemoteServerClient;
-use remote_server::manager::RemoteServerManager;
 use warp_core::HostId;
 use warp_util::standardized_path::StandardizedPath;
 
 use futures::io::{AsyncBufReadExt, BufReader};
 use futures::StreamExt;
 
+#[cfg(feature = "repository_watching")]
 use async_channel::Sender;
 use notify_debouncer_full::notify::{RecursiveMode, WatchFilter};
+#[cfg(feature = "remote_server")]
+use remote_server::client::RemoteServerClient;
+#[cfg(feature = "remote_server")]
+use remote_server::manager::RemoteServerManager;
+#[cfg(feature = "repository_watching")]
 use repo_metadata::{
     repositories::DetectedRepositories,
     repository::{RepositorySubscriber, SubscriberId},
@@ -32,8 +34,10 @@ use repo_metadata::{
 use warp_util::content_version::ContentVersion;
 use warp_util::file::FileSaveError;
 use warp_util::file::{FileId, FileLoadError};
+#[cfg(feature = "remote_server")]
+use warpui::AppContext;
 use warpui::ModelHandle;
-use warpui::{r#async::SpawnedFutureHandle, AppContext, Entity, ModelContext, SingletonEntity};
+use warpui::{r#async::SpawnedFutureHandle, Entity, ModelContext, SingletonEntity};
 use watcher::{BulkFilesystemWatcher, BulkFilesystemWatcherEvent};
 
 pub mod text_file_reader;
@@ -87,6 +91,7 @@ enum WatcherType {
     /// File is watched via individual file watcher.
     Individual,
     /// File is watched via repository-level subscription.
+    #[cfg(feature = "repository_watching")]
     Repository,
 }
 
@@ -143,6 +148,7 @@ impl LocalFile {
 }
 
 /// Tracks an active subscription to a repository for file change events.
+#[cfg(feature = "repository_watching")]
 struct RepositorySubscription {
     repository: ModelHandle<Repository>,
     /// The subscriber ID, set once the async subscription completes.
@@ -153,9 +159,7 @@ impl LocalFile {
     fn new(path: PathBuf, watcher_type: WatcherType) -> Self {
         // If we cannot canonicalize the path, it could be because the file does not exist on disk yet.
         // In this case, keep its original input path.
-        let canonicalized_path = CanonicalizedPath::try_from(&path)
-            .map(|path| path.as_path_buf().to_path_buf())
-            .unwrap_or(path);
+        let canonicalized_path = canonicalize_local_path(path);
         Self {
             path: Some(canonicalized_path),
             version: None,
@@ -267,6 +271,7 @@ impl RepoPathMappingState {
         }
     }
 
+    #[cfg(feature = "repository_watching")]
     fn remove(&mut self, path: &Path) -> Option<(PathBuf, bool)> {
         if let Some(repo_root) = self.path_to_repo.remove(path) {
             let mut unused_repo = true;
@@ -286,6 +291,7 @@ impl RepoPathMappingState {
     }
 
     /// Returns all paths mapped to the given repository root.
+    #[cfg(feature = "repository_watching")]
     fn paths_for_repo(&self, repo_root: &Path) -> Vec<PathBuf> {
         self.path_to_repo
             .iter()
@@ -300,6 +306,7 @@ pub struct FileModel {
     abort_handles: HashMap<FileId, SpawnedFutureHandle>,
     watcher: ModelHandle<BulkFilesystemWatcher>,
     /// Maps repository root path to its subscription. One subscription per repo.
+    #[cfg(feature = "repository_watching")]
     repo_subscriptions: HashMap<PathBuf, RepositorySubscription>,
     repo_path_mapping: RepoPathMappingState,
 }
@@ -317,6 +324,7 @@ impl FileModel {
             watcher,
             file_state: FileState::default(),
             abort_handles: HashMap::new(),
+            #[cfg(feature = "repository_watching")]
             repo_subscriptions: HashMap::new(),
             repo_path_mapping: RepoPathMappingState::default(),
         }
@@ -368,7 +376,14 @@ impl FileModel {
             if let Some(repo_root) = self.get_or_create_repo_subscription(file_path, ctx) {
                 self.repo_path_mapping
                     .insert(file_path.to_path_buf(), repo_root);
-                WatcherType::Repository
+                #[cfg(feature = "repository_watching")]
+                {
+                    WatcherType::Repository
+                }
+                #[cfg(not(feature = "repository_watching"))]
+                {
+                    WatcherType::Individual
+                }
             } else {
                 // Fallback to individual file watcher
                 self.watcher.update(ctx, |watcher, _ctx| {
@@ -405,7 +420,14 @@ impl FileModel {
             if let Some(repo_root) = self.get_or_create_repo_subscription(file_path, ctx) {
                 self.repo_path_mapping
                     .insert(file_path.to_path_buf(), repo_root);
-                WatcherType::Repository
+                #[cfg(feature = "repository_watching")]
+                {
+                    WatcherType::Repository
+                }
+                #[cfg(not(feature = "repository_watching"))]
+                {
+                    WatcherType::Individual
+                }
             } else {
                 // Will register individual watcher after file loads
                 WatcherType::Individual
@@ -642,6 +664,7 @@ impl FileModel {
                                 std::mem::drop(watcher.unregister_path(path.as_path()));
                             });
                         }
+                        #[cfg(feature = "repository_watching")]
                         WatcherType::Repository => {
                             if let Some((repo_root, unused_repo)) =
                                 self.repo_path_mapping.remove(path)
@@ -710,32 +733,45 @@ impl FileModel {
                 );
             }
             FileBackend::Remote { host_id, path } => {
-                let client = Self::resolve_remote_client(host_id, ctx)?;
-                let path = path.as_str().to_string();
-                let future = async move {
-                    client
-                        .write_file(path, content)
-                        .await
-                        .map_err(|e| e.to_string())
-                };
-                ctx.spawn(
-                    future,
-                    move |me, result: Result<(), String>, ctx| match result {
-                        Ok(()) => {
-                            me.set_version(file_id, version);
-                            ctx.emit(FileModelEvent::FileSaved {
-                                id: file_id,
-                                version,
-                            });
-                        }
-                        Err(err) => {
-                            ctx.emit(FileModelEvent::FailedToSave {
-                                id: file_id,
-                                error: Rc::new(FileSaveError::RemoteError(err)),
-                            });
-                        }
-                    },
-                );
+                #[cfg(feature = "remote_server")]
+                {
+                    let client = Self::resolve_remote_client(host_id, ctx)?;
+                    let path = path.as_str().to_string();
+                    let future = async move {
+                        client
+                            .write_file(path, content)
+                            .await
+                            .map_err(|e| e.to_string())
+                    };
+                    ctx.spawn(
+                        future,
+                        move |me, result: Result<(), String>, ctx| match result {
+                            Ok(()) => {
+                                me.set_version(file_id, version);
+                                ctx.emit(FileModelEvent::FileSaved {
+                                    id: file_id,
+                                    version,
+                                });
+                            }
+                            Err(err) => {
+                                ctx.emit(FileModelEvent::FailedToSave {
+                                    id: file_id,
+                                    error: Rc::new(FileSaveError::RemoteError(err)),
+                                });
+                            }
+                        },
+                    );
+                }
+                #[cfg(not(feature = "remote_server"))]
+                {
+                    let error = FileSaveError::RemoteError(format!(
+                        "Remote file support is not available in this build: {host_id}:{path}"
+                    ));
+                    ctx.emit(FileModelEvent::FailedToSave {
+                        id: file_id,
+                        error: Rc::new(error),
+                    });
+                }
             }
         }
 
@@ -861,28 +897,41 @@ impl FileModel {
                 );
             }
             FileBackend::Remote { host_id, path } => {
-                let client = Self::resolve_remote_client(host_id, ctx)?;
-                let path = path.as_str().to_string();
-                let future =
-                    async move { client.delete_file(path).await.map_err(|e| e.to_string()) };
-                ctx.spawn(
-                    future,
-                    move |me, result: Result<(), String>, ctx| match result {
-                        Ok(()) => {
-                            me.set_version(file_id, version);
-                            ctx.emit(FileModelEvent::FileSaved {
-                                id: file_id,
-                                version,
-                            });
-                        }
-                        Err(err) => {
-                            ctx.emit(FileModelEvent::FailedToSave {
-                                id: file_id,
-                                error: Rc::new(FileSaveError::RemoteError(err)),
-                            });
-                        }
-                    },
-                );
+                #[cfg(feature = "remote_server")]
+                {
+                    let client = Self::resolve_remote_client(host_id, ctx)?;
+                    let path = path.as_str().to_string();
+                    let future =
+                        async move { client.delete_file(path).await.map_err(|e| e.to_string()) };
+                    ctx.spawn(
+                        future,
+                        move |me, result: Result<(), String>, ctx| match result {
+                            Ok(()) => {
+                                me.set_version(file_id, version);
+                                ctx.emit(FileModelEvent::FileSaved {
+                                    id: file_id,
+                                    version,
+                                });
+                            }
+                            Err(err) => {
+                                ctx.emit(FileModelEvent::FailedToSave {
+                                    id: file_id,
+                                    error: Rc::new(FileSaveError::RemoteError(err)),
+                                });
+                            }
+                        },
+                    );
+                }
+                #[cfg(not(feature = "remote_server"))]
+                {
+                    let error = FileSaveError::RemoteError(format!(
+                        "Remote file support is not available in this build: {host_id}:{path}"
+                    ));
+                    ctx.emit(FileModelEvent::FailedToSave {
+                        id: file_id,
+                        error: Rc::new(error),
+                    });
+                }
             }
         }
 
@@ -890,6 +939,7 @@ impl FileModel {
     }
 
     /// Look up the `RemoteServerClient` for a given host at call time.
+    #[cfg(feature = "remote_server")]
     fn resolve_remote_client(
         host_id: &HostId,
         ctx: &AppContext,
@@ -914,6 +964,7 @@ impl FileModel {
 
     /// Checks if a repository subscription exists for the given path, and creates one if needed.
     /// Returns the repository root path if a subscription exists or was created.
+    #[cfg(feature = "repository_watching")]
     fn get_or_create_repo_subscription(
         &mut self,
         file_path: &Path,
@@ -994,7 +1045,17 @@ impl FileModel {
         Some(repo_root)
     }
 
+    #[cfg(not(feature = "repository_watching"))]
+    fn get_or_create_repo_subscription(
+        &mut self,
+        _file_path: &Path,
+        _ctx: &mut ModelContext<Self>,
+    ) -> Option<PathBuf> {
+        None
+    }
+
     /// Handles file updates from a repository subscription.
+    #[cfg(feature = "repository_watching")]
     fn handle_repository_update(
         &mut self,
         _repo_root: &Path,
@@ -1118,6 +1179,7 @@ impl FileModel {
 
     /// Falls back to individual file watchers for all files that were expecting to use the given repository.
     /// Called when a repository subscription fails.
+    #[cfg(feature = "repository_watching")]
     fn fallback_to_individual_watchers(&mut self, repo_root: &Path, ctx: &mut ModelContext<Self>) {
         let affected_paths = self.repo_path_mapping.paths_for_repo(repo_root);
 
@@ -1144,6 +1206,7 @@ impl FileModel {
     }
 
     /// Checks if any files still reference the given repository, and unsubscribes if not.
+    #[cfg(feature = "repository_watching")]
     fn unsubscribe_from_repo(&mut self, repo_root: &Path, ctx: &mut ModelContext<Self>) {
         if let Some(subscription) = self.repo_subscriptions.remove(repo_root) {
             log::info!(
@@ -1166,16 +1229,18 @@ impl Entity for FileModel {
 impl SingletonEntity for FileModel {}
 
 /// Subscriber for repository file change events, forwarding updates to FileModel.
+#[cfg(feature = "repository_watching")]
 struct FileRepositorySubscriber {
     repository_update_tx: Sender<RepositoryUpdate>,
 }
 
+#[cfg(feature = "repository_watching")]
 impl RepositorySubscriber for FileRepositorySubscriber {
     fn on_scan(
         &mut self,
         _repository: &Repository,
         _ctx: &mut ModelContext<Repository>,
-    ) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>> {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'static>> {
         // Files are already loaded when subscription starts, so we don't need to do anything.
         Box::pin(async {})
     }
@@ -1185,13 +1250,25 @@ impl RepositorySubscriber for FileRepositorySubscriber {
         _repository: &Repository,
         update: &RepositoryUpdate,
         _ctx: &mut ModelContext<Repository>,
-    ) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>> {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'static>> {
         let tx = self.repository_update_tx.clone();
         let update = update.clone();
         Box::pin(async move {
             let _ = tx.send(update).await;
         })
     }
+}
+
+#[cfg(feature = "repository_watching")]
+fn canonicalize_local_path(path: PathBuf) -> PathBuf {
+    CanonicalizedPath::try_from(&path)
+        .map(|path| path.as_path_buf().to_path_buf())
+        .unwrap_or(path)
+}
+
+#[cfg(not(feature = "repository_watching"))]
+fn canonicalize_local_path(path: PathBuf) -> PathBuf {
+    std::fs::canonicalize(&path).unwrap_or(path)
 }
 
 #[cfg(test)]

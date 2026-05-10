@@ -51,12 +51,15 @@ use crate::drive::CloudObjectTypeAndId;
 use crate::drive::DriveSortOrder;
 use crate::features::FeatureFlag;
 use crate::launch_configs::save_modal::SaveState;
+#[cfg(not(feature = "oss_release"))]
 use crate::notebooks::telemetry::NotebookTelemetryAction;
 use crate::notebooks::NotebookId;
+#[cfg(not(feature = "oss_release"))]
 use crate::notebooks::NotebookLocation;
 use crate::palette::PaletteMode;
 use crate::pane_group::PaneDragDropLocation;
 use crate::prompt::editor_modal::OpenSource as PromptEditorOpenSource;
+use crate::rmcp;
 use crate::search::command_search::searcher::CommandSearchItemAction;
 use crate::search::QueryFilter;
 use crate::server::block::DisplaySetting;
@@ -106,6 +109,36 @@ use crate::workspace::tab_settings::WorkspaceDecorationVisibility;
 use crate::workspace::TabMovement;
 use session_sharing_protocol::sharer::SessionSourceType;
 use warp_core::interval_timer::TimingDataPoint;
+
+#[cfg(feature = "oss_release")]
+macro_rules! impl_oss_disabled_telemetry_metadata {
+    ($ty:ty, $fallback:expr) => {
+        impl std::fmt::Debug for $ty {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("TelemetryMetadata")
+            }
+        }
+
+        impl Serialize for $ty {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                serializer.serialize_str("disabled")
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $ty {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                let _ = serde::de::IgnoredAny::deserialize(deserializer)?;
+                Ok($fallback)
+            }
+        }
+    };
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct BootstrappingInfo {
@@ -250,6 +283,7 @@ pub struct WorkflowTelemetryMetadata {
 ///
 /// This representation allows for invalid combinations, but makes querying the data easier (for
 /// example, to find all notebook events for a given team).
+#[cfg(not(feature = "oss_release"))]
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct NotebookTelemetryMetadata {
     /// The notebook ID, only available for cloud notebooks that have been synced to the server.
@@ -263,6 +297,7 @@ pub struct NotebookTelemetryMetadata {
     pub markdown_table_count: Option<usize>,
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl NotebookTelemetryMetadata {
     pub fn new(
         notebook_id: impl Into<Option<NotebookId>>,
@@ -285,6 +320,7 @@ impl NotebookTelemetryMetadata {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NotebookActionEvent {
     #[serde(flatten)]
@@ -354,7 +390,7 @@ pub enum MCPServerTelemetryError {
     TransportError(String),
 }
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
 impl From<rmcp::RmcpError> for MCPServerTelemetryError {
     fn from(err: rmcp::RmcpError) -> Self {
         match err {
@@ -449,7 +485,8 @@ pub enum CommandXRayTrigger {
     Keystroke,
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(feature = "oss_release"), derive(Debug, Serialize, Deserialize))]
 pub enum PaletteSource {
     PrefixChange,
     Keybinding,
@@ -466,7 +503,11 @@ pub enum PaletteSource {
     TitleBarSearchBar,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[cfg(feature = "oss_release")]
+impl_oss_disabled_telemetry_metadata!(PaletteSource, PaletteSource::IntegrationTest);
+
+#[derive(Clone, Copy)]
+#[cfg_attr(not(feature = "oss_release"), derive(Debug, Serialize, Deserialize))]
 pub enum FileTreeSource {
     /// Opened from the pane header toolbelt button.
     PaneHeader,
@@ -477,17 +518,28 @@ pub enum FileTreeSource {
     CLIAgentView,
 }
 
+#[cfg(feature = "oss_release")]
+impl_oss_disabled_telemetry_metadata!(FileTreeSource, FileTreeSource::ForceOpened);
+
 #[cfg(feature = "local_fs")]
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(feature = "oss_release"), derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(not(feature = "oss_release"), serde(rename_all = "snake_case"))]
 pub enum CodePanelsFileOpenEntrypoint {
     CodeReview,
     ProjectExplorer,
     GlobalSearch,
 }
 
+#[cfg(all(feature = "local_fs", feature = "oss_release"))]
+impl_oss_disabled_telemetry_metadata!(
+    CodePanelsFileOpenEntrypoint,
+    CodePanelsFileOpenEntrypoint::GlobalSearch
+);
+
 /// The CLI agent being used (for telemetry purposes).
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(feature = "oss_release"), derive(Debug, Serialize, Deserialize))]
 pub enum CLIAgentType {
     Claude,
     Gemini,
@@ -504,23 +556,34 @@ pub enum CLIAgentType {
     Unknown,
 }
 
+#[cfg(feature = "oss_release")]
+impl_oss_disabled_telemetry_metadata!(CLIAgentType, CLIAgentType::Unknown);
+
 /// The kind of plugin chip shown or dismissed (for telemetry purposes).
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(feature = "oss_release"), derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(not(feature = "oss_release"), serde(rename_all = "snake_case"))]
 pub enum PluginChipTelemetryKind {
     Install,
     Update,
 }
 
+#[cfg(feature = "oss_release")]
+impl_oss_disabled_telemetry_metadata!(PluginChipTelemetryKind, PluginChipTelemetryKind::Install);
+
 /// Identifies the agent variant that triggered a notification (for telemetry purposes).
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(feature = "oss_release"), derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(not(feature = "oss_release"), serde(rename_all = "snake_case"))]
 pub enum NotificationAgentVariant {
     /// Warp's built-in agent (Oz).
     Oz,
     /// A CLI agent (e.g., Claude Code, Gemini CLI, etc.).
     CLIAgent(CLIAgentType),
 }
+
+#[cfg(feature = "oss_release")]
+impl_oss_disabled_telemetry_metadata!(NotificationAgentVariant, NotificationAgentVariant::Oz);
 
 impl From<NotificationSourceAgent> for NotificationAgentVariant {
     fn from(agent: NotificationSourceAgent) -> Self {
@@ -532,8 +595,9 @@ impl From<NotificationSourceAgent> for NotificationAgentVariant {
 }
 
 /// The action taken on a plugin chip (for telemetry purposes).
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(feature = "oss_release"), derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(not(feature = "oss_release"), serde(rename_all = "snake_case"))]
 pub enum PluginChipTelemetryAction {
     /// User clicked the auto-install button.
     Install,
@@ -544,6 +608,12 @@ pub enum PluginChipTelemetryAction {
     /// User clicked the manual update instructions button.
     UpdateInstructions,
 }
+
+#[cfg(feature = "oss_release")]
+impl_oss_disabled_telemetry_metadata!(
+    PluginChipTelemetryAction,
+    PluginChipTelemetryAction::Install
+);
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum WarpDriveSource {
@@ -572,7 +642,8 @@ pub enum CommandCorrectionEvent {
     },
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone)]
+#[cfg_attr(not(feature = "oss_release"), derive(Serialize, Deserialize))]
 pub enum CommandSearchResultType {
     History,
     Workflow,
@@ -585,12 +656,16 @@ pub enum CommandSearchResultType {
     Project,
 }
 
+#[cfg(feature = "oss_release")]
+impl_oss_disabled_telemetry_metadata!(CommandSearchResultType, CommandSearchResultType::History);
+
 impl From<&CommandSearchItemAction> for CommandSearchResultType {
     fn from(action: &CommandSearchItemAction) -> Self {
         use crate::search::command_search::searcher::CommandSearchItemAction::*;
         match action {
             AcceptHistory(_) | ExecuteHistory(_) => Self::History,
             AcceptWorkflow(_) => Self::Workflow,
+            #[cfg(not(feature = "oss_release"))]
             AcceptNotebook(_) => Self::Notebook,
             AcceptEnvVarCollection(_) => Self::EnvVarCollection,
             OpenWarpAI => Self::OpenWarpAI,
@@ -600,7 +675,8 @@ impl From<&CommandSearchItemAction> for CommandSearchResultType {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(feature = "oss_release"), derive(Debug, Serialize, Deserialize))]
 pub enum CloseTarget {
     App,
     Window,
@@ -608,6 +684,9 @@ pub enum CloseTarget {
     Pane,
     EditorTab,
 }
+
+#[cfg(feature = "oss_release")]
+impl_oss_disabled_telemetry_metadata!(CloseTarget, CloseTarget::Pane);
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum PtySpawnMode {
@@ -1524,6 +1603,7 @@ pub enum TelemetryEvent {
     TeamLinkCopied,
     RemovedUserFromTeam,
     DeletedWorkflow,
+    #[cfg(not(feature = "oss_release"))]
     DeletedNotebook,
     ToggleApprovalsModal,
     ChangedInviteViewOption(TeamsInviteOption),
@@ -1564,11 +1644,14 @@ pub enum TelemetryEvent {
     AICommandSearchOpened {
         entrypoint: AICommandSearchEntrypoint,
     },
+    #[cfg(not(feature = "oss_release"))]
     OpenNotebook(NotebookTelemetryMetadata),
+    #[cfg(not(feature = "oss_release"))]
     EditNotebook {
         metadata: NotebookTelemetryMetadata,
         meaningful_change: bool,
     },
+    #[cfg(not(feature = "oss_release"))]
     NotebookAction(NotebookActionEvent),
     OpenedAltScreenFind,
     UserInitiatedClose {
@@ -2535,7 +2618,7 @@ pub enum TelemetryEvent {
         action: AgentModeSetupCreateEnvironmentActionType,
     },
     InputBufferSubmitted {
-        input_type: input_classifier::InputType,
+        input_type: InputType,
         is_locked: bool,
         was_lock_set_with_empty_buffer: bool,
     },
@@ -2811,7 +2894,7 @@ pub enum TelemetryEvent {
     /// Emitted when the remote server connection + initialization completes.
     /// `error` is `None` on success, `Some(reason)` on failure.
     RemoteServerInitialization {
-        phase: remote_server::manager::RemoteServerInitPhase,
+        phase: crate::remote_server::manager::RemoteServerInitPhase,
         error: Option<String>,
         remote_os: Option<String>,
         remote_arch: Option<String>,
@@ -2823,8 +2906,8 @@ pub enum TelemetryEvent {
     },
     /// Emitted when a client request to the remote server fails.
     RemoteServerClientRequestError {
-        operation: remote_server::manager::RemoteServerOperation,
-        error_type: remote_server::manager::RemoteServerErrorKind,
+        operation: crate::remote_server::manager::RemoteServerOperation,
+        error_type: crate::remote_server::manager::RemoteServerErrorKind,
         remote_os: Option<String>,
         remote_arch: Option<String>,
     },
@@ -2870,8 +2953,7 @@ impl TelemetryEventTrait for TelemetryEvent {
     }
 
     fn description(&self) -> &'static str {
-        let discriminant: TelemetryEventDiscriminants = self.into();
-        discriminant.description()
+        self.description()
     }
 
     fn contains_ugc(&self) -> bool {
@@ -2882,22 +2964,57 @@ impl TelemetryEventTrait for TelemetryEvent {
         self.enablement_state()
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
         warp_core::telemetry::enum_events::<Self>()
+    }
+
+    #[cfg(feature = "oss_release")]
+    fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
+        std::iter::empty()
     }
 }
 
 impl TelemetryEvent {
+    #[cfg(feature = "oss_release")]
+    pub fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     pub fn name(&self) -> &'static str {
         let discriminant: TelemetryEventDiscriminants = self.into();
         discriminant.name()
     }
 
+    #[cfg(feature = "oss_release")]
+    pub fn enablement_state(&self) -> EnablementState {
+        EnablementState::Always
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     pub fn enablement_state(&self) -> EnablementState {
         let discriminant: TelemetryEventDiscriminants = self.into();
         discriminant.enablement_state()
     }
 
+    #[cfg(feature = "oss_release")]
+    pub fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
+    pub fn description(&self) -> &'static str {
+        let discriminant: TelemetryEventDiscriminants = self.into();
+        discriminant.description()
+    }
+
+    #[cfg(feature = "oss_release")]
+    pub fn payload(&self) -> Option<Value> {
+        None
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     pub fn payload(&self) -> Option<Value> {
         match self {
             TelemetryEvent::ShowedSuggestedAgentModeWorkflowChip { logging_id } => Some(json!({
@@ -3152,7 +3269,9 @@ impl TelemetryEvent {
             TelemetryEvent::AICommandSearchOpened { entrypoint } => {
                 Some(json!({ "entrypoint": entrypoint }))
             }
+            #[cfg(not(feature = "oss_release"))]
             TelemetryEvent::OpenNotebook(metadata) => Some(json!(metadata)),
+            #[cfg(not(feature = "oss_release"))]
             TelemetryEvent::EditNotebook {
                 metadata,
                 meaningful_change,
@@ -3161,6 +3280,7 @@ impl TelemetryEvent {
                 "team_uid": metadata.team_uid,
                 "meaningful_change": meaningful_change,
             })),
+            #[cfg(not(feature = "oss_release"))]
             TelemetryEvent::NotebookAction(event) => Some(json!(event)),
             TelemetryEvent::UserInitiatedClose { initiated_on } => {
                 Some(json!({ "initiated_on": initiated_on }))
@@ -4026,6 +4146,8 @@ impl TelemetryEvent {
                 "exchange_id": identifiers.client_exchange_id,
                 "conversation_id": identifiers.server_conversation_id,
             })),
+            #[cfg(not(feature = "oss_release"))]
+            TelemetryEvent::DeletedNotebook => None,
             TelemetryEvent::BackgroundBlockStarted
             | TelemetryEvent::SessionCreation
             | TelemetryEvent::Login
@@ -4067,7 +4189,6 @@ impl TelemetryEvent {
             | TelemetryEvent::TeamLinkCopied
             | TelemetryEvent::RemovedUserFromTeam
             | TelemetryEvent::DeletedWorkflow
-            | TelemetryEvent::DeletedNotebook
             | TelemetryEvent::ToggleApprovalsModal
             | TelemetryEvent::ChangedInviteViewOption(_)
             | TelemetryEvent::SendEmailInvites
@@ -4580,6 +4701,12 @@ impl TelemetryEvent {
 
     /// Returns whether the event contains user generated content, indicating it should
     /// be sent to a dedicated rudderstack source.
+    #[cfg(feature = "oss_release")]
+    pub fn contains_ugc(&self) -> bool {
+        false
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     pub fn contains_ugc(&self) -> bool {
         match self {
             TelemetryEvent::GrepToolFailed { .. } => true,
@@ -4610,6 +4737,12 @@ impl TelemetryEvent {
                     AgentModeAutoDetectionFalsePositivePayload::InternalDogfoodUsers { .. }
                 )
             }
+            #[cfg(not(feature = "oss_release"))]
+            TelemetryEvent::DeletedNotebook => false,
+            #[cfg(not(feature = "oss_release"))]
+            TelemetryEvent::OpenNotebook(_)
+            | TelemetryEvent::EditNotebook { .. }
+            | TelemetryEvent::NotebookAction(_) => false,
             TelemetryEvent::ShowedSuggestedAgentModeWorkflowModal { .. }
             | TelemetryEvent::ShowedSuggestedAgentModeWorkflowChip { .. }
             | TelemetryEvent::AISuggestedAgentModeWorkflowAdded { .. }
@@ -4729,7 +4862,6 @@ impl TelemetryEvent {
             | TelemetryEvent::TeamLinkCopied
             | TelemetryEvent::RemovedUserFromTeam
             | TelemetryEvent::DeletedWorkflow
-            | TelemetryEvent::DeletedNotebook
             | TelemetryEvent::ToggleApprovalsModal
             | TelemetryEvent::ChangedInviteViewOption(_)
             | TelemetryEvent::SendEmailInvites
@@ -4747,9 +4879,6 @@ impl TelemetryEvent {
             | TelemetryEvent::CommandSearchFilterChanged { .. }
             | TelemetryEvent::CommandSearchAsyncQueryCompleted { .. }
             | TelemetryEvent::AICommandSearchOpened { .. }
-            | TelemetryEvent::OpenNotebook(_)
-            | TelemetryEvent::EditNotebook { .. }
-            | TelemetryEvent::NotebookAction(_)
             | TelemetryEvent::OpenedAltScreenFind
             | TelemetryEvent::UserInitiatedClose { .. }
             | TelemetryEvent::QuitModalShown { .. }
@@ -5168,6 +5297,7 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
                 EnablementState::Flag(FeatureFlag::CreatingSharedSessions)
             }
             Self::JoinedSharedSession => EnablementState::Flag(FeatureFlag::ViewingSharedSessions),
+            #[cfg(not(feature = "oss_release"))]
             Self::OpenNotebook | Self::EditNotebook | Self::NotebookAction => {
                 EnablementState::Always
             }
@@ -5285,6 +5415,7 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::TeamLinkCopied => EnablementState::Always,
             Self::RemovedUserFromTeam => EnablementState::Always,
             Self::DeletedWorkflow => EnablementState::Always,
+            #[cfg(not(feature = "oss_release"))]
             Self::DeletedNotebook => EnablementState::Always,
             Self::ToggleApprovalsModal => EnablementState::Always,
             Self::ChangedInviteViewOption => EnablementState::Always,
@@ -5616,6 +5747,12 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         match self {
             Self::RepoOutlineConstructionSuccess => "Repo Outline Built Successfully",
@@ -5798,8 +5935,11 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::CommandSearchFilterChanged => "Command Search Filter Changed",
             Self::CommandSearchAsyncQueryCompleted => "Command Search Async Query Completed",
             Self::AICommandSearchOpened => "AI Command Search opened",
+            #[cfg(not(feature = "oss_release"))]
             Self::OpenNotebook => "Notebook Opened",
+            #[cfg(not(feature = "oss_release"))]
             Self::EditNotebook => "Notebook Edited",
+            #[cfg(not(feature = "oss_release"))]
             Self::NotebookAction => "Notebook Action",
             Self::OpenedAltScreenFind => "Opened alt screen find bar",
             Self::UserInitiatedClose => "User Initiated Closing Something",
@@ -5928,6 +6068,7 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::TeamLinkCopied => "Team Link Copied",
             Self::RemovedUserFromTeam => "Removed user from team",
             Self::DeletedWorkflow => "Deleted Workflow",
+            #[cfg(not(feature = "oss_release"))]
             Self::DeletedNotebook => "Deleted Notebook",
             Self::ToggleApprovalsModal => "Toggle Approvals Modal",
             Self::ChangedInviteViewOption => "Changed invite view option",
@@ -6162,6 +6303,12 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         match self {
             Self::AIExecutionProfileContextWindowSelected => {
@@ -6407,6 +6554,7 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::TeamLinkCopied => "Copied a Warp Drive team link",
             Self::RemovedUserFromTeam => "Remove user from Warp Drive team",
             Self::DeletedWorkflow => "Deleted workflow from Warp Drive team",
+            #[cfg(not(feature = "oss_release"))]
             Self::DeletedNotebook => "Deleted notebook from Warp Drive team",
             Self::ToggleApprovalsModal => "Opened or closed teams modal",
             Self::ChangedInviteViewOption => "Toggled between link and invite for invite",
@@ -6429,8 +6577,11 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::AICommandSearchOpened => {
                 "Opened the modal for AI Command Search, where you can use natural language to search for commands"
             }
+            #[cfg(not(feature = "oss_release"))]
             Self::OpenNotebook => "Opened a notebook",
+            #[cfg(not(feature = "oss_release"))]
             Self::EditNotebook => "Edited a notebook",
+            #[cfg(not(feature = "oss_release"))]
             Self::NotebookAction => {
                 "Took an action on a notebook: edit, delete, modified font size, etc."
             }

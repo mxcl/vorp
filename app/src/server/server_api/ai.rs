@@ -33,13 +33,16 @@ use crate::ai::request_usage_model::RequestLimitInfo;
 use crate::ai::BonusGrant;
 use crate::ai::{agent::api::ServerConversationToken, harness_availability::HarnessAvailability};
 use crate::persistence::model::ConversationUsageMetadata;
+#[cfg(not(feature = "oss_release"))]
+use crate::server::graphql::default_request_options;
 use crate::terminal::model::block::SerializedBlock;
 #[cfg(not(feature = "agent_mode_evals"))]
 use crate::{
     ai::request_usage_model::BonusGrantScope,
     server::ids::ServerId,
-    workspaces::{gql_convert::PLACEHOLDER_WORKSPACE_UID, workspace::WorkspaceUid},
 };
+#[cfg(all(not(feature = "agent_mode_evals"), not(feature = "oss_release")))]
+use crate::workspaces::{gql_convert::PLACEHOLDER_WORKSPACE_UID, workspace::WorkspaceUid};
 use crate::{
     ai::{
         llms::{
@@ -53,22 +56,44 @@ use crate::{
         utils::TranscriptPart, AIGeneratedCommand, GenerateCommandsFromNaturalLanguageError,
     },
     drive::workflows::ai_assist::{GeneratedCommandMetadata, GeneratedCommandMetadataError},
-    server::graphql::{
-        default_request_options, get_request_context, get_user_facing_error_message,
-    },
+    server::graphql::{get_request_context, get_user_facing_error_message},
 };
 use ai::index::full_source_code_embedding::{
     self,
     store_client::{IntermediateNode, StoreClient},
     CodebaseContextConfig, ContentHash, EmbeddingConfig, NodeHash, RepoMetadata,
 };
+#[cfg(feature = "oss_release")]
+#[derive(Debug)]
+pub struct ScheduledAgentTimestamp(pub DateTime<Utc>);
+
+#[cfg(feature = "oss_release")]
+impl ScheduledAgentTimestamp {
+    pub fn utc(&self) -> DateTime<Utc> {
+        self.0
+    }
+}
+
+#[cfg(feature = "oss_release")]
+#[derive(Debug)]
+pub struct ScheduledAgentHistory {
+    pub last_ran: Option<ScheduledAgentTimestamp>,
+    pub next_run: Option<ScheduledAgentTimestamp>,
+}
+
+#[cfg(not(feature = "oss_release"))]
+pub type ScheduledAgentHistory = GraphqlScheduledAgentHistory;
+
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::client::Operation;
 #[cfg(not(feature = "agent_mode_evals"))]
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::queries::get_request_limit_info::{
     GetRequestLimitInfo, GetRequestLimitInfoVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::{
-    ai::{AgentTaskState, PlatformErrorCode},
+    ai::{AgentTaskState as GraphqlAgentTaskState, PlatformErrorCode as GraphqlPlatformErrorCode},
     mutations::{
         confirm_file_artifact_upload::{
             ConfirmFileArtifactUpload, ConfirmFileArtifactUploadInput,
@@ -139,8 +164,9 @@ use warp_graphql::{
             GetRelevantFragmentsQuery, GetRelevantFragmentsResult, GetRelevantFragmentsVariables,
         },
         get_scheduled_agent_history::{
-            GetScheduledAgentHistory, GetScheduledAgentHistoryVariables, ScheduledAgentHistory,
-            ScheduledAgentHistoryInput, ScheduledAgentHistoryResult,
+            GetScheduledAgentHistory, GetScheduledAgentHistoryVariables,
+            ScheduledAgentHistory as GraphqlScheduledAgentHistory, ScheduledAgentHistoryInput,
+            ScheduledAgentHistoryResult,
         },
         rerank_fragments::{RerankFragments, RerankFragmentsResult, RerankFragmentsVariables},
         sync_merkle_tree::{
@@ -158,6 +184,74 @@ pub use crate::ai::ambient_agents::{
 };
 
 const AI_ASSISTANT_REQUEST_TIMEOUT_SECONDS: u64 = 30;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum AgentTaskState {
+    Blocked,
+    Cancelled,
+    Claimed,
+    Error,
+    InProgress,
+    Succeeded,
+    Failed,
+}
+
+#[cfg(not(feature = "oss_release"))]
+impl From<AgentTaskState> for GraphqlAgentTaskState {
+    fn from(value: AgentTaskState) -> Self {
+        match value {
+            AgentTaskState::Blocked => Self::Blocked,
+            AgentTaskState::Cancelled => Self::Cancelled,
+            AgentTaskState::Claimed => Self::Claimed,
+            AgentTaskState::Error => Self::Error,
+            AgentTaskState::InProgress => Self::InProgress,
+            AgentTaskState::Succeeded => Self::Succeeded,
+            AgentTaskState::Failed => Self::Failed,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PlatformErrorCode {
+    AuthenticationRequired,
+    BudgetExceeded,
+    ContentPolicyViolation,
+    EnvironmentSetupFailed,
+    ExternalAuthenticationRequired,
+    FeatureNotAvailable,
+    InsufficientCredits,
+    IntegrationDisabled,
+    IntegrationNotConfigured,
+    InternalError,
+    InvalidRequest,
+    NotAuthorized,
+    ResourceUnavailable,
+    ResourceNotFound,
+}
+
+#[cfg(not(feature = "oss_release"))]
+impl From<PlatformErrorCode> for GraphqlPlatformErrorCode {
+    fn from(value: PlatformErrorCode) -> Self {
+        match value {
+            PlatformErrorCode::AuthenticationRequired => Self::AuthenticationRequired,
+            PlatformErrorCode::BudgetExceeded => Self::BudgetExceeded,
+            PlatformErrorCode::ContentPolicyViolation => Self::ContentPolicyViolation,
+            PlatformErrorCode::EnvironmentSetupFailed => Self::EnvironmentSetupFailed,
+            PlatformErrorCode::ExternalAuthenticationRequired => {
+                Self::ExternalAuthenticationRequired
+            }
+            PlatformErrorCode::FeatureNotAvailable => Self::FeatureNotAvailable,
+            PlatformErrorCode::InsufficientCredits => Self::InsufficientCredits,
+            PlatformErrorCode::IntegrationDisabled => Self::IntegrationDisabled,
+            PlatformErrorCode::IntegrationNotConfigured => Self::IntegrationNotConfigured,
+            PlatformErrorCode::InternalError => Self::InternalError,
+            PlatformErrorCode::InvalidRequest => Self::InvalidRequest,
+            PlatformErrorCode::NotAuthorized => Self::NotAuthorized,
+            PlatformErrorCode::ResourceUnavailable => Self::ResourceUnavailable,
+            PlatformErrorCode::ResourceNotFound => Self::ResourceNotFound,
+        }
+    }
+}
 
 /// A status update for a task, optionally including a platform error code.
 pub struct TaskStatusUpdate {
@@ -1099,6 +1193,7 @@ pub trait AIClient: 'static + Send + Sync {
     ) -> Result<GenerateCodeReviewContentResponse, anyhow::Error>;
 }
 
+#[cfg(not(feature = "oss_release"))]
 fn into_file_artifact_record(
     artifact: warp_graphql::mutations::create_file_artifact_upload_target::FileArtifact,
 ) -> FileArtifactRecord {
@@ -1112,6 +1207,7 @@ fn into_file_artifact_record(
 }
 
 impl ServerApi {
+    #[cfg(not(feature = "oss_release"))]
     pub(crate) async fn send_agent_message_for_task(
         &self,
         task_id: &AmbientAgentTaskId,
@@ -1124,7 +1220,17 @@ impl ServerApi {
         Ok(response)
     }
 
+    #[cfg(feature = "oss_release")]
+    pub(crate) async fn send_agent_message_for_task(
+        &self,
+        _task_id: &AmbientAgentTaskId,
+        _request: SendAgentMessageRequest,
+    ) -> anyhow::Result<SendAgentMessageResponse, anyhow::Error> {
+        Err(anyhow!("Agent messaging is unavailable in OSS builds"))
+    }
+
     #[cfg_attr(target_family = "wasm", allow(dead_code))]
+    #[cfg(not(feature = "oss_release"))]
     pub(crate) async fn list_agent_messages_for_task(
         &self,
         task_id: &AmbientAgentTaskId,
@@ -1147,6 +1253,17 @@ impl ServerApi {
         Ok(response)
     }
 
+    #[cfg(feature = "oss_release")]
+    pub(crate) async fn list_agent_messages_for_task(
+        &self,
+        _task_id: &AmbientAgentTaskId,
+        _run_id: &str,
+        _request: ListAgentMessagesRequest,
+    ) -> anyhow::Result<Vec<AgentMessageHeader>, anyhow::Error> {
+        Err(anyhow!("Agent messaging is unavailable in OSS builds"))
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     pub(crate) async fn mark_message_delivered_for_task(
         &self,
         task_id: &AmbientAgentTaskId,
@@ -1161,6 +1278,16 @@ impl ServerApi {
         Ok(())
     }
 
+    #[cfg(feature = "oss_release")]
+    pub(crate) async fn mark_message_delivered_for_task(
+        &self,
+        _task_id: &AmbientAgentTaskId,
+        _message_id: &str,
+    ) -> anyhow::Result<(), anyhow::Error> {
+        Err(anyhow!("Agent messaging is unavailable in OSS builds"))
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     pub(crate) async fn read_agent_message_for_task(
         &self,
         task_id: &AmbientAgentTaskId,
@@ -1176,10 +1303,20 @@ impl ServerApi {
         let response = response.json::<ReadAgentMessageResponse>().await?;
         Ok(response)
     }
+
+    #[cfg(feature = "oss_release")]
+    pub(crate) async fn read_agent_message_for_task(
+        &self,
+        _task_id: &AmbientAgentTaskId,
+        _message_id: &str,
+    ) -> anyhow::Result<ReadAgentMessageResponse, anyhow::Error> {
+        Err(anyhow!("Agent messaging is unavailable in OSS builds"))
+    }
 }
 
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(not(feature = "oss_release"))]
 impl AIClient for ServerApi {
     async fn generate_commands_from_natural_language(
         &self,
@@ -1468,36 +1605,44 @@ impl AIClient for ServerApi {
         embedding_config: EmbeddingConfig,
         nodes: Vec<IntermediateNode>,
     ) -> anyhow::Result<HashMap<NodeHash, bool>> {
-        let nodes = nodes
-            .into_iter()
-            .map(|node| MerkleTreeNode {
-                hash: node.hash.into(),
-                children: node.children.into_iter().map(Into::into).collect(),
-            })
-            .collect_vec();
-        let variables = UpdateMerkleTreeVariables {
-            input: UpdateMerkleTreeInput {
-                embedding_config: embedding_config.into(),
-                nodes,
-            },
-            request_context: get_request_context(),
-        };
-        let operation = UpdateMerkleTree::build(variables);
-        let response = self.send_graphql_request(operation, None).await?;
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = (embedding_config, nodes);
+            Err(anyhow!("Codebase indexing is not available in this build"))
+        }
+        #[cfg(not(feature = "oss_release"))]
+        {
+            let nodes = nodes
+                .into_iter()
+                .map(|node| MerkleTreeNode {
+                    hash: node.hash.into(),
+                    children: node.children.into_iter().map(Into::into).collect(),
+                })
+                .collect_vec();
+            let variables = UpdateMerkleTreeVariables {
+                input: UpdateMerkleTreeInput {
+                    embedding_config: embedding_config.into(),
+                    nodes,
+                },
+                request_context: get_request_context(),
+            };
+            let operation = UpdateMerkleTree::build(variables);
+            let response = self.send_graphql_request(operation, None).await?;
 
-        match response.update_merkle_tree {
-            UpdateMerkleTreeResult::UpdateMerkleTreeOutput(output) => {
-                let mut node_results = HashMap::with_capacity(output.results.len());
-                for result in output.results {
-                    node_results.insert(result.hash.try_into()?, result.success);
+            match response.update_merkle_tree {
+                UpdateMerkleTreeResult::UpdateMerkleTreeOutput(output) => {
+                    let mut node_results = HashMap::with_capacity(output.results.len());
+                    for result in output.results {
+                        node_results.insert(result.hash.try_into()?, result.success);
+                    }
+                    Ok(node_results)
                 }
-                Ok(node_results)
+                UpdateMerkleTreeResult::UpdateMerkleTreeError(e) => Err(anyhow!(e.error)),
+                UpdateMerkleTreeResult::UserFacingError(e) => {
+                    Err(anyhow!(get_user_facing_error_message(e)))
+                }
+                UpdateMerkleTreeResult::Unknown => Err(anyhow!("failed to update merkle tree")),
             }
-            UpdateMerkleTreeResult::UpdateMerkleTreeError(e) => Err(anyhow!(e.error)),
-            UpdateMerkleTreeResult::UserFacingError(e) => {
-                Err(anyhow!(get_user_facing_error_message(e)))
-            }
-            UpdateMerkleTreeResult::Unknown => Err(anyhow!("failed to update merkle tree")),
         }
     }
 
@@ -1508,33 +1653,43 @@ impl AIClient for ServerApi {
         root_hash: NodeHash,
         repo_metadata: RepoMetadata,
     ) -> anyhow::Result<HashMap<ContentHash, bool>> {
-        let variables = GenerateCodeEmbeddingsVariables {
-            input: GenerateCodeEmbeddingsInput {
-                embedding_config: embedding_config.into(),
-                fragments: fragments.into_iter().map(Into::into).collect(),
-                repo_metadata: repo_metadata.into(),
-                root_hash: root_hash.into(),
-            },
-            request_context: get_request_context(),
-        };
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = (embedding_config, fragments, root_hash, repo_metadata);
+            Err(anyhow!("Codebase indexing is not available in this build"))
+        }
+        #[cfg(not(feature = "oss_release"))]
+        {
+            let variables = GenerateCodeEmbeddingsVariables {
+                input: GenerateCodeEmbeddingsInput {
+                    embedding_config: embedding_config.into(),
+                    fragments: fragments.into_iter().map(Into::into).collect(),
+                    repo_metadata: repo_metadata.into(),
+                    root_hash: root_hash.into(),
+                },
+                request_context: get_request_context(),
+            };
 
-        let operation = GenerateCodeEmbeddings::build(variables);
-        let response = self.send_graphql_request(operation, None).await?;
+            let operation = GenerateCodeEmbeddings::build(variables);
+            let response = self.send_graphql_request(operation, None).await?;
 
-        match response.generate_code_embeddings {
-            GenerateCodeEmbeddingsResult::GenerateCodeEmbeddingsOutput(output) => {
-                let mut results = HashMap::with_capacity(output.embedding_results.len());
-                for result in output.embedding_results {
-                    results.insert(result.hash.try_into()?, result.success);
+            match response.generate_code_embeddings {
+                GenerateCodeEmbeddingsResult::GenerateCodeEmbeddingsOutput(output) => {
+                    let mut results = HashMap::with_capacity(output.embedding_results.len());
+                    for result in output.embedding_results {
+                        results.insert(result.hash.try_into()?, result.success);
+                    }
+                    Ok(results)
                 }
-                Ok(results)
-            }
-            GenerateCodeEmbeddingsResult::GenerateCodeEmbeddingsError(e) => Err(anyhow!(e.error)),
-            GenerateCodeEmbeddingsResult::UserFacingError(e) => {
-                Err(anyhow!(get_user_facing_error_message(e)))
-            }
-            GenerateCodeEmbeddingsResult::Unknown => {
-                Err(anyhow!("failed to generate code embeddings"))
+                GenerateCodeEmbeddingsResult::GenerateCodeEmbeddingsError(e) => {
+                    Err(anyhow!(e.error))
+                }
+                GenerateCodeEmbeddingsResult::UserFacingError(e) => {
+                    Err(anyhow!(get_user_facing_error_message(e)))
+                }
+                GenerateCodeEmbeddingsResult::Unknown => {
+                    Err(anyhow!("failed to generate code embeddings"))
+                }
             }
         }
     }
@@ -1616,12 +1771,12 @@ impl AIClient for ServerApi {
         let variables = UpdateAgentTaskVariables {
             input: UpdateAgentTaskInput {
                 task_id: task_id.into(),
-                task_state,
+                task_state: task_state.map(Into::into),
                 session_id: session_id.map(|id| id.to_string().into()),
                 conversation_id: conversation_id.map(|id| id.into()),
                 status_message: status_message.map(|update| AgentTaskStatusMessageInput {
                     message: update.message,
-                    error_code: update.error_code,
+                    error_code: update.error_code.map(Into::into),
                 }),
             },
             request_context: get_request_context(),
@@ -2259,6 +2414,348 @@ impl AIClient for ServerApi {
     }
 }
 
+#[cfg(feature = "oss_release")]
+fn ai_unavailable<T>() -> anyhow::Result<T, anyhow::Error> {
+    Err(anyhow!("AI server APIs are not available in this build"))
+}
+
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(feature = "oss_release")]
+impl AIClient for ServerApi {
+    async fn generate_commands_from_natural_language(
+        &self,
+        _prompt: String,
+        _ai_execution_context: Option<WarpAiExecutionContext>,
+    ) -> Result<Vec<AIGeneratedCommand>, GenerateCommandsFromNaturalLanguageError> {
+        Err(GenerateCommandsFromNaturalLanguageError::Other)
+    }
+
+    async fn generate_dialogue_answer(
+        &self,
+        _transcript: Vec<TranscriptPart>,
+        _prompt: String,
+        _ai_execution_context: Option<WarpAiExecutionContext>,
+    ) -> anyhow::Result<GenerateDialogueResult> {
+        ai_unavailable()
+    }
+
+    async fn generate_metadata_for_command(
+        &self,
+        _command: String,
+    ) -> Result<GeneratedCommandMetadata, GeneratedCommandMetadataError> {
+        Err(GeneratedCommandMetadataError::Other)
+    }
+
+    async fn get_request_limit_info(&self) -> Result<RequestUsageInfo, anyhow::Error> {
+        Ok(RequestUsageInfo {
+            request_limit_info: Default::default(),
+            bonus_grants: Vec::new(),
+        })
+    }
+
+    async fn get_feature_model_choices(&self) -> Result<ModelsByFeature, anyhow::Error> {
+        Ok(ModelsByFeature::default())
+    }
+
+    async fn get_available_harnesses(&self) -> Result<Vec<HarnessAvailability>, anyhow::Error> {
+        Ok(Vec::new())
+    }
+
+    async fn get_free_available_models(
+        &self,
+        _referrer: Option<String>,
+    ) -> Result<ModelsByFeature, anyhow::Error> {
+        Ok(ModelsByFeature::default())
+    }
+
+    async fn update_merkle_tree(
+        &self,
+        _embedding_config: EmbeddingConfig,
+        _nodes: Vec<IntermediateNode>,
+    ) -> anyhow::Result<HashMap<NodeHash, bool>> {
+        ai_unavailable()
+    }
+
+    async fn generate_code_embeddings(
+        &self,
+        _embedding_config: EmbeddingConfig,
+        _fragments: Vec<full_source_code_embedding::Fragment>,
+        _root_hash: NodeHash,
+        _repo_metadata: RepoMetadata,
+    ) -> anyhow::Result<HashMap<ContentHash, bool>> {
+        ai_unavailable()
+    }
+
+    async fn provide_negative_feedback_response_for_ai_conversation(
+        &self,
+        _conversation_id: String,
+        _request_ids: Vec<String>,
+    ) -> anyhow::Result<i32, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn create_agent_task(
+        &self,
+        _prompt: String,
+        _environment_uid: Option<String>,
+        _parent_run_id: Option<String>,
+        _config: Option<AgentConfigSnapshot>,
+    ) -> anyhow::Result<AmbientAgentTaskId, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn update_agent_task(
+        &self,
+        _task_id: AmbientAgentTaskId,
+        _task_state: Option<AgentTaskState>,
+        _session_id: Option<session_sharing_protocol::common::SessionId>,
+        _conversation_id: Option<String>,
+        _status_message: Option<TaskStatusUpdate>,
+    ) -> anyhow::Result<(), anyhow::Error> {
+        Ok(())
+    }
+
+    async fn spawn_agent(
+        &self,
+        _request: SpawnAgentRequest,
+    ) -> anyhow::Result<SpawnAgentResponse, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn upload_local_handoff_snapshot(
+        &self,
+        _request: UploadLocalHandoffSnapshotRequest,
+    ) -> anyhow::Result<UploadLocalHandoffSnapshotResponse, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn fork_conversation(
+        &self,
+        _conversation_id: String,
+    ) -> anyhow::Result<ForkConversationResponse, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn list_ambient_agent_tasks(
+        &self,
+        _limit: i32,
+        _filter: TaskListFilter,
+    ) -> anyhow::Result<Vec<AmbientAgentTask>, anyhow::Error> {
+        Ok(Vec::new())
+    }
+
+    async fn list_agent_runs_raw(
+        &self,
+        _limit: i32,
+        _filter: TaskListFilter,
+    ) -> anyhow::Result<serde_json::Value, anyhow::Error> {
+        Ok(serde_json::json!({ "runs": [] }))
+    }
+
+    async fn get_ambient_agent_task(
+        &self,
+        _task_id: &AmbientAgentTaskId,
+    ) -> anyhow::Result<AmbientAgentTask, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn get_agent_run_raw(
+        &self,
+        _task_id: &AmbientAgentTaskId,
+    ) -> anyhow::Result<serde_json::Value, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn submit_run_followup(
+        &self,
+        _run_id: &AmbientAgentTaskId,
+        _request: RunFollowupRequest,
+    ) -> anyhow::Result<(), anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn get_scheduled_agent_history(
+        &self,
+        _schedule_id: &str,
+    ) -> anyhow::Result<ScheduledAgentHistory, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn get_ai_conversation(
+        &self,
+        _server_conversation_token: ServerConversationToken,
+    ) -> anyhow::Result<(ConversationData, ServerAIConversationMetadata), anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn list_ai_conversation_metadata(
+        &self,
+        _conversation_ids: Option<Vec<String>>,
+    ) -> anyhow::Result<Vec<ServerAIConversationMetadata>> {
+        Ok(Vec::new())
+    }
+
+    async fn get_ai_conversation_format(
+        &self,
+        _server_conversation_token: ServerConversationToken,
+    ) -> anyhow::Result<AIAgentConversationFormat, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn get_block_snapshot(
+        &self,
+        _server_conversation_token: ServerConversationToken,
+    ) -> anyhow::Result<SerializedBlock, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn delete_ai_conversation(
+        &self,
+        _server_conversation_token: String,
+    ) -> anyhow::Result<(), anyhow::Error> {
+        Ok(())
+    }
+
+    async fn list_agents(
+        &self,
+        _repo: Option<String>,
+    ) -> anyhow::Result<Vec<AgentListItem>, anyhow::Error> {
+        Ok(Vec::new())
+    }
+
+    async fn cancel_ambient_agent_task(
+        &self,
+        _task_id: &AmbientAgentTaskId,
+    ) -> anyhow::Result<(), anyhow::Error> {
+        Ok(())
+    }
+
+    async fn get_task_git_credentials(
+        &self,
+        _task_id: String,
+        _workload_token: String,
+    ) -> anyhow::Result<Vec<GitCredential>, anyhow::Error> {
+        Ok(Vec::new())
+    }
+
+    async fn get_task_attachments(
+        &self,
+        _task_id: String,
+    ) -> anyhow::Result<Vec<TaskAttachment>, anyhow::Error> {
+        Ok(Vec::new())
+    }
+
+    async fn create_file_artifact_upload_target(
+        &self,
+        _request: CreateFileArtifactUploadRequest,
+    ) -> anyhow::Result<CreateFileArtifactUploadResponse, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn confirm_file_artifact_upload(
+        &self,
+        _artifact_uid: String,
+        _checksum: String,
+    ) -> anyhow::Result<FileArtifactRecord, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn get_artifact_download(
+        &self,
+        _artifact_uid: &str,
+    ) -> anyhow::Result<ArtifactDownloadResponse, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn prepare_attachments_for_upload(
+        &self,
+        _task_id: &AmbientAgentTaskId,
+        _files: &[AttachmentFileInfo],
+    ) -> anyhow::Result<PrepareAttachmentUploadsResponse, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn download_task_attachments(
+        &self,
+        _task_id: &AmbientAgentTaskId,
+        _attachment_ids: &[String],
+    ) -> anyhow::Result<DownloadAttachmentsResponse, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn get_handoff_snapshot_attachments(
+        &self,
+        _task_id: &AmbientAgentTaskId,
+    ) -> anyhow::Result<Vec<TaskAttachment>, anyhow::Error> {
+        Ok(Vec::new())
+    }
+
+    async fn send_agent_message(
+        &self,
+        _request: SendAgentMessageRequest,
+    ) -> anyhow::Result<SendAgentMessageResponse, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn list_agent_messages(
+        &self,
+        _run_id: &str,
+        _request: ListAgentMessagesRequest,
+    ) -> anyhow::Result<Vec<AgentMessageHeader>, anyhow::Error> {
+        Ok(Vec::new())
+    }
+
+    async fn update_event_sequence_on_server(
+        &self,
+        _run_id: &str,
+        _sequence: i64,
+    ) -> anyhow::Result<(), anyhow::Error> {
+        Ok(())
+    }
+
+    async fn report_agent_event(
+        &self,
+        _run_id: &str,
+        _request: ReportAgentEventRequest,
+    ) -> anyhow::Result<ReportAgentEventResponse, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn mark_message_delivered(&self, _message_id: &str) -> anyhow::Result<(), anyhow::Error> {
+        Ok(())
+    }
+
+    async fn read_agent_message(
+        &self,
+        _message_id: &str,
+    ) -> anyhow::Result<ReadAgentMessageResponse, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn get_public_conversation(
+        &self,
+        _conversation_id: &str,
+    ) -> anyhow::Result<serde_json::Value, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn get_run_conversation(
+        &self,
+        _run_id: &str,
+    ) -> anyhow::Result<serde_json::Value, anyhow::Error> {
+        ai_unavailable()
+    }
+
+    async fn generate_code_review_content(
+        &self,
+        _request: GenerateCodeReviewContentRequest,
+    ) -> Result<GenerateCodeReviewContentResponse, anyhow::Error> {
+        ai_unavailable()
+    }
+}
+
+#[cfg(not(feature = "oss_release"))]
 impl TryFrom<warp_graphql::queries::get_feature_model_choices::FeatureModelChoice>
     for ModelsByFeature
 {
@@ -2276,6 +2773,7 @@ impl TryFrom<warp_graphql::queries::get_feature_model_choices::FeatureModelChoic
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl TryFrom<warp_graphql::workspace::FeatureModelChoice> for ModelsByFeature {
     type Error = anyhow::Error;
 
@@ -2289,6 +2787,7 @@ impl TryFrom<warp_graphql::workspace::FeatureModelChoice> for ModelsByFeature {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl TryFrom<warp_graphql::queries::get_feature_model_choices::AvailableLlms> for AvailableLLMs {
     type Error = anyhow::Error;
 
@@ -2303,6 +2802,7 @@ impl TryFrom<warp_graphql::queries::get_feature_model_choices::AvailableLlms> fo
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl TryFrom<warp_graphql::workspace::AvailableLlms> for AvailableLLMs {
     type Error = anyhow::Error;
 
@@ -2315,6 +2815,7 @@ impl TryFrom<warp_graphql::workspace::AvailableLlms> for AvailableLLMs {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<warp_graphql::queries::get_feature_model_choices::LlmInfo> for LLMInfo {
     fn from(value: warp_graphql::queries::get_feature_model_choices::LlmInfo) -> Self {
         let host_configs = {
@@ -2354,6 +2855,7 @@ impl From<warp_graphql::queries::get_feature_model_choices::LlmInfo> for LLMInfo
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<warp_graphql::workspace::LlmInfo> for LLMInfo {
     fn from(value: warp_graphql::workspace::LlmInfo) -> Self {
         let host_configs = {
@@ -2393,6 +2895,7 @@ impl From<warp_graphql::workspace::LlmInfo> for LLMInfo {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<warp_graphql::queries::get_feature_model_choices::RoutingHostConfig>
     for RoutingHostConfig
 {
@@ -2404,6 +2907,7 @@ impl From<warp_graphql::queries::get_feature_model_choices::RoutingHostConfig>
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<warp_graphql::workspace::RoutingHostConfig> for RoutingHostConfig {
     fn from(value: warp_graphql::workspace::RoutingHostConfig) -> Self {
         Self {
@@ -2413,6 +2917,7 @@ impl From<warp_graphql::workspace::RoutingHostConfig> for RoutingHostConfig {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<warp_graphql::queries::get_feature_model_choices::LlmModelHost> for LLMModelHost {
     fn from(value: warp_graphql::queries::get_feature_model_choices::LlmModelHost) -> Self {
         match value {
@@ -2432,6 +2937,7 @@ impl From<warp_graphql::queries::get_feature_model_choices::LlmModelHost> for LL
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<warp_graphql::queries::get_feature_model_choices::LlmProvider> for LLMProvider {
     fn from(value: warp_graphql::queries::get_feature_model_choices::LlmProvider) -> Self {
         match value {
@@ -2458,6 +2964,7 @@ impl From<warp_graphql::queries::get_feature_model_choices::LlmProvider> for LLM
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<warp_graphql::workspace::LlmProvider> for LLMProvider {
     fn from(value: warp_graphql::workspace::LlmProvider) -> Self {
         match value {
@@ -2476,6 +2983,7 @@ impl From<warp_graphql::workspace::LlmProvider> for LLMProvider {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<warp_graphql::queries::get_feature_model_choices::LlmSpec> for LLMSpec {
     fn from(value: warp_graphql::queries::get_feature_model_choices::LlmSpec) -> Self {
         Self {
@@ -2486,6 +2994,7 @@ impl From<warp_graphql::queries::get_feature_model_choices::LlmSpec> for LLMSpec
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<warp_graphql::workspace::LlmSpec> for LLMSpec {
     fn from(value: warp_graphql::workspace::LlmSpec) -> Self {
         Self {
@@ -2496,6 +3005,7 @@ impl From<warp_graphql::workspace::LlmSpec> for LLMSpec {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<warp_graphql::queries::get_feature_model_choices::LlmUsageMetadata> for LLMUsageMetadata {
     fn from(value: warp_graphql::queries::get_feature_model_choices::LlmUsageMetadata) -> Self {
         Self {
@@ -2505,6 +3015,7 @@ impl From<warp_graphql::queries::get_feature_model_choices::LlmUsageMetadata> fo
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<warp_graphql::workspace::LlmUsageMetadata> for LLMUsageMetadata {
     fn from(value: warp_graphql::workspace::LlmUsageMetadata) -> Self {
         Self {
@@ -2514,6 +3025,7 @@ impl From<warp_graphql::workspace::LlmUsageMetadata> for LLMUsageMetadata {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<warp_graphql::queries::get_feature_model_choices::DisableReason> for DisableReason {
     fn from(value: warp_graphql::queries::get_feature_model_choices::DisableReason) -> Self {
         match value {
@@ -2536,6 +3048,7 @@ impl From<warp_graphql::queries::get_feature_model_choices::DisableReason> for D
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<warp_graphql::workspace::DisableReason> for DisableReason {
     fn from(value: warp_graphql::workspace::DisableReason) -> Self {
         match value {
@@ -2552,6 +3065,7 @@ impl From<warp_graphql::workspace::DisableReason> for DisableReason {
 
 // Conversions for AIConversationMetadata from GraphQL types
 
+#[cfg(not(feature = "oss_release"))]
 fn convert_harness(harness: warp_graphql::ai::AgentHarness) -> AIAgentHarness {
     match harness {
         warp_graphql::ai::AgentHarness::Oz => AIAgentHarness::Oz,
@@ -2567,6 +3081,7 @@ fn convert_harness(harness: warp_graphql::ai::AgentHarness) -> AIAgentHarness {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 fn convert_block_snapshot_format(
     format: warp_graphql::ai::SerializedBlockFormat,
 ) -> AIAgentSerializedBlockFormat {
@@ -2575,6 +3090,7 @@ fn convert_block_snapshot_format(
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 fn convert_conversation_format(
     format: warp_graphql::ai::AIConversationFormat,
 ) -> AIAgentConversationFormat {
@@ -2585,6 +3101,7 @@ fn convert_conversation_format(
 }
 
 // Helper function
+#[cfg(not(feature = "oss_release"))]
 fn convert_usage_metadata(
     summarized: bool,
     context_window_usage: f64,
@@ -2600,6 +3117,7 @@ fn convert_usage_metadata(
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl TryFrom<warp_graphql::ai::AIConversation> for ServerAIConversationMetadata {
     type Error = anyhow::Error;
 
@@ -2640,6 +3158,7 @@ impl TryFrom<warp_graphql::ai::AIConversation> for ServerAIConversationMetadata 
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl TryFrom<warp_graphql::queries::list_ai_conversations::AIConversationMetadata>
     for ServerAIConversationMetadata
 {
@@ -2685,6 +3204,7 @@ impl TryFrom<warp_graphql::queries::list_ai_conversations::AIConversationMetadat
 
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(not(feature = "oss_release"))]
 impl StoreClient for ServerApi {
     async fn update_intermediate_nodes(
         &self,
@@ -2855,6 +3375,73 @@ impl StoreClient for ServerApi {
                 Err(anyhow!("failed to retrieve codebase context config").into())
             }
         }
+    }
+}
+
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(feature = "oss_release")]
+impl StoreClient for ServerApi {
+    async fn update_intermediate_nodes(
+        &self,
+        _embedding_config: EmbeddingConfig,
+        _nodes: Vec<IntermediateNode>,
+    ) -> Result<HashMap<NodeHash, bool>, full_source_code_embedding::Error> {
+        Err(anyhow!("Codebase indexing is not available in this build").into())
+    }
+
+    async fn generate_embeddings(
+        &self,
+        _embedding_config: EmbeddingConfig,
+        _fragments: Vec<full_source_code_embedding::Fragment>,
+        _root_hash: NodeHash,
+        _repo_metadata: RepoMetadata,
+    ) -> Result<HashMap<ContentHash, bool>, full_source_code_embedding::Error> {
+        Err(anyhow!("Codebase indexing is not available in this build").into())
+    }
+
+    async fn populate_merkle_tree_cache(
+        &self,
+        _embedding_config: EmbeddingConfig,
+        _root_hash: NodeHash,
+        _repo_metadata: RepoMetadata,
+    ) -> Result<bool, full_source_code_embedding::Error> {
+        Err(anyhow!("Codebase indexing is not available in this build").into())
+    }
+
+    async fn sync_merkle_tree(
+        &self,
+        _nodes: Vec<NodeHash>,
+        _embedding_config: EmbeddingConfig,
+    ) -> Result<HashSet<NodeHash>, full_source_code_embedding::Error> {
+        Err(anyhow!("Codebase indexing is not available in this build").into())
+    }
+
+    async fn rerank_fragments(
+        &self,
+        _query: String,
+        fragments: Vec<full_source_code_embedding::Fragment>,
+    ) -> Result<Vec<full_source_code_embedding::Fragment>, full_source_code_embedding::Error> {
+        Ok(fragments)
+    }
+
+    async fn get_relevant_fragments(
+        &self,
+        _embedding_config: EmbeddingConfig,
+        _query: String,
+        _root_hash: NodeHash,
+        _repo_metadata: RepoMetadata,
+    ) -> Result<Vec<ContentHash>, full_source_code_embedding::Error> {
+        Ok(Vec::new())
+    }
+
+    async fn codebase_context_config(
+        &self,
+    ) -> Result<CodebaseContextConfig, full_source_code_embedding::Error> {
+        Ok(CodebaseContextConfig {
+            embedding_config: EmbeddingConfig::default(),
+            embedding_cadence: Duration::from_secs(300),
+        })
     }
 }
 

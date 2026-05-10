@@ -8,9 +8,11 @@ use self::{
         persistence::CloudModel,
     },
 };
+#[cfg(not(feature = "oss_release"))]
+use crate::ai::cloud_agent_config::CloudAgentConfigModel;
 use crate::server::cloud_objects::update_manager::InitiatedBy;
+use crate::server::timestamp::ServerTimestamp;
 use crate::{
-    ai::cloud_agent_config::CloudAgentConfigModel,
     ai::cloud_environments::CloudAmbientAgentEnvironmentModel,
     ai::{
         ambient_agents::scheduled::CloudScheduledAmbientAgentModel,
@@ -63,9 +65,6 @@ use std::{
 };
 use url::Url;
 use warp_core::{channel::Channel, features::FeatureFlag};
-use warp_graphql::{
-    queries::get_updated_cloud_objects::UpdatedObjectInput, scalars::time::ServerTimestamp,
-};
 use warpui::{AppContext, SingletonEntity};
 
 pub mod breadcrumbs;
@@ -164,9 +163,9 @@ pub trait CloudObject: Debug {
     // Returns the name of the object.
     fn display_name(&self) -> String;
 
-    /// Returns an optional UpdatedObjectInput to use during initial load, where
+    /// Returns optional object versions to use during initial load, where
     /// the object's timestamps are sent to the server for comparison
-    fn versions(&self, app: &AppContext) -> Option<UpdatedObjectInput>;
+    fn versions(&self, app: &AppContext) -> Option<UpdatedObjectVersions>;
 
     /// Returns an optional sync queue item of this object that would allow it to
     /// created properly on the server. Returns None if it's already been created
@@ -760,14 +759,14 @@ where
         self.model.display_name()
     }
 
-    fn versions(&self, app: &AppContext) -> Option<UpdatedObjectInput> {
+    fn versions(&self, app: &AppContext) -> Option<UpdatedObjectVersions> {
         match (self.id, self.metadata.revision.as_ref()) {
             (SyncId::ServerId(id), Some(revision)) => {
                 let actions_ts = ObjectActions::as_ref(app)
                     .get_latest_processed_at_ts(&self.id.uid())
                     .map(|t| t.into());
-                Some(UpdatedObjectInput {
-                    uid: id.into(),
+                Some(UpdatedObjectVersions {
+                    uid: id,
                     revision_ts: revision.timestamp(),
                     metadata_ts: self.metadata.metadata_last_updated_ts,
                     permissions_ts: self.permissions.permissions_last_updated_ts,
@@ -1186,6 +1185,7 @@ pub enum ServerCloudObject {
     TemplatableMCPServer(ServerTemplatableMCPServer),
     AmbientAgentEnvironment(ServerAmbientAgentEnvironment),
     ScheduledAmbientAgent(ServerScheduledAmbientAgent),
+    #[cfg(not(feature = "oss_release"))]
     CloudAgentConfig(ServerCloudAgentConfig),
 }
 
@@ -1212,6 +1212,7 @@ impl ServerCloudObject {
             ServerCloudObject::ScheduledAmbientAgent(scheduled_ambient_agent) => {
                 &scheduled_ambient_agent.metadata
             }
+            #[cfg(not(feature = "oss_release"))]
             ServerCloudObject::CloudAgentConfig(cloud_agent_config) => &cloud_agent_config.metadata,
         }
     }
@@ -1238,6 +1239,7 @@ impl ServerCloudObject {
             ServerCloudObject::ScheduledAmbientAgent(scheduled_ambient_agent) => {
                 scheduled_ambient_agent.id.uid()
             }
+            #[cfg(not(feature = "oss_release"))]
             ServerCloudObject::CloudAgentConfig(cloud_agent_config) => cloud_agent_config.id.uid(),
         }
     }
@@ -1286,11 +1288,13 @@ where
             value.as_any().downcast_ref::<ServerScheduledAmbientAgent>()
         {
             ServerCloudObject::ScheduledAmbientAgent(server_scheduled_ambient_agent.clone())
-        } else if let Some(server_cloud_agent_config) =
-            value.as_any().downcast_ref::<ServerCloudAgentConfig>()
-        {
-            ServerCloudObject::CloudAgentConfig(server_cloud_agent_config.clone())
         } else {
+            #[cfg(not(feature = "oss_release"))]
+            if let Some(server_cloud_agent_config) =
+                value.as_any().downcast_ref::<ServerCloudAgentConfig>()
+            {
+                return ServerCloudObject::CloudAgentConfig(server_cloud_agent_config.clone());
+            }
             panic!("Unknown server object type");
         }
     }
@@ -1396,6 +1400,7 @@ pub type ServerAmbientAgentEnvironment =
     GenericServerObject<GenericStringObjectId, CloudAmbientAgentEnvironmentModel>;
 pub type ServerScheduledAmbientAgent =
     GenericServerObject<GenericStringObjectId, CloudScheduledAmbientAgentModel>;
+#[cfg(not(feature = "oss_release"))]
 pub type ServerCloudAgentConfig = GenericServerObject<GenericStringObjectId, CloudAgentConfigModel>;
 
 impl<T, S> GenericServerObject<GenericStringObjectId, GenericStringModel<T, S>>
@@ -1577,10 +1582,10 @@ pub struct BulkCreateGenericStringObjectsRequest {
 /// objects from the server
 #[derive(Default)]
 pub struct ObjectsToUpdate {
-    pub notebooks: Vec<UpdatedObjectInput>,
-    pub workflows: Vec<UpdatedObjectInput>,
-    pub folders: Vec<UpdatedObjectInput>,
-    pub generic_string_objects: Vec<UpdatedObjectInput>,
+    pub notebooks: Vec<UpdatedObjectVersions>,
+    pub workflows: Vec<UpdatedObjectVersions>,
+    pub folders: Vec<UpdatedObjectVersions>,
+    pub generic_string_objects: Vec<UpdatedObjectVersions>,
 }
 
 impl Clone for ObjectsToUpdate {
@@ -1606,8 +1611,17 @@ impl Clone for ObjectsToUpdate {
     }
 }
 
-fn copy_updated_object_input(input: &UpdatedObjectInput) -> UpdatedObjectInput {
-    UpdatedObjectInput {
+#[derive(Clone)]
+pub struct UpdatedObjectVersions {
+    pub uid: ServerId,
+    pub actions_ts: Option<ServerTimestamp>,
+    pub metadata_ts: Option<ServerTimestamp>,
+    pub permissions_ts: Option<ServerTimestamp>,
+    pub revision_ts: ServerTimestamp,
+}
+
+fn copy_updated_object_input(input: &UpdatedObjectVersions) -> UpdatedObjectVersions {
+    UpdatedObjectVersions {
         uid: input.uid.clone(),
         actions_ts: input.actions_ts,
         metadata_ts: input.metadata_ts,

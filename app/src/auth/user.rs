@@ -1,8 +1,11 @@
 use crate::server::datetime_ext::DateTimeExt;
+#[cfg(not(feature = "oss_release"))]
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
-use warp_graphql::{queries::get_user::FirebaseProfile, scalars::time::ServerTimestamp};
+#[cfg(not(feature = "oss_release"))]
+use warp_graphql::queries::get_user::FirebaseProfile;
+use crate::server::timestamp::ServerTimestamp;
 
 use super::UserUid;
 
@@ -26,6 +29,7 @@ pub enum PrincipalType {
     ServiceAccount,
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<warp_graphql::queries::get_user::PrincipalType> for PrincipalType {
     fn from(value: warp_graphql::queries::get_user::PrincipalType) -> Self {
         use warp_graphql::queries::get_user::PrincipalType as GqlPrincipalType;
@@ -36,6 +40,7 @@ impl From<warp_graphql::queries::get_user::PrincipalType> for PrincipalType {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl TryFrom<warp_graphql::mutations::create_anonymous_user::AnonymousUserType>
     for AnonymousUserType
 {
@@ -61,6 +66,7 @@ pub struct PersonalObjectLimits {
     pub workflow_limit: usize,
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl TryFrom<warp_graphql::queries::get_user::AnonymousUserPersonalObjectLimits>
     for PersonalObjectLimits
 {
@@ -201,6 +207,7 @@ impl User {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<FirebaseProfile> for UserMetadata {
     fn from(value: FirebaseProfile) -> Self {
         Self {

@@ -20,23 +20,23 @@ use crate::terminal::local_tty::docker_sandbox::resolve_sbx_path_from_user_shell
 #[cfg(feature = "local_tty")]
 use crate::terminal::TerminalManager;
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 use crate::ai::agent_sdk::driver::{
     environment::prepare_environment, terminal::TerminalDriver, WARP_DRIVE_SYNC_TIMEOUT,
 };
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 use crate::ai::cloud_environments::CloudAmbientAgentEnvironment;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 use crate::server::cloud_objects::update_manager::UpdateManager;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 use crate::server::ids::{ServerId, SyncId};
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 use crate::terminal::local_tty::docker_sandbox::DOCKER_SANDBOX_HOME_DIR;
 #[cfg(feature = "remote_tty")]
 use crate::terminal::remote_tty::TerminalManager as RemoteTtyTerminalManager;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 use warp_cli::agent::Harness;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 use warpui::r#async::FutureExt;
 
 use super::TerminalView;
@@ -185,21 +185,21 @@ impl TerminalView {
             view.set_pane_configuration(pane_configuration);
         });
 
-        #[cfg(not(target_family = "wasm"))]
+        #[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
         let terminal_view_for_init = terminal_view.clone();
 
         pane_stack.update(ctx, |stack, ctx| {
             stack.push(terminal_manager, terminal_view, ctx);
         });
 
-        #[cfg(not(target_family = "wasm"))]
+        #[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
         Self::initialize_docker_sandbox_environment(&terminal_view_for_init, ctx);
 
         ctx.notify();
     }
 
     /// Kick off async environment initialization for a docker sandbox terminal.
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
     pub(crate) fn initialize_docker_sandbox_environment<V: View>(
         terminal_view: &ViewHandle<TerminalView>,
         ctx: &mut ViewContext<V>,

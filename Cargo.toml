@@ -29,7 +29,7 @@ publish = false
 
 [workspace.dependencies]
 # Local workspace crates. This lets us reference them in other crates without specifying a path.
-ai = { path = "crates/ai" }
+ai = { path = "crates/ai", default-features = false }
 app-installation-detection = { path = "crates/app-installation-detection" }
 asset_cache = { path = "crates/asset_cache" }
 asset_macro = { path = "crates/asset_macro" }
@@ -41,7 +41,7 @@ field_mask = { path = "crates/field_mask" }
 firebase = { path = "crates/firebase" }
 fuzzy_match = { path = "crates/fuzzy_match" }
 handlebars = { path = "crates/handlebars" }
-http_client = { path = "crates/http_client" }
+http_client = { path = "crates/http_client", default-features = false }
 http_server = { path = "crates/http_server" }
 input_classifier = { path = "crates/input_classifier" }
 integration = { path = "crates/integration" }
@@ -71,10 +71,10 @@ warp = { path = "app" }
 warp_cli = { path = "crates/warp_cli" }
 warp_completer = { path = "crates/warp_completer" }
 warp_core = { path = "crates/warp_core" }
-warp_editor = { path = "crates/editor" }
+warp_editor = { path = "crates/editor", default-features = false }
 warp_features = { path = "crates/warp_features" }
 remote_server = { path = "crates/remote_server" }
-warp_files = { path = "crates/warp_files" }
+warp_files = { path = "crates/warp_files", default-features = false }
 warp_graphql = { path = "crates/graphql" }
 warp_graphql_schema = { path = "crates/warp_graphql_schema" }
 warp_isolation_platform = { path = "crates/isolation_platform" }
@@ -82,7 +82,7 @@ warp_js = { path = "crates/warp_js" }
 warp_logging = { path = "crates/warp_logging" }
 warp_managed_secrets = { path = "crates/managed_secrets" }
 warp_ripgrep = { path = "crates/warp_ripgrep" }
-warp_server_client = { path = "crates/warp_server_client" }
+warp_server_client = { path = "crates/warp_server_client", default-features = false }
 warp_terminal = { path = "crates/warp_terminal" }
 warp_util = { path = "crates/warp_util" }
 warp_web_event_bus = { path = "crates/warp_web_event_bus" }

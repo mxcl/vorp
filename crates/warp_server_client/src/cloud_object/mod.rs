@@ -9,7 +9,6 @@ use warp_core::{
     features::FeatureFlag,
     ui::{Icon, appearance::Appearance, theme::Fill},
 };
-use warp_graphql::{object_permissions::AccessLevel, scalars::time::ServerTimestamp};
 use warpui_core::{
     Element,
     elements::{
@@ -18,6 +17,82 @@ use warpui_core::{
     },
     ui_components::components::UiComponent,
 };
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq, Ord, PartialOrd)]
+pub struct ServerTimestamp(DateTime<Utc>);
+
+impl ServerTimestamp {
+    pub fn new(time: DateTime<Utc>) -> Self {
+        Self(time)
+    }
+
+    pub fn from_unix_timestamp_micros(ms_since_epoch: i64) -> Result<Self> {
+        let date_time = DateTime::from_timestamp_micros(ms_since_epoch)
+            .ok_or_else(|| anyhow!("Unable to convert microseconds into NaiveDateTime"))?;
+        Ok(ServerTimestamp::new(date_time))
+    }
+
+    pub fn timestamp_micros(&self) -> i64 {
+        self.0.timestamp_micros()
+    }
+
+    pub fn utc(&self) -> DateTime<Utc> {
+        self.0
+    }
+}
+
+impl From<DateTime<Utc>> for ServerTimestamp {
+    fn from(value: DateTime<Utc>) -> Self {
+        ServerTimestamp::new(value)
+    }
+}
+
+#[cfg(feature = "graphql")]
+impl From<warp_graphql::scalars::time::ServerTimestamp> for ServerTimestamp {
+    fn from(value: warp_graphql::scalars::time::ServerTimestamp) -> Self {
+        ServerTimestamp::from_unix_timestamp_micros(value.timestamp_micros())
+            .expect("GraphQL timestamp should round-trip through microseconds")
+    }
+}
+
+#[cfg(feature = "graphql")]
+impl From<ServerTimestamp> for warp_graphql::scalars::time::ServerTimestamp {
+    fn from(value: ServerTimestamp) -> Self {
+        warp_graphql::scalars::time::ServerTimestamp::from_unix_timestamp_micros(
+            value.timestamp_micros(),
+        )
+        .expect("Server timestamp should round-trip through microseconds")
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum AccessLevel {
+    Viewer,
+    Editor,
+    Full,
+}
+
+#[cfg(feature = "graphql")]
+impl From<warp_graphql::object_permissions::AccessLevel> for AccessLevel {
+    fn from(value: warp_graphql::object_permissions::AccessLevel) -> Self {
+        match value {
+            warp_graphql::object_permissions::AccessLevel::Viewer => AccessLevel::Viewer,
+            warp_graphql::object_permissions::AccessLevel::Editor => AccessLevel::Editor,
+            warp_graphql::object_permissions::AccessLevel::Full => AccessLevel::Full,
+        }
+    }
+}
+
+#[cfg(feature = "graphql")]
+impl From<AccessLevel> for warp_graphql::object_permissions::AccessLevel {
+    fn from(value: AccessLevel) -> Self {
+        match value {
+            AccessLevel::Viewer => warp_graphql::object_permissions::AccessLevel::Viewer,
+            AccessLevel::Editor => warp_graphql::object_permissions::AccessLevel::Editor,
+            AccessLevel::Full => warp_graphql::object_permissions::AccessLevel::Full,
+        }
+    }
+}
 
 use crate::{
     auth::UserUid,
@@ -202,6 +277,7 @@ impl TryFrom<&str> for JsonObjectType {
     }
 }
 
+#[cfg(feature = "graphql")]
 impl TryFrom<warp_graphql::object::ObjectType> for ObjectIdType {
     type Error = anyhow::Error;
     fn try_from(object_type: warp_graphql::object::ObjectType) -> Result<Self, Self::Error> {
@@ -222,6 +298,7 @@ impl TryFrom<warp_graphql::object::ObjectType> for ObjectIdType {
     }
 }
 
+#[cfg(feature = "graphql")]
 impl From<ObjectType> for warp_graphql::object::ObjectType {
     fn from(value: ObjectType) -> Self {
         match value {
@@ -278,6 +355,20 @@ impl From<Revision> for ServerTimestamp {
 impl From<ServerTimestamp> for Revision {
     fn from(time: ServerTimestamp) -> Self {
         Revision(time)
+    }
+}
+
+#[cfg(feature = "graphql")]
+impl From<warp_graphql::scalars::time::ServerTimestamp> for Revision {
+    fn from(time: warp_graphql::scalars::time::ServerTimestamp) -> Self {
+        ServerTimestamp::from(time).into()
+    }
+}
+
+#[cfg(feature = "graphql")]
+impl From<Revision> for warp_graphql::scalars::time::ServerTimestamp {
+    fn from(revision: Revision) -> Self {
+        revision.timestamp().into()
     }
 }
 
@@ -786,6 +877,7 @@ pub enum CloudObjectEventEntrypoint {
 
 // GraphQL conversion impls.
 
+#[cfg(feature = "graphql")]
 impl From<GenericStringObjectFormat>
     for warp_graphql::generic_string_object::GenericStringObjectFormat
 {
@@ -824,6 +916,7 @@ impl From<GenericStringObjectFormat>
     }
 }
 
+#[cfg(feature = "graphql")]
 impl From<CloudObjectEventEntrypoint> for warp_graphql::object::CloudObjectEventEntrypoint {
     fn from(entrypoint: CloudObjectEventEntrypoint) -> Self {
         use warp_graphql::object::CloudObjectEventEntrypoint as GraphQLEntrypoint;
@@ -840,6 +933,7 @@ impl From<CloudObjectEventEntrypoint> for warp_graphql::object::CloudObjectEvent
     }
 }
 
+#[cfg(feature = "graphql")]
 impl TryFrom<warp_graphql::object::ObjectMetadata> for ServerMetadata {
     type Error = anyhow::Error;
 
@@ -852,9 +946,9 @@ impl TryFrom<warp_graphql::object::ObjectMetadata> for ServerMetadata {
         };
         let metadata = ServerMetadata {
             uid: ServerId::from_string_lossy(value.uid.inner()),
-            revision: value.revision_ts.into(),
-            metadata_last_updated_ts: value.metadata_last_updated_ts,
-            trashed_ts: value.trashed_ts,
+            revision: ServerTimestamp::from(value.revision_ts).into(),
+            metadata_last_updated_ts: value.metadata_last_updated_ts.into(),
+            trashed_ts: value.trashed_ts.map(Into::into),
             folder_id,
             is_welcome_object: value.is_welcome_object,
             creator_uid: value.creator_uid.map(|uid| uid.into_inner()),
@@ -865,6 +959,7 @@ impl TryFrom<warp_graphql::object::ObjectMetadata> for ServerMetadata {
     }
 }
 
+#[cfg(feature = "graphql")]
 impl TryFrom<warp_graphql::object_permissions::ObjectPermissions> for ServerPermissions {
     type Error = anyhow::Error;
 
@@ -883,19 +978,20 @@ impl TryFrom<warp_graphql::object_permissions::ObjectPermissions> for ServerPerm
                 Some(sharing) => Some(sharing.try_into()?),
                 None => None,
             },
-            permissions_last_updated_ts: value.last_updated_ts,
+            permissions_last_updated_ts: value.last_updated_ts.into(),
         };
         Ok(object_permissions)
     }
 }
 
+#[cfg(feature = "graphql")]
 impl TryFrom<warp_graphql::object_permissions::ObjectGuest> for ServerObjectGuest {
     type Error = anyhow::Error;
 
     fn try_from(value: warp_graphql::object_permissions::ObjectGuest) -> Result<Self, Self::Error> {
         let object_guest = ServerObjectGuest {
             subject: value.subject.try_into()?,
-            access_level: value.access_level,
+            access_level: value.access_level.into(),
             source: match value.source {
                 Some(container) => Some(container.try_into()?),
                 None => None,
@@ -905,6 +1001,7 @@ impl TryFrom<warp_graphql::object_permissions::ObjectGuest> for ServerObjectGues
     }
 }
 
+#[cfg(feature = "graphql")]
 impl TryFrom<warp_graphql::object_permissions::GuestSubject> for ServerGuestSubject {
     type Error = anyhow::Error;
 
@@ -933,17 +1030,19 @@ impl TryFrom<warp_graphql::object_permissions::GuestSubject> for ServerGuestSubj
     }
 }
 
+#[cfg(feature = "graphql")]
 impl TryFrom<warp_graphql::object_permissions::LinkSharing> for ServerLinkSharing {
     type Error = anyhow::Error;
 
     fn try_from(value: warp_graphql::object_permissions::LinkSharing) -> Result<Self, Self::Error> {
         Ok(ServerLinkSharing {
-            access_level: value.access_level,
+            access_level: value.access_level.into(),
             source: value.source.map(TryInto::try_into).transpose()?,
         })
     }
 }
 
+#[cfg(feature = "graphql")]
 impl TryFrom<warp_graphql::object::Container> for ServerObjectContainer {
     type Error = anyhow::Error;
 
@@ -964,6 +1063,7 @@ impl TryFrom<warp_graphql::object::Container> for ServerObjectContainer {
     }
 }
 
+#[cfg(feature = "graphql")]
 impl TryFrom<warp_graphql::object::Space> for Owner {
     type Error = anyhow::Error;
 
@@ -980,6 +1080,7 @@ impl TryFrom<warp_graphql::object::Space> for Owner {
     }
 }
 
+#[cfg(feature = "graphql")]
 impl From<Owner> for warp_graphql::object_permissions::Owner {
     fn from(owner: Owner) -> Self {
         use warp_graphql::object_permissions::Owner as GraphQLOwner;

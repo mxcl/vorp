@@ -1,10 +1,11 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use input_classifier::InputType;
+#[cfg(not(feature = "oss_release"))]
+use session_sharing_protocol::common::CLIAgentSessionState;
 use session_sharing_protocol::common::{
-    CLIAgentSessionState, InputMode, InputType as ProtocolInputType, SelectedAgentModel,
-    SelectedConversation, ServerConversationToken, UniversalDeveloperInputContextUpdate,
+    InputMode, InputType as ProtocolInputType, SelectedAgentModel, SelectedConversation,
+    ServerConversationToken, UniversalDeveloperInputContextUpdate,
 };
 use warp_core::features::FeatureFlag;
 use warpui::{AppContext, ModelHandle, SingletonEntity, WeakViewHandle};
@@ -12,12 +13,15 @@ use warpui::{AppContext, ModelHandle, SingletonEntity, WeakViewHandle};
 use crate::ai::blocklist::agent_view::{AgentViewController, AgentViewEntryOrigin};
 use crate::ai::blocklist::{BlocklistAIContextModel, BlocklistAIHistoryModel, InputConfig};
 use crate::ai::llms::{LLMId, LLMPreferences};
+use crate::input_classifier::InputType;
+#[cfg(not(feature = "oss_release"))]
+use crate::terminal::CLIAgent;
+use crate::terminal::TerminalView;
+#[cfg(not(feature = "oss_release"))]
 use crate::terminal::cli_agent_sessions::{
     CLIAgentInputEntrypoint, CLIAgentInputState, CLIAgentRichInputCloseReason, CLIAgentSession,
     CLIAgentSessionContext, CLIAgentSessionStatus, CLIAgentSessionsModel,
 };
-use crate::terminal::CLIAgent;
-use crate::terminal::TerminalView;
 
 /// Handles updating the local LLM preferences when a selected agent model update is received.
 /// This function is shared between the viewer and sharer to ensure consistent behavior.
@@ -353,6 +357,7 @@ fn build_selected_conversation_update_agent_view_enabled(
 /// Applies CLI agent session + rich-input state from the remote side.
 /// Creates/removes the session and opens/closes rich input based on
 /// the given `CLIAgentSessionState`.
+#[cfg(not(feature = "oss_release"))]
 pub(crate) fn apply_cli_agent_state_update(
     weak_view_handle: &WeakViewHandle<TerminalView>,
     cli_agent_session: &CLIAgentSessionState,

@@ -1,4 +1,4 @@
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 use std::path::PathBuf;
 
 #[cfg(test)]
@@ -9,7 +9,7 @@ use futures::{future::BoxFuture, FutureExt};
 use warpui::{Entity, EntityId, ModelContext, ModelHandle};
 
 use crate::terminal::model::session::active_session::ActiveSession;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 use crate::{
     ai::{
         agent::{AIAgentAction, AIAgentActionResultType, AIAgentActionType, UploadArtifactResult},
@@ -19,7 +19,7 @@ use crate::{
     },
     server::server_api::ServerApiProvider,
 };
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 use warpui::SingletonEntity;
 
 use super::{ActionExecution, AnyActionExecution, ExecuteActionInput, PreprocessActionInput};
@@ -45,12 +45,12 @@ impl UploadArtifactExecutor {
         input: ExecuteActionInput,
         ctx: &mut ModelContext<Self>,
     ) -> bool {
-        #[cfg(target_family = "wasm")]
+        #[cfg(any(target_family = "wasm", feature = "oss_release"))]
         {
             false
         }
 
-        #[cfg(not(target_family = "wasm"))]
+        #[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
         {
             let ExecuteActionInput {
                 action:
@@ -82,12 +82,12 @@ impl UploadArtifactExecutor {
         input: ExecuteActionInput,
         ctx: &mut ModelContext<Self>,
     ) -> AnyActionExecution {
-        #[cfg(target_family = "wasm")]
+        #[cfg(any(target_family = "wasm", feature = "oss_release"))]
         {
             ActionExecution::<()>::InvalidAction.into()
         }
 
-        #[cfg(not(target_family = "wasm"))]
+        #[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
         {
             let ExecuteActionInput {
                 action,
@@ -164,7 +164,7 @@ impl UploadArtifactExecutor {
         futures::future::ready(()).boxed()
     }
 
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
     fn resolve_path(&self, file_path: &str, ctx: &ModelContext<Self>) -> PathBuf {
         let current_working_directory = self
             .active_session

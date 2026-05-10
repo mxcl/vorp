@@ -75,8 +75,8 @@ use crate::{
         cloud_objects::update_manager::{FetchSingleObjectOption, UpdateManager},
         ids::{ClientId, ServerId, SyncId},
         telemetry::{
-            CloudObjectTelemetryMetadata, NotebookActionEvent, NotebookTelemetryMetadata,
-            SharingDialogSource, TelemetryCloudObjectType, TelemetryEvent,
+            CloudObjectTelemetryMetadata, SharingDialogSource, TelemetryCloudObjectType,
+            TelemetryEvent,
         },
     },
     settings::{
@@ -115,6 +115,8 @@ use super::{
     telemetry::NotebookTelemetryAction,
     CloudNotebookModel, NotebookId, NotebookLocation,
 };
+#[cfg(not(feature = "oss_release"))]
+use crate::server::telemetry::{NotebookActionEvent, NotebookTelemetryMetadata};
 
 mod details_bar;
 
@@ -890,18 +892,26 @@ impl NotebookView {
         }
 
         if self.send_edit_telemetry {
-            let content = self.content(ctx);
-            let delta = content.len().abs_diff(self.last_content_length);
-            self.last_content_length = content.len();
-            self.send_edit_telemetry = false;
+            #[cfg(feature = "oss_release")]
+            {
+                self.send_edit_telemetry = false;
+            }
 
-            send_telemetry_from_ctx!(
-                TelemetryEvent::EditNotebook {
-                    metadata: self.telemetry_metadata(ctx),
-                    meaningful_change: delta > MEANINGFUL_EDIT_THRESHOLD
-                },
-                ctx
-            );
+            #[cfg(not(feature = "oss_release"))]
+            {
+                let content = self.content(ctx);
+                let delta = content.len().abs_diff(self.last_content_length);
+                self.last_content_length = content.len();
+                self.send_edit_telemetry = false;
+
+                send_telemetry_from_ctx!(
+                    TelemetryEvent::EditNotebook {
+                        metadata: self.telemetry_metadata(ctx),
+                        meaningful_change: delta > MEANINGFUL_EDIT_THRESHOLD
+                    },
+                    ctx
+                );
+            }
         }
 
         // Schedule another check. If we stop editing in the meantime, either the mode check above
@@ -1063,6 +1073,7 @@ impl NotebookView {
     }
 
     /// The current notebook metadata for telemetry.
+    #[cfg(not(feature = "oss_release"))]
     fn telemetry_metadata(&self, ctx: &ViewContext<Self>) -> NotebookTelemetryMetadata {
         let active_notebook_data = self.active_notebook_data.as_ref(ctx);
         let owner = active_notebook_data.owner(ctx);
@@ -1075,6 +1086,7 @@ impl NotebookView {
         )
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn open_telemetry_metadata(&self, ctx: &ViewContext<Self>) -> NotebookTelemetryMetadata {
         self.telemetry_metadata(ctx).with_markdown_table_count(
             self.input
@@ -1097,6 +1109,16 @@ impl NotebookView {
     }
 
     /// Send a [`NotebookTelemetryAction`] telemetry event.
+    #[cfg(feature = "oss_release")]
+    fn send_telemetry_action(
+        &self,
+        _action: NotebookTelemetryAction,
+        _ctx: &mut ViewContext<Self>,
+    ) {
+    }
+
+    /// Send a [`NotebookTelemetryAction`] telemetry event.
+    #[cfg(not(feature = "oss_release"))]
     fn send_telemetry_action(&self, action: NotebookTelemetryAction, ctx: &mut ViewContext<Self>) {
         send_telemetry_from_ctx!(
             TelemetryEvent::NotebookAction(NotebookActionEvent {
@@ -1630,6 +1652,7 @@ impl NotebookView {
             editor.set_space(notebook.space(ctx), ctx);
         });
 
+        #[cfg(not(feature = "oss_release"))]
         send_telemetry_from_ctx!(
             TelemetryEvent::OpenNotebook(self.open_telemetry_metadata(ctx)),
             ctx

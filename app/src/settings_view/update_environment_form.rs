@@ -32,7 +32,9 @@ use std::collections::HashMap;
 use url::Url;
 use warp_core::send_telemetry_from_ctx;
 use warp_editor::editor::NavigationKey;
-use warp_graphql::queries::user_github_info::UserGithubInfoResult;
+use crate::server::server_api::integrations::{
+    SuggestCloudEnvironmentImageResult, UserGithubInfoResult,
+};
 use warpui::{
     elements::{
         Border, ChildAnchor, ChildView, Clipped, ClippedScrollStateHandle, ClippedScrollable,
@@ -1413,7 +1415,7 @@ impl UpdateEnvironmentForm {
 
                 match result {
                     Ok(result) => match result {
-                        warp_graphql::queries::suggest_cloud_environment_image::SuggestCloudEnvironmentImageResult::SuggestCloudEnvironmentImageOutput(output) => {
+                        SuggestCloudEnvironmentImageResult::SuggestCloudEnvironmentImageOutput(output) => {
                             let image = output.image;
                             let needs_custom_image = output.needs_custom_image;
                             let reason = output.reason;
@@ -1425,7 +1427,7 @@ impl UpdateEnvironmentForm {
                                 ctx,
                             );
                         }
-                        warp_graphql::queries::suggest_cloud_environment_image::SuggestCloudEnvironmentImageResult::SuggestCloudEnvironmentImageAuthRequiredOutput(output) => {
+                        SuggestCloudEnvironmentImageResult::SuggestCloudEnvironmentImageAuthRequiredOutput(output) => {
                             me.suggest_image_cache.insert(
                                 key.clone(),
                                 CachedSuggestImageResult::AuthRequired {
@@ -1437,7 +1439,7 @@ impl UpdateEnvironmentForm {
                                 auth_url: output.auth_url,
                             };
                         }
-                        warp_graphql::queries::suggest_cloud_environment_image::SuggestCloudEnvironmentImageResult::UserFacingError(_) => {
+                        SuggestCloudEnvironmentImageResult::UserFacingError => {
                             let error_message = "Failed to suggest a Docker image".to_string();
                             send_telemetry_from_ctx!(
                                 CloudAgentTelemetryEvent::ImageSuggestionFailed {
@@ -1450,7 +1452,7 @@ impl UpdateEnvironmentForm {
                                 message: error_message,
                             };
                         }
-                        warp_graphql::queries::suggest_cloud_environment_image::SuggestCloudEnvironmentImageResult::Unknown => {
+                        SuggestCloudEnvironmentImageResult::Unknown => {
                             let error_message = "Unknown response from suggestCloudEnvironmentImage".to_string();
                             send_telemetry_from_ctx!(
                                 CloudAgentTelemetryEvent::ImageSuggestionFailed {

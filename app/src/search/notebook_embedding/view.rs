@@ -1,10 +1,11 @@
 use std::{collections::HashSet, ops::Range};
 
+#[cfg(not(feature = "oss_release"))]
+use crate::search::notebook_embedding::notebooks::CloudNotebooksDataSource;
 use crate::{
     appearance::Appearance,
     cloud_object::Space,
     search::{
-        notebook_embedding::notebooks::CloudNotebooksDataSource,
         notebook_embedding::workflows::CloudWorkflowsDataSource,
         result_renderer::{QueryResultRenderer, QueryResultRendererStyles},
         search_bar::{SearchBar, SearchBarEvent, SearchBarState, SearchResultOrdering},
@@ -132,6 +133,7 @@ impl EmbeddingSearchMenu {
                 CloudWorkflowsDataSource::new(self.embedding_space, ctx),
                 HashSet::new(),
             );
+            #[cfg(not(feature = "oss_release"))]
             mixer.add_sync_source(
                 CloudNotebooksDataSource::new(self.embedding_space, ctx),
                 HashSet::new(),

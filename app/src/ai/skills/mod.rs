@@ -1,3 +1,7 @@
+#[cfg(not(feature = "oss_release"))]
+mod telemetry;
+#[cfg(feature = "oss_release")]
+#[path = "telemetry_oss.rs"]
 mod telemetry;
 pub use telemetry::{SkillOpenOrigin, SkillTelemetryEvent};
 

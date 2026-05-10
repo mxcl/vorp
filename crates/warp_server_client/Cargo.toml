@@ -7,6 +7,8 @@ publish.workspace = true
 license.workspace = true
 
 [features]
+default = ["graphql"]
+graphql = ["dep:warp_graphql"]
 test-util = []
 
 [dependencies]
@@ -27,7 +29,7 @@ session-sharing-protocol.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
 warp_core.workspace = true
-warp_graphql.workspace = true
+warp_graphql = { workspace = true, optional = true }
 warpui_core.workspace = true
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]

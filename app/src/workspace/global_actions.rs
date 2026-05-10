@@ -11,12 +11,12 @@ use warp_core::execution_mode::AppExecutionMode;
 
 use crate::ai::agent::conversation::AIConversationId;
 use crate::ai::agent::AIAgentExchangeId;
+use crate::auth::user::AnonymousUserType;
 use crate::root_view::OpenPath;
 use crate::undo_close::UndoCloseStack;
 use crate::workspace::{Workspace, WorkspaceAction};
 use crate::GlobalResourceHandlesProvider;
 use std::path::PathBuf;
-use warp_graphql::mutations::create_anonymous_user::AnonymousUserType;
 use warpui::windowing::WindowManager;
 use warpui::{AppContext, SingletonEntity, TypedActionView};
 

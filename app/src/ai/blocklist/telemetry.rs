@@ -59,6 +59,12 @@ pub(crate) struct TeamAgentCommunicationFailedEvent {
 }
 
 impl TelemetryEvent for BlocklistOrchestrationTelemetryEvent {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         BlocklistOrchestrationTelemetryEventDiscriminants::from(self).name()
     }
@@ -69,6 +75,12 @@ impl TelemetryEvent for BlocklistOrchestrationTelemetryEvent {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         BlocklistOrchestrationTelemetryEventDiscriminants::from(self).description()
     }
@@ -81,12 +93,24 @@ impl TelemetryEvent for BlocklistOrchestrationTelemetryEvent {
         false
     }
 
+    #[cfg(feature = "oss_release")]
+    fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
+        std::iter::empty()
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
         warp_core::telemetry::enum_events::<Self>()
     }
 }
 
 impl TelemetryEventDesc for BlocklistOrchestrationTelemetryEventDiscriminants {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         match self {
             Self::TeamAgentCommunicationFailed => {
@@ -95,6 +119,12 @@ impl TelemetryEventDesc for BlocklistOrchestrationTelemetryEventDiscriminants {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         match self {
             Self::TeamAgentCommunicationFailed => {

@@ -1,18 +1,23 @@
+#[cfg(not(feature = "oss_release"))]
 use super::auth::AuthClient;
 use super::ServerApi;
 use crate::ai::generate_block_title::api::{GenerateBlockTitleRequest, GenerateBlockTitleResponse};
-use crate::server::{
-    block::{Block, DisplaySetting},
-    graphql::{get_request_context, get_user_facing_error_message},
-};
+use crate::server::block::{Block, DisplaySetting};
+#[cfg(not(feature = "oss_release"))]
+use crate::server::graphql::{get_request_context, get_user_facing_error_message};
 use anyhow::anyhow;
 use async_trait::async_trait;
+#[cfg(not(feature = "oss_release"))]
 use chrono::Utc;
+#[cfg(not(feature = "oss_release"))]
 use cynic::{MutationBuilder, QueryBuilder};
 #[cfg(test)]
 use mockall::automock;
+#[cfg(not(feature = "oss_release"))]
 use std::convert::TryFrom;
+#[cfg(not(feature = "oss_release"))]
 use warp_core::channel::{Channel, ChannelState};
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::{
     mutations::{
         share_block::{BlockInput, ShareBlock, ShareBlockResult, ShareBlockVariables},
@@ -51,6 +56,7 @@ pub trait BlockClient: 'static + Send + Sync {
 
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(not(feature = "oss_release"))]
 impl BlockClient for ServerApi {
     async fn unshare_block(&self, block_uid: String) -> Result<(), anyhow::Error> {
         let variables = UnshareBlockVariables {
@@ -165,6 +171,41 @@ impl BlockClient for ServerApi {
     }
 }
 
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(feature = "oss_release")]
+impl BlockClient for ServerApi {
+    async fn unshare_block(&self, _block_uid: String) -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+
+    async fn save_block(
+        &self,
+        _block: &Block,
+        _title: Option<String>,
+        _show_prompt: bool,
+        _display_setting: DisplaySetting,
+    ) -> Result<String, anyhow::Error> {
+        Err(anyhow!(
+            "Block sharing server APIs are not available in this build"
+        ))
+    }
+
+    async fn blocks_owned_by_user(&self) -> Result<Vec<Block>, anyhow::Error> {
+        Ok(Vec::new())
+    }
+
+    async fn generate_shared_block_title(
+        &self,
+        _request: GenerateBlockTitleRequest,
+    ) -> Result<GenerateBlockTitleResponse, anyhow::Error> {
+        Err(anyhow!(
+            "AI block title generation is not available in this build"
+        ))
+    }
+}
+
+#[cfg(not(feature = "oss_release"))]
 impl TryFrom<GqlBlock> for Block {
     type Error = anyhow::Error;
 

@@ -13,6 +13,7 @@ use crate::ai::{
     },
     block_context::BlockContext,
 };
+use crate::rmcp;
 
 fn local_datetime_to_timestamp(timestamp: DateTime<Local>) -> prost_types::Timestamp {
     prost_types::Timestamp {

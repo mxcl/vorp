@@ -5,6 +5,10 @@
 //! Agent Mode UI.
 pub mod input_context;
 mod pending_response_streams;
+#[cfg(not(feature = "oss_release"))]
+pub mod response_stream;
+#[cfg(feature = "oss_release")]
+#[path = "controller/response_stream_oss.rs"]
 pub mod response_stream;
 pub(super) mod shared_session;
 mod slash_command;
@@ -30,7 +34,7 @@ use crate::ai::agent::{
     PassiveSuggestionTriggerType, RunningCommand,
 };
 use crate::ai::agent::{DocumentContentAttachmentSource, FileContext};
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 use crate::ai::agent_sdk::ClaudeHarness;
 use crate::ai::ambient_agents::AmbientAgentTaskId;
 use crate::ai::document::ai_document_model::{
@@ -54,7 +58,7 @@ use crate::network::NetworkStatus;
 use crate::notebooks::editor::model::FileLinkResolutionContext;
 use crate::persistence::ModelEvent;
 use crate::server::server_api::AIApiError;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 use crate::server::server_api::ServerApiProvider;
 use crate::terminal::model::block::{
     formatted_terminal_contents_for_input, BlockId, CURSOR_MARKER,
@@ -75,7 +79,7 @@ use parking_lot::FairMutex;
 use pending_response_streams::PendingResponseStreams;
 use session_sharing_protocol::common::ParticipantId;
 use std::collections::{HashMap, HashSet};
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -569,7 +573,7 @@ impl BlocklistAIController {
                 me.handle_pending_events_ready(*conversation_id, ctx);
             });
         }
-        if FeatureFlag::OrchestrationV2.is_enabled() {
+        if cfg!(not(feature = "oss_release")) && FeatureFlag::OrchestrationV2.is_enabled() {
             let streamer = OrchestrationEventStreamer::handle(ctx);
             ctx.subscribe_to_model(&streamer, move |me, event, ctx| {
                 let OrchestrationEventStreamerEvent::DormantClaudeWakeReady { conversation_id } =
@@ -1552,7 +1556,7 @@ impl BlocklistAIController {
         true
     }
 
-    #[cfg(target_family = "wasm")]
+    #[cfg(any(target_family = "wasm", feature = "oss_release"))]
     fn maybe_prepare_local_claude_wake(
         &mut self,
         _conversation_id: AIConversationId,
@@ -1562,7 +1566,7 @@ impl BlocklistAIController {
         false
     }
 
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
     fn maybe_prepare_local_claude_wake(
         &mut self,
         conversation_id: AIConversationId,
@@ -1680,7 +1684,7 @@ impl BlocklistAIController {
         true
     }
 
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
     fn schedule_pending_events_ready_retry(
         &mut self,
         conversation_id: AIConversationId,
@@ -1694,7 +1698,7 @@ impl BlocklistAIController {
         );
     }
 
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
     fn schedule_dormant_claude_wake_ready_retry(
         &mut self,
         conversation_id: AIConversationId,
@@ -1777,6 +1781,13 @@ impl BlocklistAIController {
         conversation_id: AIConversationId,
         ctx: &mut ModelContext<Self>,
     ) {
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = (conversation_id, ctx);
+            return;
+        }
+
+        #[cfg(not(feature = "oss_release"))]
         if !self.maybe_prepare_local_claude_wake(
             conversation_id,
             LocalClaudeWakeTrigger::WakeOnlyStream,

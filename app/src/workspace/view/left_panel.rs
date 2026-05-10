@@ -17,6 +17,7 @@ use warpui::{
 };
 
 use crate::ai::agent::conversation::AIConversationId;
+#[cfg(not(feature = "oss_release"))]
 use crate::ai::agent_conversations_model::AgentConversationsModel;
 #[cfg(feature = "local_fs")]
 use crate::code::file_tree::FileTreeEvent;
@@ -1028,6 +1029,7 @@ impl LeftPanelView {
     /// When the conversation list view's visibility changes,
     /// we need to update the conversation and tasks model to reflect the new state
     /// (this information is used to decide whether or not we should poll for new tasks).
+    #[cfg(not(feature = "oss_release"))]
     fn on_conversation_list_view_visibility_changed(
         &self,
         is_now_open: bool,
@@ -1042,6 +1044,14 @@ impl LeftPanelView {
                 model.register_view_closed(window_id, view_id, ctx);
             }
         });
+    }
+
+    #[cfg(feature = "oss_release")]
+    fn on_conversation_list_view_visibility_changed(
+        &self,
+        _is_now_open: bool,
+        _ctx: &mut ViewContext<Self>,
+    ) {
     }
 }
 

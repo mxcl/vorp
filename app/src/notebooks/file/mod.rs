@@ -27,6 +27,8 @@ use warpui::{
 
 #[cfg(feature = "local_fs")]
 use crate::notebooks::post_process_notebook;
+#[cfg(not(feature = "oss_release"))]
+use crate::server::telemetry::{NotebookActionEvent, NotebookTelemetryMetadata};
 use crate::{
     appearance::Appearance,
     cmd_or_ctrl_shift,
@@ -43,7 +45,7 @@ use crate::{
         BackingView, PaneConfiguration, PaneEvent,
     },
     safe_warn, send_telemetry_from_ctx,
-    server::telemetry::{NotebookActionEvent, NotebookTelemetryMetadata, TelemetryEvent},
+    server::telemetry::TelemetryEvent,
     settings::FontSettings,
     terminal::model::session::Session,
     ui_components::icons::Icon,
@@ -334,7 +336,7 @@ impl FileNotebookView {
         });
     }
 
-    #[cfg(feature = "local_fs")]
+    #[cfg(all(feature = "local_fs", not(feature = "oss_release")))]
     fn open_telemetry_metadata(&self, ctx: &ViewContext<Self>) -> NotebookTelemetryMetadata {
         NotebookTelemetryMetadata::new(None, None, NotebookLocation::LocalFile, None)
             .with_markdown_table_count(
@@ -417,6 +419,7 @@ impl FileNotebookView {
                         FileModelEvent::FileLoaded { content, .. } => {
                             let cleaned = post_process_notebook(content);
                             me.set_content(&cleaned, ctx);
+                            #[cfg(not(feature = "oss_release"))]
                             send_telemetry_from_ctx!(
                                 TelemetryEvent::OpenNotebook(me.open_telemetry_metadata(ctx)),
                                 ctx
@@ -505,6 +508,16 @@ impl FileNotebookView {
     }
 
     /// Send a [`NotebookTelemetryAction`] telemetry event.
+    #[cfg(feature = "oss_release")]
+    fn send_telemetry_action(
+        &self,
+        _action: NotebookTelemetryAction,
+        _ctx: &mut ViewContext<Self>,
+    ) {
+    }
+
+    /// Send a [`NotebookTelemetryAction`] telemetry event.
+    #[cfg(not(feature = "oss_release"))]
     fn send_telemetry_action(&self, action: NotebookTelemetryAction, ctx: &mut ViewContext<Self>) {
         send_telemetry_from_ctx!(
             TelemetryEvent::NotebookAction(NotebookActionEvent {

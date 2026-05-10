@@ -54,6 +54,7 @@ impl SyncDataSource for ZeroStateDataSource {
         // The results construction below basically orders all active commands, sorted
         // alphabetically, except for the commands in this vec, which are explicitly appended
         // to all the other alphabetically sorted commands, in this order.
+        #[cfg(not(feature = "oss_release"))]
         let prioritized_commands = vec![
             &*commands::CREATE_ENVIRONMENT,
             &*commands::EDIT,
@@ -62,6 +63,9 @@ impl SyncDataSource for ZeroStateDataSource {
             &*commands::PLAN,
             &commands::AGENT,
         ];
+        #[cfg(feature = "oss_release")]
+        let prioritized_commands: Vec<&crate::search::slash_command_menu::StaticCommand> =
+            Vec::new();
 
         let mut active_prioritized_commands = vec![];
         let mut results = vec![];

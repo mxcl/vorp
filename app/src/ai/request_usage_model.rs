@@ -1,6 +1,7 @@
 use crate::ai::agent::conversation::AIConversationId;
 use crate::ai::agent::AIAgentExchangeId;
 use crate::auth::AuthStateProvider;
+#[cfg(not(feature = "oss_release"))]
 use crate::pricing::PricingInfoModel;
 use crate::server::server_api::ai::AIClient;
 use crate::settings::AISettings;
@@ -13,13 +14,17 @@ use instant::Instant;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use warp_core::user_preferences::GetUserPreferences as _;
-use warp_graphql::scalars::time::ServerTimestamp;
+use crate::server::timestamp::ServerTimestamp;
 use warpui::{AppContext, Entity, ModelContext, SingletonEntity};
-
-pub use warp_graphql::billing::BonusGrantType;
 
 /// Threshold of ambient-only credits at which we surface upgrade/CTA UI.
 pub const AMBIENT_AGENT_TRIAL_CREDIT_THRESHOLD: i32 = 20;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BonusGrantType {
+    AmbientOnly,
+    Any,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BonusGrantScope {
@@ -525,64 +530,73 @@ impl AIRequestUsageModel {
         &self,
         ctx: &AppContext,
     ) -> BuyCreditsBannerDisplayState {
-        // Early return if user dismissed
-        if self.buy_addon_credits_banner_dismissed {
-            return BuyCreditsBannerDisplayState::Hidden;
-        }
-        let current_workspace = UserWorkspaces::as_ref(ctx).current_workspace();
-        let policy_allows_purchasing = current_workspace
-            .map(|w| {
-                w.billing_metadata
-                    .tier
-                    .purchase_add_on_credits_policy
-                    .is_some_and(|p| p.enabled)
-            })
-            .unwrap_or(false);
-
-        // TODO: we might want to suggest credits purchase if request_remain/bonus credits is below certain threshold
-        // something to consider after launch
-        // Ambient-only credits are usable for cloud agents and should not suppress this banner.
-        let now = Utc::now();
-        let has_non_ambient_bonus_credits = self
-            .bonus_grants
-            .iter()
-            .filter(|grant| grant.grant_type != BonusGrantType::AmbientOnly)
-            .filter(|grant| grant.expiration.is_none_or(|exp| now < exp))
-            .filter(|grant| grant.request_credits_remaining > 0)
-            .any(|grant| match grant.scope {
-                BonusGrantScope::User => true,
-                BonusGrantScope::Workspace(uid) => {
-                    current_workspace.is_some_and(|workspace| workspace.uid == uid)
-                }
-            });
-        if !policy_allows_purchasing
-            || self.has_requests_remaining()
-            || has_non_ambient_bonus_credits
+        #[cfg(feature = "oss_release")]
         {
+            let _ = ctx;
             return BuyCreditsBannerDisplayState::Hidden;
         }
 
-        let auto_reload_enabled = current_workspace
-            .is_some_and(|w| w.settings.addon_credits_settings.auto_reload_enabled);
-        if !auto_reload_enabled {
-            return BuyCreditsBannerDisplayState::OutOfCredits;
-        }
+        #[cfg(not(feature = "oss_release"))]
+        {
+            // Early return if user dismissed
+            if self.buy_addon_credits_banner_dismissed {
+                return BuyCreditsBannerDisplayState::Hidden;
+            }
+            let current_workspace = UserWorkspaces::as_ref(ctx).current_workspace();
+            let policy_allows_purchasing = current_workspace
+                .map(|w| {
+                    w.billing_metadata
+                        .tier
+                        .purchase_add_on_credits_policy
+                        .is_some_and(|p| p.enabled)
+                })
+                .unwrap_or(false);
 
-        let at_monthly_limit =
-            current_workspace.is_some_and(|w| w.is_at_addon_credits_monthly_limit());
+            // TODO: we might want to suggest credits purchase if request_remain/bonus credits is below certain threshold
+            // something to consider after launch
+            // Ambient-only credits are usable for cloud agents and should not suppress this banner.
+            let now = Utc::now();
+            let has_non_ambient_bonus_credits = self
+                .bonus_grants
+                .iter()
+                .filter(|grant| grant.grant_type != BonusGrantType::AmbientOnly)
+                .filter(|grant| grant.expiration.is_none_or(|exp| now < exp))
+                .filter(|grant| grant.request_credits_remaining > 0)
+                .any(|grant| match grant.scope {
+                    BonusGrantScope::User => true,
+                    BonusGrantScope::Workspace(uid) => {
+                        current_workspace.is_some_and(|workspace| workspace.uid == uid)
+                    }
+                });
+            if !policy_allows_purchasing
+                || self.has_requests_remaining()
+                || has_non_ambient_bonus_credits
+            {
+                return BuyCreditsBannerDisplayState::Hidden;
+            }
 
-        let auto_reload_would_exceed = current_workspace
-            .and_then(|workspace| {
-                let options = PricingInfoModel::as_ref(ctx).addon_credits_options()?;
-                let price = workspace.get_auto_reload_price_cents(options)?;
-                Some(workspace.would_addon_purchase_reach_limit(price))
-            })
-            .unwrap_or(false);
+            let auto_reload_enabled = current_workspace
+                .is_some_and(|w| w.settings.addon_credits_settings.auto_reload_enabled);
+            if !auto_reload_enabled {
+                return BuyCreditsBannerDisplayState::OutOfCredits;
+            }
 
-        if at_monthly_limit || auto_reload_would_exceed {
-            BuyCreditsBannerDisplayState::MonthlyLimitReached
-        } else {
-            BuyCreditsBannerDisplayState::Hidden
+            let at_monthly_limit =
+                current_workspace.is_some_and(|w| w.is_at_addon_credits_monthly_limit());
+
+            let auto_reload_would_exceed = current_workspace
+                .and_then(|workspace| {
+                    let options = PricingInfoModel::as_ref(ctx).addon_credits_options()?;
+                    let price = workspace.get_auto_reload_price_cents(options)?;
+                    Some(workspace.would_addon_purchase_reach_limit(price))
+                })
+                .unwrap_or(false);
+
+            if at_monthly_limit || auto_reload_would_exceed {
+                BuyCreditsBannerDisplayState::MonthlyLimitReached
+            } else {
+                BuyCreditsBannerDisplayState::Hidden
+            }
         }
     }
 

@@ -1,12 +1,12 @@
 use ai::index::Outline;
 
 cfg_if::cfg_if! {
-    if #[cfg(target_family = "wasm")] {
-        mod wasm;
-        pub use wasm::*;
-    } else {
+    if #[cfg(all(not(target_family = "wasm"), feature = "ai_local_fs"))] {
         mod native;
         pub use native::*;
+    } else {
+        mod wasm;
+        pub use wasm::*;
     }
 }
 

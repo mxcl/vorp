@@ -33,8 +33,16 @@ use warp_core::{
     features::FeatureFlag,
     settings::{ChangeEventReason, Setting},
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::workspace::FeatureModelChoice;
 use warpui::{AppContext, Entity, ModelContext, SingletonEntity, Tracked};
+
+#[cfg(feature = "oss_release")]
+pub type FeatureModelChoice = ();
+#[cfg(not(feature = "oss_release"))]
+pub type WorkspacePricingInfo = warp_graphql::billing::PricingInfo;
+#[cfg(feature = "oss_release")]
+pub type WorkspacePricingInfo = ();
 
 #[cfg(test)]
 use crate::server::server_api::{team::MockTeamClient, workspace::MockWorkspaceClient};
@@ -122,7 +130,7 @@ pub struct WorkspacesMetadataResponse {
 // independent queries.
 pub struct WorkspacesMetadataWithPricing {
     pub metadata: WorkspacesMetadataResponse,
-    pub pricing_info: Option<warp_graphql::billing::PricingInfo>,
+    pub pricing_info: Option<WorkspacePricingInfo>,
 }
 
 pub struct CreateTeamResponse {

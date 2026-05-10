@@ -32,11 +32,21 @@ pub mod block_list_viewport;
 pub mod blockgrid_element;
 mod blockgrid_renderer;
 mod bootstrap;
+#[cfg(not(feature = "oss_release"))]
 mod buy_credits_banner;
+#[cfg(feature = "oss_release")]
+mod buy_credits_banner_oss;
+#[cfg(feature = "oss_release")]
+use buy_credits_banner_oss as buy_credits_banner;
 pub mod color;
 mod command_corrections_denylist;
 pub mod dynamic_enum_suggestions;
+#[cfg(not(feature = "oss_release"))]
 pub mod enable_auto_reload_modal;
+#[cfg(feature = "oss_release")]
+pub mod enable_auto_reload_modal_oss;
+#[cfg(feature = "oss_release")]
+pub use enable_auto_reload_modal_oss as enable_auto_reload_modal;
 pub mod event;
 pub mod event_listener;
 pub mod find;
@@ -59,6 +69,10 @@ pub mod mock_terminal_manager;
 pub mod model;
 pub mod model_events;
 pub mod platform;
+#[cfg(not(feature = "oss_release"))]
+pub mod profile_model_selector;
+#[cfg(feature = "oss_release")]
+#[path = "profile_model_selector_oss.rs"]
 pub mod profile_model_selector;
 pub mod prompt;
 pub mod prompt_render_helper;

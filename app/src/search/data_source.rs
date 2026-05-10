@@ -30,11 +30,20 @@ lazy_static! {
         aliases: vec!["p:"]
     };
     static ref NOTEBOOKS_FILTER_ATOM: FilterAtom = FilterAtom {
+        #[cfg(not(feature = "oss_release"))]
         primary_text: "notebooks:",
-        aliases: vec!["n:"]
+        #[cfg(feature = "oss_release")]
+        primary_text: "",
+        #[cfg(not(feature = "oss_release"))]
+        aliases: vec!["n:"],
+        #[cfg(feature = "oss_release")]
+        aliases: vec![]
     };
     static ref PLANS_FILTER_ATOM: FilterAtom = FilterAtom {
+        #[cfg(not(feature = "oss_release"))]
         primary_text: "plans:",
+        #[cfg(feature = "oss_release")]
+        primary_text: "",
         aliases: vec![]
     };
     static ref NATURAL_LANGUAGE_FILTER_ATOM: FilterAtom = FilterAtom {
@@ -234,9 +243,36 @@ impl QueryFilter {
             QueryFilter::History => "Search history",
             QueryFilter::Workflows => "Search workflows",
             QueryFilter::AgentModeWorkflows => "Search prompts",
-            QueryFilter::Notebooks => "Search notebooks",
-            QueryFilter::Plans => "Search plans",
-            QueryFilter::NaturalLanguage => "e.g. replace string in file",
+            QueryFilter::Notebooks => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    "Search notebooks"
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    ""
+                }
+            }
+            QueryFilter::Plans => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    "Search plans"
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    ""
+                }
+            }
+            QueryFilter::NaturalLanguage => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    "e.g. replace string in file"
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    ""
+                }
+            }
             QueryFilter::Actions => "Search actions",
             QueryFilter::Sessions => "Search sessions",
             QueryFilter::Conversations => "Search conversations",
@@ -249,13 +285,49 @@ impl QueryFilter {
             QueryFilter::Commands => "Search commands",
             QueryFilter::Blocks => "Search blocks",
             QueryFilter::Code => "Search code symbols",
-            QueryFilter::Rules => "Search AI rules",
+            QueryFilter::Rules => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    "Search AI rules"
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    ""
+                }
+            }
             QueryFilter::Repos => "Search code repos",
             QueryFilter::DiffSets => "Search diff sets",
             QueryFilter::StaticSlashCommands => "Search static slash commands",
-            QueryFilter::Skills => "Search skills",
-            QueryFilter::BaseModels => "Search base models",
-            QueryFilter::FullTerminalUseModels => "Search full terminal use models",
+            QueryFilter::Skills => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    "Search skills"
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    ""
+                }
+            }
+            QueryFilter::BaseModels => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    "Search base models"
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    ""
+                }
+            }
+            QueryFilter::FullTerminalUseModels => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    "Search full terminal use models"
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    ""
+                }
+            }
             QueryFilter::CurrentDirectoryConversations => {
                 "Search conversations in current directory"
             }
@@ -268,9 +340,36 @@ impl QueryFilter {
             QueryFilter::History => &HISTORY_FILTER_ATOM,
             QueryFilter::Workflows => &WORKFLOWS_FILTER_ATOM,
             QueryFilter::AgentModeWorkflows => &AGENT_MODE_WORKFLOWS_FILTER_ATOM,
-            QueryFilter::Notebooks => &NOTEBOOKS_FILTER_ATOM,
-            QueryFilter::Plans => &PLANS_FILTER_ATOM,
-            QueryFilter::NaturalLanguage => &NATURAL_LANGUAGE_FILTER_ATOM,
+            QueryFilter::Notebooks => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    &NOTEBOOKS_FILTER_ATOM
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    &NO_FILTER_ATOM
+                }
+            }
+            QueryFilter::Plans => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    &PLANS_FILTER_ATOM
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    &NO_FILTER_ATOM
+                }
+            }
+            QueryFilter::NaturalLanguage => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    &NATURAL_LANGUAGE_FILTER_ATOM
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    &NO_FILTER_ATOM
+                }
+            }
             QueryFilter::Actions => &ACTIONS_FILTER_ATOM,
             QueryFilter::Sessions => &SESSIONS_FILTER_ATOM,
             QueryFilter::Conversations => &CONVERSATIONS_FILTER_ATOM,
@@ -282,7 +381,16 @@ impl QueryFilter {
             QueryFilter::Commands => &COMMANDS_FILTER_ATOM,
             QueryFilter::Blocks => &BLOCKS_FILTER_ATOM,
             QueryFilter::Code => &CODE_FILTER_ATOM,
-            QueryFilter::Rules => &RULES_FILTER_ATOM,
+            QueryFilter::Rules => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    &RULES_FILTER_ATOM
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    &NO_FILTER_ATOM
+                }
+            }
             QueryFilter::Repos => &REPOS_FILTER_ATOM,
             QueryFilter::DiffSets => &DIFFSETS_FILTER_ATOM,
             QueryFilter::StaticSlashCommands => &STATIC_SLASH_COMMANDS_FILTER_ATOM,
@@ -300,9 +408,36 @@ impl QueryFilter {
             QueryFilter::History => "history",
             QueryFilter::Workflows => "workflows",
             QueryFilter::AgentModeWorkflows => "prompts",
-            QueryFilter::Notebooks => "notebooks",
-            QueryFilter::Plans => "plans",
-            QueryFilter::NaturalLanguage => "AI command suggestions",
+            QueryFilter::Notebooks => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    "notebooks"
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    ""
+                }
+            }
+            QueryFilter::Plans => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    "plans"
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    ""
+                }
+            }
+            QueryFilter::NaturalLanguage => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    "AI command suggestions"
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    ""
+                }
+            }
             QueryFilter::Actions => "actions",
             QueryFilter::Sessions => "sessions",
             QueryFilter::Conversations => "conversations",
@@ -314,14 +449,50 @@ impl QueryFilter {
             QueryFilter::Commands => "commands",
             QueryFilter::Blocks => "blocks",
             QueryFilter::Code => "code",
-            QueryFilter::Rules => "rules",
+            QueryFilter::Rules => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    "rules"
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    ""
+                }
+            }
             QueryFilter::Repos => "repos",
             QueryFilter::DiffSets => "diff sets",
             QueryFilter::StaticSlashCommands => "slash commands",
             QueryFilter::HistoricalConversations => "historical conversations",
-            QueryFilter::Skills => "skills",
-            QueryFilter::BaseModels => "base models",
-            QueryFilter::FullTerminalUseModels => "full terminal use models",
+            QueryFilter::Skills => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    "skills"
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    ""
+                }
+            }
+            QueryFilter::BaseModels => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    "base models"
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    ""
+                }
+            }
+            QueryFilter::FullTerminalUseModels => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    "full terminal use models"
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    ""
+                }
+            }
             QueryFilter::CurrentDirectoryConversations => "current directory conversations",
         }
     }
@@ -331,13 +502,38 @@ impl QueryFilter {
         match self {
             QueryFilter::History => Some("bundled/svg/history.svg"),
             QueryFilter::Workflows => Some("bundled/svg/workflow.svg"),
-            QueryFilter::Notebooks => Some("bundled/svg/notebook.svg"),
-            QueryFilter::Plans => Some("bundled/svg/compass-3.svg"),
+            QueryFilter::Notebooks => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    Some("bundled/svg/notebook.svg")
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    None
+                }
+            }
+            QueryFilter::Plans => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    Some("bundled/svg/compass-3.svg")
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    None
+                }
+            }
             QueryFilter::NaturalLanguage => {
-                if !FeatureFlag::AgentMode.is_enabled() {
-                    Some(Icon::AiAssistant.into())
-                } else {
-                    Some(Icon::Oz.into())
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    if !FeatureFlag::AgentMode.is_enabled() {
+                        Some(Icon::AiAssistant.into())
+                    } else {
+                        Some(Icon::Oz.into())
+                    }
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    None
                 }
             }
             QueryFilter::Actions => None,
@@ -355,7 +551,16 @@ impl QueryFilter {
             QueryFilter::Commands => Some("bundled/svg/terminal.svg"),
             QueryFilter::Blocks => Some("bundled/svg/block.svg"),
             QueryFilter::Code => Some("bundled/svg/code-02.svg"),
-            QueryFilter::Rules => Some("bundled/svg/book-open.svg"),
+            QueryFilter::Rules => {
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    Some("bundled/svg/book-open.svg")
+                }
+                #[cfg(feature = "oss_release")]
+                {
+                    None
+                }
+            }
             QueryFilter::Repos => Some("bundled/svg/folder.svg"),
             QueryFilter::DiffSets => Some("bundled/svg/diff.svg"),
             QueryFilter::StaticSlashCommands => None,

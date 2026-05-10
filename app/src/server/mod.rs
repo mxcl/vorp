@@ -5,6 +5,10 @@ pub mod experiments;
 pub mod graphql;
 pub mod ids;
 pub mod network_log_pane_manager;
+#[cfg(not(feature = "oss_release"))]
+pub mod network_log_view;
+#[cfg(feature = "oss_release")]
+#[path = "network_log_view_oss.rs"]
 pub mod network_log_view;
 pub mod network_logging;
 pub mod retry_strategies;
@@ -12,6 +16,8 @@ pub mod server_api;
 pub mod sync_queue;
 pub mod telemetry;
 pub(crate) mod telemetry_ext;
+pub mod timestamp;
+#[cfg(not(feature = "oss_release"))]
 pub mod voice_transcriber;
 
 pub use warp_core::operating_system_info::OperatingSystemInfo;

@@ -10,6 +10,12 @@ pub enum SettingsTelemetryEvent {
 }
 
 impl TelemetryEvent for SettingsTelemetryEvent {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         SettingsTelemetryEventDiscriminants::from(self).name()
     }
@@ -18,6 +24,12 @@ impl TelemetryEvent for SettingsTelemetryEvent {
         None
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         SettingsTelemetryEventDiscriminants::from(self).description()
     }
@@ -32,12 +44,24 @@ impl TelemetryEvent for SettingsTelemetryEvent {
         }
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
         warp_core::telemetry::enum_events::<Self>()
+    }
+
+    #[cfg(feature = "oss_release")]
+    fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
+        std::iter::empty()
     }
 }
 
 impl TelemetryEventDesc for SettingsTelemetryEventDiscriminants {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         match self {
             SettingsTelemetryEventDiscriminants::EnvironmentsPageOpened => {
@@ -46,6 +70,12 @@ impl TelemetryEventDesc for SettingsTelemetryEventDiscriminants {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         match self {
             SettingsTelemetryEventDiscriminants::EnvironmentsPageOpened => {

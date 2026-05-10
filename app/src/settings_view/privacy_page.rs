@@ -12,6 +12,7 @@ use warpui::r#async::{SpawnedFutureHandle, Timer};
 use regex::Regex;
 use settings::Setting as _;
 use warp_core::context_flag::ContextFlag;
+#[cfg(not(feature = "oss_release"))]
 use warp_core::features::FeatureFlag;
 use warp_core::ui::theme::WarpTheme;
 use warpui::elements::{
@@ -47,15 +48,19 @@ use crate::{
     channel::ChannelState,
     report_if_error, send_telemetry_from_ctx,
     server::telemetry::TelemetryEvent,
-    settings::{AISettings, PrivacySettings},
+    settings::PrivacySettings,
     terminal::safe_mode_settings::{SafeModeEnabled, SafeModeSettings},
     ui_components::icons::Icon,
     util::links::PRIVACY_POLICY_URL,
     workspaces::{
         user_workspaces::UserWorkspaces,
-        workspace::{AdminEnablementSetting, CustomerType, UgcCollectionEnablementSetting},
+        workspace::UgcCollectionEnablementSetting,
     },
 };
+#[cfg(not(feature = "oss_release"))]
+use crate::settings::AISettings;
+#[cfg(not(feature = "oss_release"))]
+use crate::workspaces::workspace::{AdminEnablementSetting, CustomerType};
 
 use super::{
     flags,
@@ -89,9 +94,11 @@ const TELEMETRY_DESCRIPTION_OLD: &str =
     "App analytics help us make the product better for you. We only collect \
     app usage metadata, never console input or output.";
 const TELEMETRY_TITLE: &str = "Help improve Warp";
+#[cfg(not(feature = "oss_release"))]
 const TELEMETRY_DESCRIPTION: &str =
     "App analytics help us make the product better for you. We may collect \
     certain console interactions to improve Warp's AI capabilities.";
+#[cfg(not(feature = "oss_release"))]
 const TELEMETRY_FREE_TIER_NOTE: &str =
     "On the free tier, analytics must be enabled to use AI features.";
 const TELEMETRY_DOCS_URL: &str =
@@ -241,8 +248,9 @@ impl PrivacyPageView {
             Box::new(SecretRedactionWidget::default()),
             Box::new(AppAnalyticsWidget::default()),
             Box::new(CrashReportsWidget::default()),
-            Box::new(CloudConversationStorageWidget::default()),
         ];
+        #[cfg(not(feature = "oss_release"))]
+        widgets.push(Box::new(CloudConversationStorageWidget::default()));
         if ContextFlag::NetworkLogConsole.is_enabled() {
             widgets.push(Box::new(NetworkLogWidget::default()));
         }
@@ -327,6 +335,7 @@ impl PrivacyPageView {
         ctx.notify();
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn toggle_cloud_conversation_storage(&mut self, ctx: &mut ViewContext<Self>) {
         let privacy_settings_handle = PrivacySettings::handle(ctx);
         let old_value = privacy_settings_handle
@@ -503,6 +512,7 @@ pub enum PrivacyPageAction {
     SetSecretDisplayMode(SecretDisplayMode),
     ToggleTelemetry,
     ToggleCrashReporting,
+    #[cfg(not(feature = "oss_release"))]
     ToggleCloudConversationStorage,
     LaunchNetworkLogging,
     RemoveCustomRegex(usize),
@@ -584,6 +594,7 @@ impl TypedActionView for PrivacyPageView {
             }
             PrivacyPageAction::ToggleTelemetry => self.toggle_telemetry(ctx),
             PrivacyPageAction::ToggleCrashReporting => self.toggle_crash_reporting(ctx),
+            #[cfg(not(feature = "oss_release"))]
             PrivacyPageAction::ToggleCloudConversationStorage => {
                 self.toggle_cloud_conversation_storage(ctx)
             }
@@ -1462,14 +1473,19 @@ impl SettingsWidget for AppAnalyticsWidget {
         let ui_builder = appearance.ui_builder();
         let description_text_color = description_text_color(appearance.theme()).into_solid();
 
-        let is_enterprise = UserWorkspaces::as_ref(app)
-            .current_workspace()
-            .is_some_and(|w| w.billing_metadata.customer_type == CustomerType::Enterprise);
-        // Keep the old description for enterprise users because we do not collect block input/output for them.
-        let description = if is_enterprise {
-            TELEMETRY_DESCRIPTION_OLD
-        } else {
-            TELEMETRY_DESCRIPTION
+        #[cfg(feature = "oss_release")]
+        let description = TELEMETRY_DESCRIPTION_OLD;
+        #[cfg(not(feature = "oss_release"))]
+        let description = {
+            let is_enterprise = UserWorkspaces::as_ref(app)
+                .current_workspace()
+                .is_some_and(|w| w.billing_metadata.customer_type == CustomerType::Enterprise);
+            // Keep the old description for enterprise users because we do not collect block input/output for them.
+            if is_enterprise {
+                TELEMETRY_DESCRIPTION_OLD
+            } else {
+                TELEMETRY_DESCRIPTION
+            }
         };
 
         let org_setting = UserWorkspaces::handle(app)
@@ -1529,12 +1545,15 @@ impl SettingsWidget for AppAnalyticsWidget {
                 .finish()
         };
 
-        // Check if user is on free tier to show the AI requirement note
-        // Fail safe: if billing status is unknown, assume paid (don't show free tier note)
-        let is_on_paid_plan = UserWorkspaces::as_ref(app)
-            .current_workspace()
-            .map(|w| w.billing_metadata.is_user_on_paid_plan())
-            .unwrap_or(true);
+        #[cfg(not(feature = "oss_release"))]
+        let is_on_paid_plan = {
+            // Check if user is on free tier to show the AI requirement note.
+            // Fail safe: if billing status is unknown, assume paid (don't show free tier note).
+            UserWorkspaces::as_ref(app)
+                .current_workspace()
+                .map(|w| w.billing_metadata.is_user_on_paid_plan())
+                .unwrap_or(true)
+        };
 
         let mut column = Flex::column();
         column.add_child(super::settings_page::build_toggle_element(
@@ -1560,6 +1579,7 @@ impl SettingsWidget for AppAnalyticsWidget {
         );
 
         // Show free tier note only for non-paid users
+        #[cfg(not(feature = "oss_release"))]
         if !is_on_paid_plan {
             column.add_child(
                 ui_builder
@@ -1673,11 +1693,13 @@ impl SettingsWidget for CrashReportsWidget {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 #[derive(Default)]
 struct CloudConversationStorageWidget {
     switch_state: SwitchStateHandle,
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl SettingsWidget for CloudConversationStorageWidget {
     type View = PrivacyPageView;
 

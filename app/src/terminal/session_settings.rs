@@ -360,6 +360,7 @@ define_settings_group!(SessionSettings, settings: [
     // TODO: Remove this setting when `FeatureFlag::ProfilesDesignRevamp` is cleaned up.
     // When ProfilesDesignRevamp is enabled, model selectors are always shown in the prompt.
     // This setting only controls visibility when ProfilesDesignRevamp is disabled.
+    #[cfg(not(feature = "oss_release"))]
     show_model_selectors_in_prompt: ShowModelSelectorsInPrompt {
         type: bool,
         default: true,
@@ -369,6 +370,15 @@ define_settings_group!(SessionSettings, settings: [
         toml_path: "agents.warp_agent.input.show_model_selectors_in_prompt",
         description: "Whether to show AI model selectors in the input prompt.",
     },
+    #[cfg(feature = "oss_release")]
+    show_model_selectors_in_prompt: ShowModelSelectorsInPrompt {
+        type: bool,
+        default: false,
+        supported_platforms: SupportedPlatforms::ALL,
+        sync_to_cloud: SyncToCloud::Never,
+        private: true,
+    },
+    #[cfg(not(feature = "oss_release"))]
     agent_footer_chip_selection: AgentToolbarChipSelectionSetting {
         type: AgentToolbarChipSelection,
         default: AgentToolbarChipSelection::default(),
@@ -378,6 +388,15 @@ define_settings_group!(SessionSettings, settings: [
         toml_path: "agents.warp_agent.input.agent_toolbar_chip_selection_setting",
         description: "Controls the layout of context chips in the Agent Mode toolbar.",
     },
+    #[cfg(feature = "oss_release")]
+    agent_footer_chip_selection: AgentToolbarChipSelectionSetting {
+        type: AgentToolbarChipSelection,
+        default: AgentToolbarChipSelection::default(),
+        supported_platforms: SupportedPlatforms::ALL,
+        sync_to_cloud: SyncToCloud::Never,
+        private: true,
+    },
+    #[cfg(not(feature = "oss_release"))]
     cli_agent_footer_chip_selection: CLIAgentToolbarChipSelectionSetting {
         type: CLIAgentToolbarChipSelection,
         default: CLIAgentToolbarChipSelection::default(),
@@ -386,6 +405,14 @@ define_settings_group!(SessionSettings, settings: [
         private: false,
         toml_path: "agents.third_party.cli_agent_toolbar_chip_selection_setting",
         description: "Controls the layout of context chips in the CLI Agent toolbar.",
+    },
+    #[cfg(feature = "oss_release")]
+    cli_agent_footer_chip_selection: CLIAgentToolbarChipSelectionSetting {
+        type: CLIAgentToolbarChipSelection,
+        default: CLIAgentToolbarChipSelection::default(),
+        supported_platforms: SupportedPlatforms::ALL,
+        sync_to_cloud: SyncToCloud::Never,
+        private: true,
     },
     notification_toast_duration_secs: NotificationToastDurationSecs {
         type: u64,

@@ -1,14 +1,50 @@
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod agent_input_footer;
+#[cfg(feature = "oss_release")]
+#[path = "agent_input_footer_oss.rs"]
+pub(crate) mod agent_input_footer;
+#[cfg(not(feature = "oss_release"))]
 mod agent_message_bar;
+#[cfg(feature = "oss_release")]
+#[path = "agent_message_bar_oss.rs"]
+mod agent_message_bar;
+#[cfg(not(feature = "oss_release"))]
 mod agent_view_block;
+#[cfg(feature = "oss_release")]
+#[path = "agent_view_block_oss.rs"]
+mod agent_view_block;
+#[cfg(not(feature = "oss_release"))]
 pub mod child_agent_status_card;
+#[cfg(feature = "oss_release")]
+#[path = "child_agent_status_card_oss.rs"]
+pub mod child_agent_status_card;
+#[cfg(not(feature = "oss_release"))]
 mod controller;
+#[cfg(feature = "oss_release")]
+#[path = "controller_oss.rs"]
+mod controller;
+#[cfg(not(feature = "oss_release"))]
 mod ephemeral_message_model;
+#[cfg(feature = "oss_release")]
+#[path = "ephemeral_message_model_oss.rs"]
+mod ephemeral_message_model;
+#[cfg(not(feature = "oss_release"))]
+mod inline_agent_view_header;
+#[cfg(feature = "oss_release")]
+#[path = "inline_agent_view_header_oss.rs"]
 mod inline_agent_view_header;
 // TODO: Move orchestration_conversation_links module import elsewhere.
 pub(crate) mod orchestration_conversation_links;
+#[cfg(not(feature = "oss_release"))]
+pub mod orchestration_pill_bar;
+#[cfg(feature = "oss_release")]
+#[path = "orchestration_pill_bar_oss.rs"]
 pub mod orchestration_pill_bar;
 pub mod shortcuts;
+#[cfg(not(feature = "oss_release"))]
+mod zero_state_block;
+#[cfg(feature = "oss_release")]
+#[path = "zero_state_block_oss.rs"]
 mod zero_state_block;
 
 pub use agent_input_footer::*;

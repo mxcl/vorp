@@ -610,6 +610,22 @@ impl Registry {
     }
 }
 
+#[cfg(feature = "oss_release")]
+fn all_commands() -> Vec<StaticCommand> {
+    let mut commands = vec![FEEDBACK.clone(), RENAME_TAB.clone(), SET_TAB_COLOR.clone()];
+
+    if FeatureFlag::Changelog.is_enabled() {
+        commands.push(CHANGELOG);
+    }
+
+    if FeatureFlag::SettingsFile.is_enabled() && cfg!(feature = "local_fs") {
+        commands.push(OPEN_SETTINGS_FILE);
+    }
+
+    commands
+}
+
+#[cfg(not(feature = "oss_release"))]
 fn all_commands() -> Vec<StaticCommand> {
     let mut commands = vec![
         ADD_MCP,

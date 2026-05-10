@@ -6,11 +6,11 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 
+use crate::warp_managed_secrets::ManagedSecretValue;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use tempfile::NamedTempFile;
 use warp_cli::agent::Harness;
-use warp_managed_secrets::ManagedSecretValue;
 use warpui::{ModelHandle, ModelSpawner, SingletonEntity};
 
 use crate::ai::agent::conversation::AIConversationId;
@@ -34,16 +34,26 @@ use super::{
     OZ_MESSAGE_LISTENER_STATE_ROOT_ENV,
 };
 
+#[cfg(not(feature = "oss_release"))]
 mod claude_code;
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod claude_transcript;
+#[cfg(not(feature = "oss_release"))]
 mod codex;
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod codex_transcript;
+#[cfg(not(feature = "oss_release"))]
 mod gemini;
 mod json_utils;
+#[cfg(not(feature = "oss_release"))]
 pub(crate) use claude_code::ClaudeHarness;
+#[cfg(not(feature = "oss_release"))]
 use claude_transcript::ClaudeResumeInfo;
+#[cfg(not(feature = "oss_release"))]
 use codex::CodexHarness;
+#[cfg(not(feature = "oss_release"))]
 use codex_transcript::CodexResumeInfo;
+#[cfg(not(feature = "oss_release"))]
 use gemini::GeminiHarness;
 
 /// Harness-agnostic payload describing how to resume an existing conversation.
@@ -54,11 +64,14 @@ use gemini::GeminiHarness;
 #[derive(Debug)]
 pub(crate) enum ResumePayload {
     /// Claude Code session state fetched from the server's transcript endpoint.
+    #[cfg(not(feature = "oss_release"))]
     Claude(ClaudeResumeInfo),
     /// Codex session state fetched from the server's transcript endpoint.
+    #[cfg(not(feature = "oss_release"))]
     Codex(CodexResumeInfo),
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl TryFrom<ResumePayload> for ClaudeResumeInfo {
     type Error = AgentDriverError;
 
@@ -73,6 +86,7 @@ impl TryFrom<ResumePayload> for ClaudeResumeInfo {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl TryFrom<ResumePayload> for CodexResumeInfo {
     type Error = AgentDriverError;
 
@@ -88,6 +102,7 @@ impl TryFrom<ResumePayload> for CodexResumeInfo {
 }
 
 /// Fetch the harness transcript for `conversation_id` and deserialize it into `E`.
+#[cfg(not(feature = "oss_release"))]
 pub(super) async fn fetch_transcript_envelope<E: serde::de::DeserializeOwned>(
     harness_label: &str,
     conversation_id: &AIConversationId,
@@ -224,10 +239,19 @@ impl fmt::Debug for HarnessKind {
 pub(crate) fn harness_kind(harness: Harness) -> Result<HarnessKind, AgentDriverError> {
     match harness {
         Harness::Oz => Ok(HarnessKind::Oz),
+        #[cfg(not(feature = "oss_release"))]
         Harness::Claude => Ok(HarnessKind::ThirdParty(Box::new(ClaudeHarness))),
+        #[cfg(feature = "oss_release")]
+        Harness::Claude => Ok(HarnessKind::Unsupported(Harness::Claude)),
+        #[cfg(not(feature = "oss_release"))]
         Harness::Codex => Ok(HarnessKind::ThirdParty(Box::new(CodexHarness))),
+        #[cfg(feature = "oss_release")]
+        Harness::Codex => Ok(HarnessKind::Unsupported(Harness::Codex)),
         Harness::OpenCode => Ok(HarnessKind::Unsupported(Harness::OpenCode)),
+        #[cfg(not(feature = "oss_release"))]
         Harness::Gemini => Ok(HarnessKind::ThirdParty(Box::new(GeminiHarness))),
+        #[cfg(feature = "oss_release")]
+        Harness::Gemini => Ok(HarnessKind::Unsupported(Harness::Gemini)),
         Harness::Unknown => Err(AgentDriverError::InvalidRuntimeState),
     }
 }

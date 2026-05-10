@@ -1,10 +1,10 @@
 use std::{collections::HashMap, ffi::OsString, future::Future, pin::Pin, time::Duration};
 
+use crate::warp_managed_secrets::ManagedSecretManager;
 use anyhow::Context;
 use tempfile::{Builder, NamedTempFile};
 use vec1::Vec1;
 use warp_core::safe_info;
-use warp_managed_secrets::ManagedSecretManager;
 use warpui::{ModelSpawner, SingletonEntity};
 
 use crate::ai::aws_credentials::aws_role_session_name;
@@ -93,7 +93,7 @@ impl CloudProvider for AwsCloudProvider {
                     ManagedSecretManager::handle(ctx)
                         .as_ref(ctx)
                         .issue_task_identity_token(
-                            warp_managed_secrets::client::IdentityTokenOptions {
+                            crate::warp_managed_secrets::client::IdentityTokenOptions {
                                 audience,
                                 requested_duration: duration,
                                 subject_template,

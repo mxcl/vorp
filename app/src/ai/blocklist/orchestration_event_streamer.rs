@@ -24,7 +24,9 @@ use uuid::Uuid;
 use warp_cli::agent::Harness;
 use warp_core::features::FeatureFlag;
 use warp_multi_agent_api as api;
-use warpui::r#async::{SpawnedFutureHandle, Timer};
+#[cfg(not(feature = "oss_release"))]
+use warpui::r#async::SpawnedFutureHandle;
+use warpui::r#async::Timer;
 use warpui::{
     Entity, EntityId, GetSingletonModelHandle, ModelContext, SingletonEntity, UpdateModel,
 };
@@ -60,16 +62,19 @@ struct SseForwardingConsumer {
 /// never forwards or persists events; it stops on the first event and asks the
 /// controller to cold-start the dormant Claude run so the parent bridge can
 /// take over delivery.
+#[cfg(not(feature = "oss_release"))]
 struct WakeConnectionState {
     generation: u64,
     task: SpawnedFutureHandle,
 }
 
+#[cfg(not(feature = "oss_release"))]
 struct DormantClaudeWakeConsumer {
     run_id: String,
     wake_sequence: Option<i64>,
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl DormantClaudeWakeConsumer {
     fn new(run_id: String) -> Self {
         Self {
@@ -81,6 +86,7 @@ impl DormantClaudeWakeConsumer {
 
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
+#[cfg(not(feature = "oss_release"))]
 impl AgentEventConsumer for DormantClaudeWakeConsumer {
     async fn on_event(
         &mut self,
@@ -154,6 +160,7 @@ struct ConversationStreamState {
     /// open. This is separate from generic SSE because generic delivery would
     /// hydrate messages and advance the shared cursor before Claude's parent
     /// bridge can consume them.
+    #[cfg(not(feature = "oss_release"))]
     wake_connection: Option<WakeConnectionState>,
     /// Consecutive `get_ambient_agent_task` failure count for the
     /// post-restore retry loop; resets on success.
@@ -180,6 +187,7 @@ pub struct OrchestrationEventStreamer {
     next_sse_generation: u64,
     /// Monotonic counter for wake-only listener generations. Ensures stale
     /// callbacks from replaced listeners are discarded.
+    #[cfg(not(feature = "oss_release"))]
     next_wake_generation: u64,
 }
 
@@ -207,6 +215,7 @@ impl OrchestrationEventStreamer {
             server_api,
             streams: HashMap::new(),
             next_sse_generation: 0,
+            #[cfg(not(feature = "oss_release"))]
             next_wake_generation: 0,
         }
     }
@@ -229,6 +238,7 @@ impl OrchestrationEventStreamer {
             server_api,
             streams: HashMap::new(),
             next_sse_generation: 0,
+            #[cfg(not(feature = "oss_release"))]
             next_wake_generation: 0,
         }
     }
@@ -562,11 +572,17 @@ impl OrchestrationEventStreamer {
         // Dropping the SSE receiver causes the driver task's next send
         // to fail and exit; the drain timer's `is_current` check then
         // no-ops on its next tick.
-        if let Some(mut stream) = self.streams.remove(&conversation_id) {
-            if let Some(connection) = stream.wake_connection.take() {
-                connection.task.abort();
+        let removed_stream = self.streams.remove(&conversation_id);
+        #[cfg(not(feature = "oss_release"))]
+        {
+            if let Some(mut stream) = removed_stream {
+                if let Some(connection) = stream.wake_connection.take() {
+                    connection.task.abort();
+                }
             }
         }
+        #[cfg(feature = "oss_release")]
+        let _ = removed_stream;
 
         // Prune the removed conversation's run_id from every other
         // tracked conversation's watched set, then re-evaluate eligibility
@@ -868,6 +884,7 @@ impl OrchestrationEventStreamer {
         if self.is_remote_run_view(conversation_id, ctx) {
             return false;
         }
+        #[cfg(not(feature = "oss_release"))]
         if self.should_skip_sse_for_dormant_local_claude_child(conversation_id, ctx) {
             log::info!(
                 "Skipping generic SSE delivery for dormant local Claude child {conversation_id:?}; parent bridge will deliver wake events"
@@ -884,6 +901,7 @@ impl OrchestrationEventStreamer {
     /// dormant local Claude children. Generic SSE intentionally stays closed
     /// for these conversations so it cannot hydrate messages or advance the
     /// server cursor before Claude's parent bridge starts.
+    #[cfg(not(feature = "oss_release"))]
     fn is_dormant_claude_wake_listener_eligible(
         &self,
         conversation_id: AIConversationId,
@@ -932,17 +950,20 @@ impl OrchestrationEventStreamer {
             (false, false) => {}
         }
 
-        let wake_eligible = self.is_dormant_claude_wake_listener_eligible(conversation_id, ctx);
-        let wake_connected = self
-            .streams
-            .get(&conversation_id)
-            .is_some_and(|s| s.wake_connection.is_some());
+        #[cfg(not(feature = "oss_release"))]
+        {
+            let wake_eligible = self.is_dormant_claude_wake_listener_eligible(conversation_id, ctx);
+            let wake_connected = self
+                .streams
+                .get(&conversation_id)
+                .is_some_and(|s| s.wake_connection.is_some());
 
-        match (wake_eligible, wake_connected) {
-            (true, false) => self.start_dormant_claude_wake_listener(conversation_id, ctx),
-            (true, true) => {}
-            (false, true) => self.teardown_dormant_claude_wake_listener(conversation_id),
-            (false, false) => {}
+            match (wake_eligible, wake_connected) {
+                (true, false) => self.start_dormant_claude_wake_listener(conversation_id, ctx),
+                (true, true) => {}
+                (false, true) => self.teardown_dormant_claude_wake_listener(conversation_id),
+                (false, false) => {}
+            }
         }
     }
 
@@ -951,6 +972,7 @@ impl OrchestrationEventStreamer {
     /// emits a controller signal without enqueueing any event data or
     /// persisting any cursor. The Claude parent bridge will consume the event
     /// after the CLI has been relaunched.
+    #[cfg(not(feature = "oss_release"))]
     fn start_dormant_claude_wake_listener(
         &mut self,
         conversation_id: AIConversationId,
@@ -1045,6 +1067,7 @@ impl OrchestrationEventStreamer {
         });
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn teardown_dormant_claude_wake_listener(&mut self, conversation_id: AIConversationId) {
         if let Some(stream) = self.streams.get_mut(&conversation_id) {
             if let Some(connection) = stream.wake_connection.take() {
@@ -1315,6 +1338,7 @@ impl Entity for OrchestrationEventStreamer {
 
 impl SingletonEntity for OrchestrationEventStreamer {}
 
+#[cfg(not(feature = "oss_release"))]
 async fn resolve_dormant_claude_wake_cursor(
     ai_client: Arc<dyn AIClient>,
     run_id: String,

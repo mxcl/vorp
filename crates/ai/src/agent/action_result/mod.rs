@@ -1,3 +1,4 @@
+#[cfg(not(feature = "oss_release"))]
 mod convert;
 
 use std::{fmt::Display, ops::Range, time::SystemTime};
@@ -10,7 +11,9 @@ use warp_terminal::model::BlockId;
 
 use crate::{
     agent::FileLocations,
+    computer_use,
     document::{AIDocumentId, AIDocumentVersion},
+    rmcp,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -397,6 +400,109 @@ impl From<&FileContext> for FileLocations {
     }
 }
 
+#[cfg(feature = "oss_release")]
+impl From<FileContext> for Vec<warp_multi_agent_api::FileContent> {
+    fn from(context: FileContext) -> Self {
+        match context.content.clone() {
+            AnyFileContent::StringContent(content) => {
+                vec![warp_multi_agent_api::FileContent {
+                    file_path: context.file_name.clone(),
+                    content,
+                    line_range: context.line_range.map(|range| {
+                        warp_multi_agent_api::FileContentLineRange {
+                            start: range.start as u32,
+                            end: range.end as u32,
+                        }
+                    }),
+                }]
+            }
+            // Ignore any binary context since they can't be converted to FileContent.
+            AnyFileContent::BinaryContent(_content) => vec![],
+        }
+    }
+}
+
+#[cfg(feature = "oss_release")]
+impl From<FileContext> for Vec<warp_multi_agent_api::AnyFileContent> {
+    fn from(context: FileContext) -> Self {
+        match context.content.clone() {
+            AnyFileContent::StringContent(content) => {
+                vec![warp_multi_agent_api::AnyFileContent {
+                    content: Some(
+                        warp_multi_agent_api::any_file_content::Content::TextContent(
+                            warp_multi_agent_api::FileContent {
+                                file_path: context.file_name.clone(),
+                                content,
+                                line_range: context.line_range.map(|range| {
+                                    warp_multi_agent_api::FileContentLineRange {
+                                        start: range.start as u32,
+                                        end: range.end as u32,
+                                    }
+                                }),
+                            },
+                        ),
+                    ),
+                }]
+            }
+            AnyFileContent::BinaryContent(content) => {
+                vec![warp_multi_agent_api::AnyFileContent {
+                    content: Some(
+                        warp_multi_agent_api::any_file_content::Content::BinaryContent(
+                            warp_multi_agent_api::BinaryFileContent {
+                                file_path: context.file_name.clone(),
+                                data: content,
+                            },
+                        ),
+                    ),
+                }]
+            }
+        }
+    }
+}
+
+#[cfg(feature = "oss_release")]
+impl From<warp_multi_agent_api::FileContent> for FileContext {
+    fn from(content: warp_multi_agent_api::FileContent) -> Self {
+        let line_range = content.line_range.map(|r| r.start as usize..r.end as usize);
+
+        FileContext::new(
+            content.file_path,
+            AnyFileContent::StringContent(content.content),
+            line_range,
+            None,
+        )
+    }
+}
+
+#[cfg(feature = "oss_release")]
+impl From<warp_multi_agent_api::AnyFileContent> for FileContext {
+    fn from(content: warp_multi_agent_api::AnyFileContent) -> Self {
+        match content.content {
+            Some(warp_multi_agent_api::any_file_content::Content::BinaryContent(
+                binary_content,
+            )) => FileContext::new(
+                binary_content.file_path,
+                AnyFileContent::BinaryContent(binary_content.data),
+                None,
+                None,
+            ),
+            Some(warp_multi_agent_api::any_file_content::Content::TextContent(text_content)) => {
+                let line_range = text_content
+                    .line_range
+                    .map(|r| r.start as usize..r.end as usize);
+
+                FileContext::new(
+                    text_content.file_path,
+                    AnyFileContent::StringContent(text_content.content),
+                    line_range,
+                    None,
+                )
+            }
+            None => unreachable!("AnyFileContent should always have a content"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ReadFilesResult {
     Success { files: Vec<FileContext> },
@@ -412,6 +518,53 @@ impl Display for ReadFilesResult {
             }
             ReadFilesResult::Error(error) => write!(f, "Read files error: {error}"),
             ReadFilesResult::Cancelled => write!(f, "Read files cancelled"),
+        }
+    }
+}
+
+#[cfg(feature = "oss_release")]
+impl From<CreateDocumentsResult> for AIAgentActionResultType {
+    fn from(result: CreateDocumentsResult) -> Self {
+        AIAgentActionResultType::CreateDocuments(result)
+    }
+}
+
+#[cfg(feature = "oss_release")]
+impl From<EditDocumentsResult> for AIAgentActionResultType {
+    fn from(result: EditDocumentsResult) -> Self {
+        AIAgentActionResultType::EditDocuments(result)
+    }
+}
+
+#[cfg(feature = "oss_release")]
+impl From<ReadDocumentsResult> for AIAgentActionResultType {
+    fn from(result: ReadDocumentsResult) -> Self {
+        AIAgentActionResultType::ReadDocuments(result)
+    }
+}
+
+#[cfg(feature = "oss_release")]
+impl From<ReadSkillResult> for AIAgentActionResultType {
+    fn from(result: ReadSkillResult) -> Self {
+        AIAgentActionResultType::ReadSkill(result)
+    }
+}
+
+#[cfg(feature = "oss_release")]
+impl From<FileGlobV2Result> for FileGlobResult {
+    fn from(value: FileGlobV2Result) -> Self {
+        match value {
+            FileGlobV2Result::Success {
+                matched_files,
+                warnings: _,
+            } => FileGlobResult::Success {
+                matched_files: matched_files
+                    .into_iter()
+                    .map(|matched_file| matched_file.file_path)
+                    .join("\n"),
+            },
+            FileGlobV2Result::Error(e) => FileGlobResult::Error(e),
+            FileGlobV2Result::Cancelled => FileGlobResult::Cancelled,
         }
     }
 }
@@ -1045,6 +1198,12 @@ pub enum CallMCPToolResult {
 
 impl Display for CallMCPToolResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = self;
+            return write!(f, "Action result unavailable");
+        }
+        #[cfg(not(feature = "oss_release"))]
         match self {
             CallMCPToolResult::Success { result } => {
                 write!(
@@ -1070,6 +1229,12 @@ pub enum ReadMCPResourceResult {
 
 impl Display for ReadMCPResourceResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = self;
+            return write!(f, "Action result unavailable");
+        }
+        #[cfg(not(feature = "oss_release"))]
         match self {
             ReadMCPResourceResult::Success { resource_contents } => {
                 write!(f, "MCP resource read completed: [{resource_contents:?}]",)
@@ -1108,6 +1273,12 @@ pub enum UseComputerResult {
 
 impl Display for UseComputerResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = self;
+            return write!(f, "Action result unavailable");
+        }
+        #[cfg(not(feature = "oss_release"))]
         match self {
             UseComputerResult::Success(_) => write!(f, "Use computer completed"),
             UseComputerResult::Error(error) => write!(f, "Use computer error: {error}"),
@@ -1125,6 +1296,12 @@ pub enum InsertReviewCommentsResult {
 
 impl Display for InsertReviewCommentsResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = self;
+            return write!(f, "Action result unavailable");
+        }
+        #[cfg(not(feature = "oss_release"))]
         match self {
             InsertReviewCommentsResult::Success { repo_path } => {
                 write!(f, "Inserted code review comments for {repo_path}")
@@ -1164,6 +1341,12 @@ pub enum RequestComputerUseResult {
 
 impl Display for RequestComputerUseResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = self;
+            return write!(f, "Action result unavailable");
+        }
+        #[cfg(not(feature = "oss_release"))]
         match self {
             RequestComputerUseResult::Approved { screenshot, .. } => {
                 write!(
@@ -1232,6 +1415,12 @@ impl StartAgentResult {
 
 impl Display for StartAgentResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = self;
+            return write!(f, "Action result unavailable");
+        }
+        #[cfg(not(feature = "oss_release"))]
         match self {
             StartAgentResult::Success { agent_id, .. } => {
                 write!(f, "Started agent with id {agent_id}")
@@ -1298,6 +1487,12 @@ pub enum RunAgentsAgentOutcomeKind {
 
 impl Display for RunAgentsResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = self;
+            return write!(f, "Action result unavailable");
+        }
+        #[cfg(not(feature = "oss_release"))]
         match self {
             RunAgentsResult::Launched { agents, .. } => {
                 let launched = agents
@@ -1328,6 +1523,12 @@ pub enum SendMessageToAgentResult {
 
 impl Display for SendMessageToAgentResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = self;
+            return write!(f, "Action result unavailable");
+        }
+        #[cfg(not(feature = "oss_release"))]
         match self {
             SendMessageToAgentResult::Success { message_id } => {
                 write!(f, "Sent message with id {message_id}")

@@ -280,6 +280,14 @@ impl View for AgentMessageBar {
     }
 
     fn render(&self, app: &AppContext) -> Box<dyn Element> {
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = app;
+            Empty::new().finish()
+        }
+
+        #[cfg(not(feature = "oss_release"))]
+        {
         // If an inline menu is open, a 'message line' is rendered by the inline menu itself,
         // so defer to that.
         let input_suggestions_model = self.input_suggestions_model.as_ref(app);
@@ -391,6 +399,7 @@ impl View for AgentMessageBar {
                 .finish()
         } else {
             message_bar
+        }
         }
     }
 }

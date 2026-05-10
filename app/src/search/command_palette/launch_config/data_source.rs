@@ -15,17 +15,11 @@ pub struct DataSource {
 }
 
 impl DataSource {
-    #[cfg(not(target_family = "wasm"))]
     pub fn new(ctx: &mut ModelContext<Self>) -> Self {
+        #[cfg(all(not(target_family = "wasm"), feature = "use_tantivy_search"))]
         if warp_core::features::FeatureFlag::UseTantivySearch.is_enabled() {
-            Self::new_full_text(ctx)
-        } else {
-            Self::new_fuzzy(ctx)
+            return Self::new_full_text(ctx);
         }
-    }
-
-    #[cfg(target_family = "wasm")]
-    pub fn new(ctx: &mut ModelContext<Self>) -> Self {
         Self::new_fuzzy(ctx)
     }
 
@@ -36,7 +30,7 @@ impl DataSource {
         Self { searcher }
     }
 
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "use_tantivy_search"))]
     fn new_full_text(ctx: &mut ModelContext<Self>) -> Self {
         ctx.subscribe_to_model(&WarpConfig::handle(ctx), Self::handle_config_event);
         let mut searcher = Box::new(full_text_searcher::FullTextLaunchConfigSearcher::new(
@@ -115,7 +109,7 @@ impl LaunchConfigSearcher for FuzzyLaunchConfigSearcher {
     }
 }
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "use_tantivy_search"))]
 mod full_text_searcher {
     use crate::define_search_schema;
     use crate::launch_configs::launch_config::LaunchConfig;

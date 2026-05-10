@@ -30,7 +30,7 @@ use num_traits::FromPrimitive;
 use pathfinder_geometry::{rect::RectF, vector::Vector2F};
 use persistence::model::AMBIENT_AGENT_PANE_KIND;
 use uuid::Uuid;
-use warp_graphql::scalars::time::ServerTimestamp;
+use crate::server::timestamp::ServerTimestamp;
 use warpui::platform::FullscreenState;
 use warpui::{AppContext, SingletonEntity};
 

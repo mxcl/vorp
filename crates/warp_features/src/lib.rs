@@ -5,7 +5,8 @@ use enum_iterator::{cardinality, Sequence};
 #[cfg(feature = "test-util")]
 pub use overrides::{get_overrides, set_overrides};
 
-#[derive(Copy, Clone, Hash, PartialEq, Eq, Debug, Sequence)]
+#[derive(Copy, Clone, Hash, PartialEq, Eq, Sequence)]
+#[cfg_attr(not(feature = "oss_release"), derive(Debug))]
 pub enum FeatureFlag {
     Changelog,
     CocoaSentry,
@@ -861,6 +862,14 @@ pub enum FeatureFlag {
     HandoffLocalCloud,
 }
 
+#[cfg(feature = "oss_release")]
+impl std::fmt::Debug for FeatureFlag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let _ = self;
+        f.write_str("FeatureFlag")
+    }
+}
+
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
     [const { AtomicBool::new(false) }; { cardinality::<FeatureFlag>() }];
 
@@ -1022,6 +1031,14 @@ impl FeatureFlag {
     }
 
     pub fn flag_description(&self) -> Option<&'static str> {
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = self;
+            return None;
+        }
+
+        #[cfg(not(feature = "oss_release"))]
+        {
         use FeatureFlag::*;
 
         // Note: many feature flags are purposefully omitted from this list, in order to avoid blowing up
@@ -1048,6 +1065,7 @@ impl FeatureFlag {
             SettingsFile => Some("Enables configuring Warp via a user-editable `settings.toml` file, with hot reload and error reporting for invalid values."),
             GitOperationsInCodeReview => Some("Enables commit, push, and create-PR actions directly from the code review panel."),
             _ => None,
+        }
         }
     }
 }

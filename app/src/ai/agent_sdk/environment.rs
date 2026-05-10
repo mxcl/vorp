@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 
 use comfy_table::Cell;
-use inquire::{error::InquireError, Confirm, Select};
+#[cfg(not(feature = "oss_release"))]
+use inquire::Select;
+use inquire::{error::InquireError, Confirm};
 use serde::Serialize;
 use warp_cli::{
     agent::OutputFormat,
@@ -27,16 +29,16 @@ use crate::server::cloud_objects::update_manager::{
     ObjectOperation, OperationSuccessType, UpdateManager, UpdateManagerEvent,
 };
 use crate::server::ids::{ClientId, ServerId, SyncId};
+use crate::server::server_api::integrations::{OauthConnectTxStatus, UserRepoAuthStatusEnum};
 use crate::server::server_api::ServerApiProvider;
 use crate::util::time_format::format_approx_duration_from_now_utc;
 use crate::workspaces::user_profiles::UserProfiles;
 use crate::CloudObjectTypeAndId;
 use cynic::QueryBuilder;
-use warp_graphql::queries::get_oauth_connect_tx_status::OauthConnectTxStatus;
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::queries::list_warp_dev_images::{
     ListWarpDevImages, ListWarpDevImagesResult, ListWarpDevImagesVariables,
 };
-use warp_graphql::queries::user_repo_auth_status::UserRepoAuthStatusEnum;
 
 const WARP_DEV_ENVIRONMENTS_REPO: &str = "https://github.com/warpdotdev/warp-dev-environments";
 
@@ -145,6 +147,15 @@ pub fn run(
 struct EnvironmentCommandRunner;
 
 impl EnvironmentCommandRunner {
+    #[cfg(feature = "oss_release")]
+    fn list_images(&self, _global_options: GlobalOptions, ctx: &mut ModelContext<Self>) {
+        super::report_fatal_error(
+            anyhow::anyhow!("Warp dev image catalog is not available in this build"),
+            ctx,
+        );
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn list_images(&self, global_options: GlobalOptions, ctx: &mut ModelContext<Self>) {
         let server_api = ServerApiProvider::as_ref(ctx).get();
 
@@ -338,6 +349,25 @@ impl EnvironmentCommandRunner {
     }
 
     /// Fetch images from server and prompt user to select one. Calls continuation with selected image.
+    #[cfg(feature = "oss_release")]
+    fn prompt_for_docker_image<F>(continuation: F, ctx: &mut ModelContext<Self>)
+    where
+        F: FnOnce(String, &mut ModelContext<Self>) + Send + 'static,
+    {
+        let custom_image = match inquire::Text::new("Enter Docker image name:").prompt() {
+            Ok(custom_image) => custom_image,
+            Err(err) => {
+                if !Self::handle_inquire_error(err, ctx) {
+                    super::report_fatal_error(anyhow::anyhow!("Error entering Docker image"), ctx);
+                }
+                return;
+            }
+        };
+
+        continuation(custom_image, ctx);
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn prompt_for_docker_image<F>(continuation: F, ctx: &mut ModelContext<Self>)
     where
         F: FnOnce(String, &mut ModelContext<Self>) + Send + 'static,
@@ -629,7 +659,6 @@ impl EnvironmentCommandRunner {
 
                             let integrations_client = ServerApiProvider::as_ref(ctx)
                                 .get_integrations_client();
-                            let tx_id = tx_id.into_inner();
                             let poll_future = poll_oauth_until_terminal(integrations_client, tx_id);
 
                             let next_attempt = attempt + 1;

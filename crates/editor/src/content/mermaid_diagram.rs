@@ -3,8 +3,8 @@ use std::{
     sync::Arc,
 };
 
+use crate::mermaid_to_svg::MermaidTheme;
 use bytes::Bytes;
-use mermaid_to_svg::MermaidTheme;
 use warpui::{
     AppContext, SingletonEntity,
     assets::asset_cache::{AssetCache, AssetSource, AssetState, AsyncAssetId, AsyncAssetType},
@@ -35,7 +35,7 @@ pub fn mermaid_asset_source(source: &str) -> AssetSource {
         fetch: Arc::new(move || {
             let source = fetch_source.clone();
             Box::pin(async move {
-                mermaid_to_svg::render_mermaid_to_svg(&source, Some(&MermaidTheme::light()))
+                crate::mermaid_to_svg::render_mermaid_to_svg(&source, Some(&MermaidTheme::light()))
                     .map(|svg| Bytes::from(svg.into_bytes()))
                     .map_err(Into::into)
             })

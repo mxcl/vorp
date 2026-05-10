@@ -3856,49 +3856,60 @@ impl PaneGroup {
                 });
             }
             CloudConversationData::CLIAgent(cli_conversation) => {
-                if !FeatureFlag::AgentHarness.is_enabled() {
-                    log::warn!("AgentHarness flag is disabled; ignoring CLI agent conversation");
+                #[cfg(feature = "oss_release")]
+                {
+                    let _ = cli_conversation;
                     return;
                 }
-                let harness = match cli_conversation.metadata.harness {
-                    AIAgentHarness::ClaudeCode => Some(Harness::Claude),
-                    AIAgentHarness::Gemini => Some(Harness::Gemini),
-                    AIAgentHarness::Codex => Some(Harness::Codex),
-                    AIAgentHarness::Oz => None,
-                    AIAgentHarness::Unknown => Some(Harness::Unknown),
-                };
-                terminal_view.update(ctx, |view, ctx| {
-                    view.restore_conversation_and_directory_context(
-                        CloudConversationData::CLIAgent(cli_conversation),
-                        true,
-                        |_, _| {},
-                        ctx,
-                    );
-                    // Keep the viewer's AmbientAgentViewModel harness in sync with the loaded run.
-                    if let Some(harness) = harness {
-                        if let Some(ambient_agent_view_model) =
-                            view.ambient_agent_view_model().cloned()
-                        {
-                            ambient_agent_view_model.update(ctx, |model, ctx| {
-                                model.set_harness(harness, ctx);
-                            });
+
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    if !FeatureFlag::AgentHarness.is_enabled() {
+                        log::warn!(
+                            "AgentHarness flag is disabled; ignoring CLI agent conversation"
+                        );
+                        return;
+                    }
+                    let harness = match cli_conversation.metadata.harness {
+                        AIAgentHarness::ClaudeCode => Some(Harness::Claude),
+                        AIAgentHarness::Gemini => Some(Harness::Gemini),
+                        AIAgentHarness::Codex => Some(Harness::Codex),
+                        AIAgentHarness::Oz => None,
+                        AIAgentHarness::Unknown => Some(Harness::Unknown),
+                    };
+                    terminal_view.update(ctx, |view, ctx| {
+                        view.restore_conversation_and_directory_context(
+                            CloudConversationData::CLIAgent(cli_conversation),
+                            true,
+                            |_, _| {},
+                            ctx,
+                        );
+                        // Keep the viewer's AmbientAgentViewModel harness in sync with the loaded run.
+                        if let Some(harness) = harness {
+                            if let Some(ambient_agent_view_model) =
+                                view.ambient_agent_view_model().cloned()
+                            {
+                                ambient_agent_view_model.update(ctx, |model, ctx| {
+                                    model.set_harness(harness, ctx);
+                                });
+                            }
                         }
-                    }
-                    // 3p runs have no materialized AIConversation, so enter agent view with a
-                    // fresh vehicle conversation and retag the restored snapshot block onto it so
-                    // it passes `should_hide_block`'s agent view filter.
-                    view.enter_agent_view_for_new_conversation(
-                        None,
-                        AgentViewEntryOrigin::ThirdPartyCloudAgent,
-                        ctx,
-                    );
-                    if let Some(vehicle_conversation_id) = view.active_conversation_id(ctx) {
-                        view.model
-                            .lock()
-                            .block_list_mut()
-                            .attach_non_startup_blocks_to_conversation(vehicle_conversation_id);
-                    }
-                });
+                        // 3p runs have no materialized AIConversation, so enter agent view with a
+                        // fresh vehicle conversation and retag the restored snapshot block onto it so
+                        // it passes `should_hide_block`'s agent view filter.
+                        view.enter_agent_view_for_new_conversation(
+                            None,
+                            AgentViewEntryOrigin::ThirdPartyCloudAgent,
+                            ctx,
+                        );
+                        if let Some(vehicle_conversation_id) = view.active_conversation_id(ctx) {
+                            view.model
+                                .lock()
+                                .block_list_mut()
+                                .attach_non_startup_blocks_to_conversation(vehicle_conversation_id);
+                        }
+                    });
+                }
             }
         };
 
@@ -5843,13 +5854,24 @@ impl PaneGroup {
                 }
             }
             CloudConversationData::CLIAgent(cli_conversation) => {
-                if !FeatureFlag::AgentHarness.is_enabled() {
-                    log::warn!("AgentHarness flag is disabled; ignoring CLI agent conversation");
+                #[cfg(feature = "oss_release")]
+                {
+                    let _ = cli_conversation;
                     return false;
                 }
-                ConversationRestorationInNewPaneType::HistoricalCLIAgent {
-                    conversation: *cli_conversation,
-                    should_use_live_appearance: true,
+
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    if !FeatureFlag::AgentHarness.is_enabled() {
+                        log::warn!(
+                            "AgentHarness flag is disabled; ignoring CLI agent conversation"
+                        );
+                        return false;
+                    }
+                    ConversationRestorationInNewPaneType::HistoricalCLIAgent {
+                        conversation: *cli_conversation,
+                        should_use_live_appearance: true,
+                    }
                 }
             }
         };

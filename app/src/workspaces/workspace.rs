@@ -7,9 +7,51 @@ use chrono::Utc;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, path::PathBuf};
-use warp_graphql::billing::{AddonCreditAutoReloadStatus, ServiceAgreement, ServiceAgreementType};
+#[cfg(not(feature = "oss_release"))]
+use warp_graphql::billing::{
+    AddonCreditAutoReloadStatus, AddonCreditsOption, ServiceAgreement, ServiceAgreementType,
+};
 
 use super::team::{MembershipRole, Team};
+
+#[cfg(feature = "oss_release")]
+#[derive(Clone, Copy, Debug)]
+pub enum AddonCreditAutoReloadStatus {
+    Failed,
+}
+
+#[cfg(feature = "oss_release")]
+#[derive(Clone, Debug)]
+pub struct AddonCreditsOption {
+    pub credits: i32,
+    pub price_usd_cents: i32,
+}
+
+#[cfg(feature = "oss_release")]
+#[derive(Clone, Debug)]
+pub struct ServiceAgreement {
+    pub addon_credit_auto_reload_status: Option<AddonCreditAutoReloadStatus>,
+    pub current_period_end: OssServiceAgreementPeriodEnd,
+    pub sunsetted_to_build_ts: Option<chrono::DateTime<chrono::Utc>>,
+    pub type_: ServiceAgreementType,
+}
+
+#[cfg(feature = "oss_release")]
+#[derive(Clone, Debug, PartialEq)]
+pub enum ServiceAgreementType {
+    SelfServe,
+}
+
+#[cfg(feature = "oss_release")]
+#[derive(Clone, Debug)]
+pub struct OssServiceAgreementPeriodEnd(chrono::DateTime<chrono::Utc>);
+
+#[cfg(feature = "oss_release")]
+impl OssServiceAgreementPeriodEnd {
+    pub fn utc(&self) -> chrono::DateTime<chrono::Utc> {
+        self.0
+    }
+}
 
 #[derive(Clone, Copy, Hash, Debug, PartialEq, Eq)]
 pub struct WorkspaceUid(ServerId);
@@ -156,7 +198,7 @@ impl Workspace {
     /// Returns None if auto-reload is not configured or if the denomination can't be found in pricing options.
     pub fn get_auto_reload_price_cents(
         &self,
-        addon_credits_options: &[warp_graphql::billing::AddonCreditsOption],
+        addon_credits_options: &[AddonCreditsOption],
     ) -> Option<i32> {
         let selected_credits = self
             .settings

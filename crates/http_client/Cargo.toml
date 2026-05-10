@@ -6,6 +6,8 @@ publish.workspace = true
 license.workspace = true
 
 [features]
+eventsource = ["dep:reqwest-eventsource"]
+oauth_client = ["dep:oauth2"]
 test-util = []
 
 [dependencies]
@@ -17,11 +19,11 @@ cfg-if.workspace = true
 futures.workspace = true
 http.workspace = true
 log.workspace = true
-oauth2.workspace = true
+oauth2 = { workspace = true, optional = true }
 prevent_sleep.workspace = true
 prost.workspace = true
 reqwest.workspace = true
-reqwest-eventsource.workspace = true
+reqwest-eventsource = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 serde_urlencoded.workspace = true

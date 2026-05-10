@@ -1,4 +1,5 @@
 use super::env_var_collection_search_item::EnvVarCollectionSearchItem;
+#[cfg(not(feature = "oss_release"))]
 use super::notebook_search_item::NotebookSearchItem;
 use super::workflow_search_item::WorkflowSearchItem;
 use crate::cloud_object::model::persistence::{CloudModel, CloudModelEvent};
@@ -7,11 +8,13 @@ use crate::cloud_object::{
 };
 use crate::drive::folders::CloudFolder;
 use crate::env_vars::CloudEnvVarCollection;
+#[cfg(not(feature = "oss_release"))]
 use crate::notebooks::CloudNotebook;
 use crate::search::command_palette::mixer::CommandPaletteItemAction;
 use crate::search::data_source::{DataSourceSearchError, Query, QueryResult};
 use crate::search::env_var_collections::fuzzy_match::FuzzyMatchEnvVarCollectionResult;
 use crate::search::mixer::DataSourceRunErrorWrapper;
+#[cfg(not(feature = "oss_release"))]
 use crate::search::notebooks::fuzzy_match::FuzzyMatchNotebookResult;
 use crate::search::workflows::fuzzy_match::FuzzyMatchWorkflowResult;
 use crate::search::QueryFilter;
@@ -27,17 +30,11 @@ pub struct DataSource {
 }
 
 impl DataSource {
-    #[cfg(not(target_family = "wasm"))]
     pub fn new(ctx: &mut ModelContext<Self>) -> Self {
+        #[cfg(all(not(target_family = "wasm"), feature = "use_tantivy_search"))]
         if warp_core::features::FeatureFlag::UseTantivySearch.is_enabled() {
-            Self::new_full_text(ctx)
-        } else {
-            Self::new_fuzzy(ctx)
+            return Self::new_full_text(ctx);
         }
-    }
-
-    #[cfg(target_family = "wasm")]
-    pub fn new(ctx: &mut ModelContext<Self>) -> Self {
         Self::new_fuzzy(ctx)
     }
 
@@ -50,7 +47,7 @@ impl DataSource {
         DataSource { searcher }
     }
 
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "use_tantivy_search"))]
     fn new_full_text(ctx: &mut ModelContext<Self>) -> Self {
         ctx.subscribe_to_model(&CloudModel::handle(ctx), Self::handle_cloud_object_updated);
         let mut searcher = Box::new(full_text_searcher::FullTextWarpDriveSearcher::new(
@@ -157,6 +154,7 @@ impl crate::search::mixer::SyncDataSource for DataSource {
 
         let should_include_all_drive_objects = Self::include_all_drive_objects_in_result(query);
 
+        #[cfg(not(feature = "oss_release"))]
         if query.filters.contains(&QueryFilter::Notebooks) || should_include_all_drive_objects {
             filtered_cloud_objects.extend(
                 self.searcher
@@ -171,6 +169,7 @@ impl crate::search::mixer::SyncDataSource for DataSource {
             );
         }
 
+        #[cfg(not(feature = "oss_release"))]
         if query.filters.contains(&QueryFilter::Plans) || should_include_all_drive_objects {
             filtered_cloud_objects.extend(
                 self.searcher
@@ -252,7 +251,9 @@ impl DataSource {
             }));
         }
 
+        #[cfg(not(feature = "oss_release"))]
         let notebook: Option<&CloudNotebook> = object.into();
+        #[cfg(not(feature = "oss_release"))]
         if let Some(notebook) = notebook {
             return Some(QueryResult::from(NotebookSearchItem {
                 match_result: FuzzyMatchNotebookResult::no_match(),
@@ -294,6 +295,7 @@ trait WarpDriveSearcher {
     /// Clear and rebuild the search index.
     fn refresh_search_index(&mut self, app: &AppContext) -> anyhow::Result<()>;
 
+    #[cfg(not(feature = "oss_release"))]
     fn search_notebook(
         &self,
         query: &str,
@@ -314,6 +316,7 @@ trait WarpDriveSearcher {
         app: &AppContext,
     ) -> anyhow::Result<Vec<EnvVarCollectionSearchItem>>;
 
+    #[cfg(not(feature = "oss_release"))]
     fn search_plans(
         &self,
         query: &str,
@@ -323,6 +326,7 @@ trait WarpDriveSearcher {
 
 #[derive(Default)]
 struct FuzzyWarpDriveSearcher {
+    #[cfg(not(feature = "oss_release"))]
     notebooks: HashMap<ObjectUid, CloudNotebook>,
     workflows: HashMap<ObjectUid, CloudWorkflow>,
     env_vars: HashMap<ObjectUid, CloudEnvVarCollection>,
@@ -337,11 +341,18 @@ impl WarpDriveSearcher for FuzzyWarpDriveSearcher {
     ) -> anyhow::Result<()> {
         match object_type {
             ObjectType::Notebook => {
-                let notebook: Option<&CloudNotebook> = object.into();
-                if let Some(notebook) = notebook {
-                    self.notebooks.insert(notebook.uid(), notebook.clone());
-                } else {
-                    anyhow::bail!("Expected CloudNotebook, got {:?}", object);
+                #[cfg(feature = "oss_release")]
+                {
+                    let _ = object;
+                }
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    let notebook: Option<&CloudNotebook> = object.into();
+                    if let Some(notebook) = notebook {
+                        self.notebooks.insert(notebook.uid(), notebook.clone());
+                    } else {
+                        anyhow::bail!("Expected CloudNotebook, got {:?}", object);
+                    }
                 }
             }
             ObjectType::Workflow => {
@@ -389,6 +400,7 @@ impl WarpDriveSearcher for FuzzyWarpDriveSearcher {
     ) -> anyhow::Result<()> {
         match object_type {
             ObjectType::Notebook => {
+                #[cfg(not(feature = "oss_release"))]
                 self.notebooks.remove(&uid);
             }
             ObjectType::Workflow => {
@@ -424,6 +436,7 @@ impl WarpDriveSearcher for FuzzyWarpDriveSearcher {
 
     fn refresh_search_index(&mut self, app: &AppContext) -> anyhow::Result<()> {
         self.workflows.clear();
+        #[cfg(not(feature = "oss_release"))]
         self.notebooks.clear();
         self.env_vars.clear();
         let model = CloudModel::as_ref(app);
@@ -435,15 +448,21 @@ impl WarpDriveSearcher for FuzzyWarpDriveSearcher {
             }
             if let Some(workflow) = <Option<&CloudWorkflow>>::from(object.as_ref()) {
                 self.workflows.insert(workflow.uid(), workflow.clone());
-            } else if let Some(notebook) = <Option<&CloudNotebook>>::from(object.as_ref()) {
+                continue;
+            }
+            #[cfg(not(feature = "oss_release"))]
+            if let Some(notebook) = <Option<&CloudNotebook>>::from(object.as_ref()) {
                 self.notebooks.insert(notebook.uid(), notebook.clone());
-            } else if let Some(env_var) = <Option<&CloudEnvVarCollection>>::from(object.as_ref()) {
+                continue;
+            }
+            if let Some(env_var) = <Option<&CloudEnvVarCollection>>::from(object.as_ref()) {
                 self.env_vars.insert(env_var.uid(), env_var.clone());
             }
         }
         Ok(())
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn search_notebook(
         &self,
         query: &str,
@@ -462,6 +481,7 @@ impl WarpDriveSearcher for FuzzyWarpDriveSearcher {
             .collect())
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn search_plans(
         &self,
         query: &str,
@@ -537,7 +557,7 @@ impl WarpDriveSearcher for FuzzyWarpDriveSearcher {
     }
 }
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "use_tantivy_search"))]
 mod full_text_searcher {
     use std::sync::Arc;
 

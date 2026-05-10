@@ -1,5 +1,9 @@
 // Specific slide implementations
 pub mod cta_button;
+#[cfg(not(feature = "oss_release"))]
+pub mod oz_launch;
+#[cfg(feature = "oss_release")]
+#[path = "oz_launch_oss.rs"]
 pub mod oz_launch;
 
 // Re-export slide types for convenience

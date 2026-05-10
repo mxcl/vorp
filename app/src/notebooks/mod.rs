@@ -1,11 +1,31 @@
+#[cfg(not(feature = "oss_release"))]
 pub mod active_notebook_data;
+#[cfg(not(feature = "oss_release"))]
 mod context_menu;
+#[cfg(not(feature = "oss_release"))]
 pub mod editor;
+#[cfg(feature = "oss_release")]
+#[path = "editor_oss.rs"]
+pub mod editor;
+#[cfg(not(feature = "oss_release"))]
+pub mod file;
+#[cfg(feature = "oss_release")]
+#[path = "file_oss.rs"]
 pub mod file;
 pub mod link;
+#[cfg(not(feature = "oss_release"))]
 pub mod manager;
+#[cfg(feature = "oss_release")]
+#[path = "manager_oss.rs"]
+pub mod manager;
+#[cfg(not(feature = "oss_release"))]
 pub mod notebook;
+#[cfg(feature = "oss_release")]
+#[path = "notebook_oss.rs"]
+pub mod notebook;
+#[cfg(not(feature = "oss_release"))]
 mod styles;
+#[cfg(not(feature = "oss_release"))]
 pub mod telemetry;
 
 use std::sync::Arc;
@@ -248,9 +268,14 @@ impl From<Owner> for NotebookLocation {
 
 /// Initialize notebooks-related keybindings.
 pub fn init(app: &mut AppContext) {
-    self::notebook::init(app);
-    self::file::init(app);
-    self::editor::view::init(app);
+    #[cfg(feature = "oss_release")]
+    let _ = app;
+    #[cfg(not(feature = "oss_release"))]
+    {
+        self::notebook::init(app);
+        self::file::init(app);
+        self::editor::view::init(app);
+    }
 }
 
 /// Post process a notebook's content read from an external system. This cleans up extra
@@ -269,17 +294,26 @@ pub fn post_process_notebook(data: &str) -> String {
 /// * Includes extra context for embedded objects.
 #[cfg_attr(not(feature = "local_fs"), allow(dead_code))]
 pub fn export_notebook(data: &str, ctx: &AppContext) -> anyhow::Result<String> {
-    use warp_editor::content::{buffer::Buffer, markdown::MarkdownStyle};
+    #[cfg(feature = "oss_release")]
+    {
+        let _ = ctx;
+        return Ok(data.to_string());
+    }
 
-    // Parse the Markdown directly rather than using [`Buffer::from_markdown`] so that we can
-    // report errors to the exporter.
-    let parsed = markdown_parser::parse_markdown(data)?;
-    Ok(Buffer::export_to_markdown(
-        parsed,
-        Some(editor::notebook_embedded_item_conversion),
-        MarkdownStyle::Export {
-            app_context: Some(ctx),
-            should_not_escape_markdown_punctuation: false,
-        },
-    ))
+    #[cfg(not(feature = "oss_release"))]
+    {
+        use warp_editor::content::{buffer::Buffer, markdown::MarkdownStyle};
+
+        // Parse the Markdown directly rather than using [`Buffer::from_markdown`] so that we can
+        // report errors to the exporter.
+        let parsed = markdown_parser::parse_markdown(data)?;
+        Ok(Buffer::export_to_markdown(
+            parsed,
+            Some(editor::notebook_embedded_item_conversion),
+            MarkdownStyle::Export {
+                app_context: Some(ctx),
+                should_not_escape_markdown_punctuation: false,
+            },
+        ))
+    }
 }

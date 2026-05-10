@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap};
 
 use chrono::{Duration, Utc};
-use warp_graphql::scalars::time::ServerTimestamp;
+use crate::server::timestamp::ServerTimestamp;
 use warpui::{AppContext, Entity, ModelContext, SingletonEntity};
 
 use crate::{

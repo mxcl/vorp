@@ -4,7 +4,7 @@ use command::r#async::Command;
 use command::Stdio;
 use tempfile::TempDir;
 
-use super::{detect_current_branch, detect_current_branch_display};
+use super::{detect_current_branch, detect_current_branch_display, discover_worktree_root};
 
 /// Helper: run a git command inside the given repo directory.
 async fn git(repo: &Path, args: &[&str]) -> String {
@@ -30,6 +30,38 @@ async fn init_repo() -> (TempDir, std::path::PathBuf) {
     git(&path, &["commit", "--allow-empty", "-m", "initial"]).await;
 
     (dir, path)
+}
+
+#[test]
+fn discover_worktree_root_finds_repo_from_subdirectory() {
+    let dir = tempfile::tempdir().expect("failed to create temp dir");
+    std::fs::create_dir(dir.path().join(".git")).expect("failed to create .git dir");
+    let nested = dir.path().join("a/b/c");
+    std::fs::create_dir_all(&nested).expect("failed to create nested dirs");
+
+    assert_eq!(
+        discover_worktree_root(&nested),
+        Some(dir.path().to_path_buf())
+    );
+}
+
+#[test]
+fn discover_worktree_root_accepts_git_file_for_worktrees_and_submodules() {
+    let dir = tempfile::tempdir().expect("failed to create temp dir");
+    std::fs::write(dir.path().join(".git"), "gitdir: ../actual.git\n")
+        .expect("failed to create .git file");
+
+    assert_eq!(
+        discover_worktree_root(dir.path()),
+        Some(dir.path().to_path_buf())
+    );
+}
+
+#[test]
+fn discover_worktree_root_returns_none_outside_repo() {
+    let dir = tempfile::tempdir().expect("failed to create temp dir");
+
+    assert_eq!(discover_worktree_root(dir.path()), None);
 }
 
 #[tokio::test]

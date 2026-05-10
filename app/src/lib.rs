@@ -1,5 +1,11 @@
 // Suppress warnings about rustdoc style.
 #![allow(clippy::doc_lazy_continuation)]
+// OSS builds intentionally leave broad AI/MCP/editor modules unreferenced while
+// the fork migrates them from runtime-disabled to fully removed dependencies.
+#![cfg_attr(
+    feature = "oss_release",
+    allow(dead_code, unused_imports, unused_variables)
+)]
 
 mod ai;
 mod alloc;
@@ -37,18 +43,88 @@ mod dynamic_libraries;
 mod env_vars;
 mod experiments;
 mod external_secrets;
+#[cfg(feature = "firebase_auth")]
+extern crate firebase as firebase_crate;
+#[cfg(feature = "firebase_auth")]
+mod firebase {
+    pub use crate::firebase_crate::*;
+}
+#[cfg(all(not(feature = "firebase_auth"), not(feature = "oss_release")))]
+mod firebase;
+#[cfg(all(not(feature = "firebase_auth"), feature = "oss_release"))]
+#[path = "firebase_oss.rs"]
+mod firebase;
 #[cfg(target_family = "wasm")]
 mod font_fallback;
 mod global_resource_handles;
 mod gpu_state;
 mod input_classifier;
 mod interval_timer;
+#[cfg(not(feature = "language_runtime"))]
+extern crate self as languages;
+#[cfg(not(feature = "language_runtime"))]
+mod languages_shim;
+#[cfg(not(feature = "language_runtime"))]
+pub(crate) use languages_shim::*;
 mod linear;
+#[cfg(feature = "lsp_runtime")]
+extern crate lsp as lsp_crate;
+#[cfg(feature = "lsp_runtime")]
+pub(crate) use lsp_crate as lsp;
+#[cfg(not(feature = "lsp_runtime"))]
+extern crate self as lsp;
+#[cfg(not(feature = "lsp_runtime"))]
+extern crate self as lsp_types;
+#[cfg(not(feature = "lsp_runtime"))]
+mod lsp_shim;
+#[cfg(not(feature = "lsp_runtime"))]
+mod lsp_types_shim;
+#[cfg(not(feature = "lsp_runtime"))]
+pub(crate) use lsp_shim::*;
+#[cfg(not(feature = "lsp_runtime"))]
+pub use lsp_types_shim::*;
+#[cfg(not(feature = "syntax_tree_runtime"))]
+extern crate self as syntax_tree;
+#[cfg(not(feature = "syntax_tree_runtime"))]
+mod syntax_tree_shim;
+#[cfg(not(feature = "syntax_tree_runtime"))]
+pub(crate) use syntax_tree_shim::*;
 mod menu;
+#[cfg(feature = "markdown_mermaid")]
+extern crate mermaid_to_svg as mermaid_to_svg_crate;
+#[cfg(feature = "markdown_mermaid")]
+mod mermaid_to_svg {
+    pub use crate::mermaid_to_svg_crate::*;
+}
+#[cfg(not(feature = "markdown_mermaid"))]
+mod mermaid_to_svg {
+    pub struct MermaidTheme;
+
+    impl MermaidTheme {
+        pub fn light() -> Self {
+            Self
+        }
+    }
+
+    pub fn is_mermaid_diagram(_language: &str) -> bool {
+        false
+    }
+
+    pub fn render_mermaid_to_svg(
+        _source: &str,
+        _theme: Option<&MermaidTheme>,
+    ) -> Result<String, anyhow::Error> {
+        anyhow::bail!("Mermaid rendering is not available in this build")
+    }
+}
 mod modal;
 mod network;
 mod notebooks;
 mod notification;
+#[cfg(feature = "auth_oauth")]
+pub(crate) use ::oauth2;
+#[cfg(not(feature = "auth_oauth"))]
+mod oauth2;
 mod palette;
 mod persistence;
 mod platform;
@@ -57,16 +133,60 @@ mod plugin;
 mod prefix;
 #[cfg(target_os = "macos")]
 mod preview_config_migration;
+#[cfg(not(feature = "oss_release"))]
 mod pricing;
+#[cfg(feature = "oss_release")]
+mod pricing_oss;
+#[cfg(feature = "oss_release")]
+use pricing_oss as pricing;
 mod profiling;
 mod projects;
 mod prompt;
+#[cfg(not(feature = "mcp_runtime"))]
+pub(crate) use ::ai::rmcp;
+#[cfg(feature = "mcp_runtime")]
+pub(crate) use ::rmcp;
+#[cfg(feature = "http_eventsource")]
+extern crate reqwest_eventsource as reqwest_eventsource_crate;
+#[cfg(feature = "http_eventsource")]
+mod reqwest_eventsource {
+    pub use crate::reqwest_eventsource_crate::*;
+}
+#[cfg(not(feature = "http_eventsource"))]
+mod reqwest_eventsource {
+    pub use http_client::eventsource::{Error, Event};
+}
 mod quit_warning;
 mod referral_theme_status;
 #[allow(dead_code)]
 mod remote_server;
 mod resource_limits;
 mod reward_view;
+#[cfg(feature = "onboarding_runtime")]
+extern crate onboarding as onboarding_crate;
+#[cfg(feature = "onboarding_runtime")]
+pub(crate) use onboarding_crate as onboarding;
+#[cfg(not(feature = "onboarding_runtime"))]
+extern crate self as onboarding;
+#[cfg(not(feature = "onboarding_runtime"))]
+mod onboarding_shim;
+#[cfg(not(feature = "onboarding_runtime"))]
+pub use onboarding_shim::{
+    callout, slides, AgentOnboardingAction, AgentOnboardingEvent, AgentOnboardingView, LLMId,
+    OnboardingAuthState, OnboardingCalloutView, OnboardingEvent, OnboardingIntention,
+    OnboardingKeybindings, ProjectOnboardingSettings, SelectedSettings, SessionDefault,
+    UICustomizationSettings, AI_FEATURES, WARP_DRIVE_FEATURES,
+};
+#[cfg(feature = "repo_metadata_runtime")]
+extern crate repo_metadata as repo_metadata_crate;
+#[cfg(feature = "repo_metadata_runtime")]
+pub(crate) use repo_metadata_crate as repo_metadata;
+#[cfg(not(feature = "repo_metadata_runtime"))]
+extern crate self as repo_metadata;
+#[cfg(not(feature = "repo_metadata_runtime"))]
+mod repo_metadata_shim;
+#[cfg(not(feature = "repo_metadata_runtime"))]
+pub(crate) use repo_metadata_shim::*;
 mod safe_triangle;
 mod search_bar;
 mod server;
@@ -91,9 +211,42 @@ mod vim_registers;
 mod voice;
 mod voltron;
 mod warp_managed_paths_watcher;
+#[cfg(not(feature = "watcher_runtime"))]
+extern crate self as notify_debouncer_full;
+#[cfg(not(feature = "watcher_runtime"))]
+extern crate self as watcher;
+#[cfg(not(feature = "watcher_runtime"))]
+mod watcher_shim;
+#[cfg(not(feature = "watcher_runtime"))]
+pub(crate) use watcher_shim::*;
+#[cfg(not(feature = "file_runtime"))]
+extern crate self as warp_files;
+#[cfg(not(feature = "file_runtime"))]
+mod warp_files_shim;
+#[cfg(not(feature = "file_runtime"))]
+pub(crate) use warp_files_shim::*;
+#[cfg(feature = "warp_managed_secrets")]
+extern crate warp_managed_secrets as warp_managed_secrets_crate;
+#[cfg(feature = "warp_managed_secrets")]
+mod warp_managed_secrets {
+    pub use crate::warp_managed_secrets_crate::*;
+    pub use warp_graphql::managed_secrets::{
+        ManagedSecret, ManagedSecretConfig, ManagedSecretType,
+    };
+    pub type ManagedSecretOwner = warp_graphql::object::Space;
+    pub type ManagedSecretOwnerType = warp_graphql::object::SpaceType;
+}
+#[cfg(not(feature = "warp_managed_secrets"))]
+mod warp_managed_secrets;
 #[cfg(target_family = "wasm")]
 mod wasm_nux_dialog;
 mod window_settings;
+#[cfg(feature = "oss_release")]
+extern crate self as warp_editor;
+#[cfg(feature = "oss_release")]
+mod warp_editor_shim;
+#[cfg(feature = "oss_release")]
+pub use warp_editor_shim::{content, decoration, model, render, selection};
 mod word_block_editor;
 mod workspaces;
 
@@ -155,11 +308,13 @@ use quit_warning::UnsavedStateSummary;
 use server::network_log_pane_manager::NetworkLogPaneManager;
 use server::network_logging::NetworkLogModel;
 use server::telemetry::context_provider::AppTelemetryContextProvider;
+#[cfg(not(feature = "oss_release"))]
 use server::voice_transcriber::ServerVoiceTranscriber;
 #[cfg(feature = "local_fs")]
 use settings::import::model::ImportedConfigModel;
 use voice::transcriber::VoiceTranscriber;
 use warp_cli::GlobalOptions;
+#[cfg(not(feature = "oss_release"))]
 use warp_cli::{agent::AgentCommand, CliCommand};
 
 #[cfg(feature = "local_fs")]
@@ -194,6 +349,7 @@ use workflows::manager::WorkflowManager;
 
 use crate::ai::ambient_agents::github_auth_notifier::GitHubAuthNotifier;
 use crate::ai::document::ai_document_model::AIDocumentModel;
+#[cfg(not(feature = "oss_release"))]
 use crate::ai::facts::manager::AIFactManager;
 use crate::ai::harness_availability::HarnessAvailabilityModel;
 use crate::ai::llms::LLMPreferences;
@@ -208,7 +364,7 @@ use crate::changelog_model::ChangelogModel;
 use crate::cloud_object::model::actions::ObjectActions;
 use crate::cloud_object::model::view::CloudViewModel;
 use crate::code::global_buffer_model::GlobalBufferModel;
-#[cfg(feature = "local_fs")]
+#[cfg(all(feature = "local_fs", not(feature = "oss_release")))]
 use crate::code::language_server_shutdown_manager::LanguageServerShutdownManager;
 use crate::context_chips::prompt::Prompt;
 use crate::default_terminal::DefaultTerminal;
@@ -216,9 +372,10 @@ use crate::drive::export::ExportManager;
 use crate::env_vars::manager::EnvVarCollectionManager;
 use crate::gpu_state::GPUState;
 use crate::network::NetworkStatus;
-use crate::notebooks::editor::keys::NotebookKeybindings;
-use crate::notebooks::manager::NotebookManager;
-use crate::notebooks::CloudNotebook;
+#[cfg(not(feature = "oss_release"))]
+use crate::notebooks::{
+    editor::keys::NotebookKeybindings, manager::NotebookManager, CloudNotebook,
+};
 use crate::palette::PaletteMode;
 use crate::persistence::PersistenceWriter;
 use crate::projects::ProjectManagementModel;
@@ -242,6 +399,7 @@ use crate::undo_close::UndoCloseStack;
 use crate::user_config::WarpConfig;
 use crate::vim_registers::VimRegisters;
 use crate::warp_managed_paths_watcher::{ensure_warp_watch_roots_exist, WarpManagedPathsWatcher};
+use crate::warp_managed_secrets::ManagedSecretManager;
 use crate::workflows::aliases::WorkflowAliases;
 use crate::workflows::local_workflows::LocalWorkflows;
 use crate::workspace::{ActiveSession, OneTimeModalModel, ToastStack};
@@ -266,7 +424,6 @@ use terminal::input;
 use terminal::session_settings::SessionSettings;
 use url::Url;
 use warp_core::execution_mode::{AppExecutionMode, ExecutionMode};
-use warp_managed_secrets::ManagedSecretManager;
 use workspace::sync_inputs::SyncedInputState;
 
 use warpui::{integration::TestDriver, App, AssetProvider, Event};
@@ -318,6 +475,38 @@ use warpui::{AppContext, SingletonEntity, WindowId};
 // embedded asset set to keep the CLI binary small — mirroring the carve-out
 // already applied for the WASM target above.
 #[cfg_attr(feature = "standalone", exclude = "async/**")]
+// OSS release packaging does not need the large onboarding/theme/referral
+// imagery under `async/` embedded in the app binary.
+#[cfg_attr(feature = "oss_release", exclude = "async/**")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/claude.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/gemini_cli.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/openai.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/opencode.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/amp.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/droid.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/copilot.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/pi.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/auggie.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/cursor.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/goose.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/agentmode.svg")]
+#[cfg_attr(
+    feature = "oss_release",
+    exclude = "bundled/svg/ambient-agent-mode.svg"
+)]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/ai-assistant.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/conversation.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/new-conversation.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/prompt.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/notebook.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/compass-3.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/oz-cloud.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/loading-agents-*.svg")]
+#[cfg_attr(feature = "oss_release", exclude = "bundled/svg/context-window-*.svg")]
+#[cfg_attr(
+    feature = "oss_release",
+    exclude = "bundled/svg/conversation-context-*.svg"
+)]
 pub struct Assets;
 
 pub static ASSETS: Assets = Assets;
@@ -326,6 +515,7 @@ fn determine_agent_source(
     launch_mode: &LaunchMode,
 ) -> Option<crate::ai::ambient_agents::AgentSource> {
     match launch_mode {
+        #[cfg(not(feature = "oss_release"))]
         LaunchMode::CommandLine { .. } => {
             if std::env::var("GITHUB_ACTIONS").ok().as_deref() == Some("true") {
                 Some(crate::ai::ambient_agents::AgentSource::GitHubAction)
@@ -354,6 +544,7 @@ pub enum LaunchMode {
     },
 
     /// Run the Warp command-line SDK.
+    #[cfg(not(feature = "oss_release"))]
     CommandLine {
         command: warp_cli::CliCommand,
         global_options: GlobalOptions,
@@ -386,8 +577,9 @@ impl LaunchMode {
     fn args(&self) -> Cow<'_, warp_cli::AppArgs> {
         match self {
             LaunchMode::App { args, .. } => Cow::Borrowed(args),
-            LaunchMode::CommandLine { .. }
-            | LaunchMode::Test { .. }
+            #[cfg(not(feature = "oss_release"))]
+            LaunchMode::CommandLine { .. } => Cow::Owned(warp_cli::AppArgs::default()),
+            LaunchMode::Test { .. }
             | LaunchMode::RemoteServerProxy
             | LaunchMode::RemoteServerDaemon { .. } => Cow::Owned(warp_cli::AppArgs::default()),
         }
@@ -400,8 +592,9 @@ impl LaunchMode {
                 is_integration_test,
                 ..
             } => *is_integration_test,
+            #[cfg(not(feature = "oss_release"))]
+            LaunchMode::CommandLine { .. } => false,
             LaunchMode::App { .. }
-            | LaunchMode::CommandLine { .. }
             | LaunchMode::RemoteServerProxy
             | LaunchMode::RemoteServerDaemon { .. } => false,
         }
@@ -410,8 +603,9 @@ impl LaunchMode {
     fn take_test_driver(&mut self) -> Option<TestDriver> {
         match self {
             LaunchMode::Test { driver, .. } => driver.take(),
+            #[cfg(not(feature = "oss_release"))]
+            LaunchMode::CommandLine { .. } => None,
             LaunchMode::App { .. }
-            | LaunchMode::CommandLine { .. }
             | LaunchMode::RemoteServerProxy
             | LaunchMode::RemoteServerDaemon { .. } => None,
         }
@@ -428,6 +622,7 @@ impl LaunchMode {
     fn execution_mode(&self) -> ExecutionMode {
         match self {
             LaunchMode::App { .. } => ExecutionMode::App,
+            #[cfg(not(feature = "oss_release"))]
             LaunchMode::CommandLine { .. } => ExecutionMode::Sdk,
             LaunchMode::Test { .. } => ExecutionMode::App,
             // RemoteServerProxy and RemoteServerDaemon don't use execution
@@ -440,6 +635,7 @@ impl LaunchMode {
 
     fn is_sandboxed(&self) -> bool {
         match self {
+            #[cfg(not(feature = "oss_release"))]
             LaunchMode::CommandLine { is_sandboxed, .. } => *is_sandboxed,
             LaunchMode::App { .. }
             | LaunchMode::Test { .. }
@@ -451,6 +647,7 @@ impl LaunchMode {
     /// Returns `true` if Warp should run headlessly, without a visible UI.
     fn is_headless(&self) -> bool {
         match self {
+            #[cfg(not(feature = "oss_release"))]
             LaunchMode::CommandLine { command, .. } => match command {
                 CliCommand::Agent(AgentCommand::Run(args)) => !args.gui,
                 _ => true,
@@ -463,6 +660,7 @@ impl LaunchMode {
     /// Returns `true` if running in app mode or via `agent run` to permit codebase indexing.
     fn supports_indexing(&self) -> bool {
         match self {
+            #[cfg(not(feature = "oss_release"))]
             LaunchMode::CommandLine { command, .. } => {
                 matches!(command, CliCommand::Agent(AgentCommand::Run { .. }))
             }
@@ -476,8 +674,9 @@ impl LaunchMode {
     pub(crate) fn crash_recovery_enabled(&self) -> bool {
         match self {
             LaunchMode::App { .. } => true,
-            LaunchMode::CommandLine { .. }
-            | LaunchMode::Test { .. }
+            #[cfg(not(feature = "oss_release"))]
+            LaunchMode::CommandLine { .. } => false,
+            LaunchMode::Test { .. }
             | LaunchMode::RemoteServerProxy
             | LaunchMode::RemoteServerDaemon { .. } => false,
         }
@@ -488,10 +687,11 @@ impl LaunchMode {
     pub(crate) fn needs_crash_reporting(&self) -> bool {
         match self {
             LaunchMode::App { .. }
-            | LaunchMode::CommandLine { .. }
             | LaunchMode::Test { .. }
             | LaunchMode::RemoteServerDaemon { .. }
             | LaunchMode::RemoteServerProxy => true,
+            #[cfg(not(feature = "oss_release"))]
+            LaunchMode::CommandLine { .. } => true,
         }
     }
 
@@ -499,16 +699,18 @@ impl LaunchMode {
     pub(crate) fn needs_profiling(&self) -> bool {
         match self {
             LaunchMode::App { .. }
-            | LaunchMode::CommandLine { .. }
             | LaunchMode::Test { .. }
             | LaunchMode::RemoteServerDaemon { .. }
             | LaunchMode::RemoteServerProxy => true,
+            #[cfg(not(feature = "oss_release"))]
+            LaunchMode::CommandLine { .. } => true,
         }
     }
 
     /// Log destination for this mode.
     fn log_destination(&self) -> Option<LogDestination> {
         match self {
+            #[cfg(not(feature = "oss_release"))]
             LaunchMode::CommandLine { debug, .. } => {
                 if *debug {
                     Some(LogDestination::Stderr)
@@ -692,6 +894,7 @@ pub fn run() -> Result<()> {
             warp_cli::Command::Completions { shell } => {
                 return warp_cli::completions::generate_to_stdout(*shell);
             }
+            #[cfg(not(feature = "oss_release"))]
             warp_cli::Command::CommandLine(cmd) => {
                 let (is_sandboxed, computer_use_override) = match cmd.as_ref() {
                     warp_cli::CliCommand::Agent(warp_cli::agent::AgentCommand::Run(run_args)) => (
@@ -1099,6 +1302,7 @@ pub(crate) fn initialize_app(
 
     // Extract API key from command line options, if applicable.
     let api_key = match launch_mode {
+        #[cfg(not(feature = "oss_release"))]
         LaunchMode::CommandLine { global_options, .. } => global_options.api_key.clone(),
         LaunchMode::App { api_key, .. } if ChannelState::channel().is_dogfood() => api_key.clone(),
         _ => None,
@@ -1123,6 +1327,7 @@ pub(crate) fn initialize_app(
     let server_api_provider = ctx
         .add_singleton_model(|ctx| ServerApiProvider::new(auth_state.clone(), agent_source, ctx));
     let server_api = server_api_provider.as_ref(ctx).get();
+    #[cfg(not(feature = "oss_release"))]
     let ai_client = server_api_provider.as_ref(ctx).get_ai_client();
 
     ctx.add_singleton_model(|_ctx| AuthStateProvider::new(auth_state.clone()));
@@ -1247,6 +1452,7 @@ pub(crate) fn initialize_app(
     // be initialized after it.
     ctx.add_singleton_model(|ctx| ServerExperiments::new_from_cache(experiments, ctx));
 
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| AIRequestUsageModel::new(ai_client, ctx));
 
     ctx.add_singleton_model(|ctx| {
@@ -1308,10 +1514,13 @@ pub(crate) fn initialize_app(
     App::record_last_active_timestamp();
 
     ctx.add_singleton_model(|_| SettingsPaneManager::new());
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| AIFactManager::new());
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| ExecutionProfileEditorManager::default());
     ctx.add_singleton_model(|_| NetworkLogPaneManager::default());
     ctx.add_singleton_model(|_| pricing::PricingInfoModel::new());
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
         // Not using the *Provider types isn't ideal, but it's worth it for the ability to move managed secrets to a separate crate.
         ManagedSecretManager::new(
@@ -1385,7 +1594,12 @@ pub(crate) fn initialize_app(
         // Skip refresh_user for CLI mode — the CLI handles auth refresh in
         // ensure_auth_state so it can detect invalid credentials before running
         // a command.
-        if !matches!(launch_mode, LaunchMode::CommandLine { .. }) {
+        #[cfg(not(feature = "oss_release"))]
+        let is_command_line = matches!(launch_mode, LaunchMode::CommandLine { .. });
+        #[cfg(feature = "oss_release")]
+        let is_command_line = false;
+
+        if !is_command_line {
             AuthManager::handle(ctx).update(ctx, |auth_manager, ctx| {
                 auth_manager.refresh_user(ctx);
             });
@@ -1491,6 +1705,7 @@ pub(crate) fn initialize_app(
         });
     }
 
+    #[cfg(not(feature = "oss_release"))]
     {
         use code_review::git_status_update::GitStatusUpdateModel;
         ctx.add_singleton_model(|_| GitStatusUpdateModel::new());
@@ -1514,17 +1729,22 @@ pub(crate) fn initialize_app(
     timer.mark_interval_end("INITIALIZE_TELEMETRY_COLLECTION");
 
     // Register initial keybindings prior to creating menus
+    #[cfg(not(feature = "oss_release"))]
     ai::init(ctx);
     app_services::init(ctx);
     // // TODO: Temporarily disabling keybindings for WASM builds. Will be implemented in future WASM support.
     #[cfg(not(target_family = "wasm"))]
+    #[cfg(not(feature = "oss_release"))]
     code::editor::find::view::init(ctx);
     workspace::init(ctx);
     pane_group::init(ctx);
     terminal::init(ctx);
     input::init(ctx);
     editor::init(ctx);
+    #[cfg(feature = "onboarding_runtime")]
     onboarding::init(ctx);
+    #[cfg(not(feature = "onboarding_runtime"))]
+    onboarding_shim::init(ctx);
     menu::init(ctx);
     tips::tip_view::init(ctx);
     launch_configs::init(ctx);
@@ -1534,19 +1754,24 @@ pub(crate) fn initialize_app(
     themes::theme_deletion_modal::init(ctx);
     root_view::init(ctx);
     voltron::init(ctx);
+    #[cfg(not(feature = "oss_release"))]
     auth::init(ctx);
     reward_view::init(ctx);
     crate::view_components::find::init(ctx);
     prompt::editor_modal::init(ctx);
+    #[cfg(not(feature = "oss_release"))]
     ai::blocklist::agent_view::editor::init(ctx);
     undo_close::init(ctx);
     billing::shared_objects_creation_denied_modal::init(ctx);
     tab_configs::new_worktree_modal::init(ctx);
     tab_configs::params_modal::init(ctx);
+    #[cfg(not(feature = "oss_release"))]
     ai::blocklist::init(ctx);
+    #[cfg(not(feature = "oss_release"))]
     ai::blocklist::block::status_bar::init(ctx);
     drive::index::init(ctx);
     drive::sharing::dialog::init(ctx);
+    #[cfg(not(feature = "oss_release"))]
     ai_assistant::panel::init(ctx);
     settings_view::update_environment_form::init(ctx);
     env_vars::env_var_collection_block::init(ctx);
@@ -1556,9 +1781,11 @@ pub(crate) fn initialize_app(
     context_chips::display_menu::init(ctx);
     context_chips::node_version_popup::init(ctx);
     env_vars::view::env_var_collection::init(ctx);
+    #[cfg(not(feature = "oss_release"))]
     ai::agent::todos::popup::init(ctx);
     terminal::view::init_environment::mode_selector::init(ctx);
     coding_entrypoints::project_buttons::init(ctx);
+    #[cfg(not(feature = "oss_release"))]
     if FeatureFlag::CodeReviewSaveChanges.is_enabled() {
         code_review::init(ctx);
     }
@@ -1568,6 +1795,7 @@ pub(crate) fn initialize_app(
 
     ctx.add_singleton_model(|_| RelaunchModel::new());
     ctx.add_singleton_model(|_| ChangelogModel::new(server_api.clone()));
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| GitHubAuthNotifier::new());
     ctx.add_singleton_model(|_| NetworkStatus::new());
     ctx.add_singleton_model(|_| SystemStats::new());
@@ -1577,6 +1805,7 @@ pub(crate) fn initialize_app(
     ctx.add_singleton_model(|_| VimRegisters::new());
     ctx.add_singleton_model(UndoCloseStack::new);
     ctx.add_singleton_model(|_| ToastStack);
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| GlobalCodeReviewModel);
     ctx.add_singleton_model(workspace::OneTimeModalModel::new);
     ctx.add_singleton_model(
@@ -1588,14 +1817,19 @@ pub(crate) fn initialize_app(
     #[cfg(windows)]
     ctx.add_singleton_model(util::traffic_lights::windows::RendererState::new);
     #[cfg(feature = "local_fs")]
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| LanguageServerShutdownManager::new());
 
     #[cfg(feature = "voice_input")]
     ctx.add_singleton_model(voice_input::VoiceInput::new);
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| {
         VoiceTranscriber::new(Arc::new(ServerVoiceTranscriber::new(server_api.clone())))
     });
+    #[cfg(feature = "oss_release")]
+    ctx.add_singleton_model(|_| VoiceTranscriber::disabled());
 
+    #[cfg(not(feature = "oss_release"))]
     let notebooks = cloud_objects
         .iter()
         .filter_map(|object| {
@@ -1646,25 +1880,35 @@ pub(crate) fn initialize_app(
         )
     });
 
+    #[cfg(not(feature = "oss_release"))]
     {
         let conversations = &multi_agent_conversations;
         ctx.add_singleton_model(move |_| BlocklistAIHistoryModel::new(ai_queries, conversations));
     }
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(move |_| RestoredAgentConversations::new(multi_agent_conversations));
     ctx.add_singleton_model(|_| CLIAgentSessionsModel::new());
     // ActiveAgentViewsModel is used to track active agent conversations and notify listeners when they change.
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| ActiveAgentViewsModel::new());
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(AgentNotificationsModel::new);
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(BlocklistAIPermissions::new);
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(ai::blocklist::orchestration_events::OrchestrationEventService::new);
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(ai::blocklist::task_status_sync_model::TaskStatusSyncModel::new);
+    #[cfg(not(feature = "oss_release"))]
     if warp_core::features::FeatureFlag::OrchestrationV2.is_enabled() {
         ctx.add_singleton_model(
             ai::blocklist::orchestration_event_streamer::OrchestrationEventStreamer::new,
         );
     }
 
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(RepoOutlines::new);
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
         warp_core::sync_queue::SyncQueue::<SyncTask>::new_with_rate_limit(
             &ctx.background_executor(),
@@ -1710,50 +1954,60 @@ pub(crate) fn initialize_app(
     // LogManager must be registered before any subsystem (e.g. MCP, LSP) that creates file-based loggers.
     ctx.add_singleton_model(|_| simple_logger::manager::LogManager::new());
 
-    let running_mcp_servers = app_state
-        .as_ref()
-        .map(|app_state| app_state.running_mcp_servers.as_slice())
-        .unwrap_or(&[]);
+    #[cfg(not(feature = "oss_release"))]
+    {
+        let running_mcp_servers = app_state
+            .as_ref()
+            .map(|app_state| app_state.running_mcp_servers.as_slice())
+            .unwrap_or(&[]);
 
-    // FileMCPWatcher must be registered before FileBasedMCPManager, which subscribes to it.
-    ctx.add_singleton_model(FileMCPWatcher::new);
-    ctx.add_singleton_model(FileBasedMCPManager::new);
+        // FileMCPWatcher must be registered before FileBasedMCPManager, which subscribes to it.
+        ctx.add_singleton_model(FileMCPWatcher::new);
+        ctx.add_singleton_model(FileBasedMCPManager::new);
 
-    // TemplatableMCPServerManager must be registered after UpdateManager and MCPServerManager so it can migrate legacy MCPs on start up
-    // It should also be registered after FileBasedMCPManager so it can receive file-based server updates.
-    ctx.add_singleton_model(|ctx| {
-        TemplatableMCPServerManager::new(
-            persisted_mcp_server_installations,
-            mcp_servers_to_restore,
-            running_mcp_servers,
-            ctx,
-        )
-    });
+        // TemplatableMCPServerManager must be registered after UpdateManager and MCPServerManager so it can migrate legacy MCPs on start up
+        // It should also be registered after FileBasedMCPManager so it can receive file-based server updates.
+        ctx.add_singleton_model(|ctx| {
+            TemplatableMCPServerManager::new(
+                persisted_mcp_server_installations,
+                mcp_servers_to_restore,
+                running_mcp_servers,
+                ctx,
+            )
+        });
 
-    // MCPGalleryManager subscribes to UpdateManager so that it can be notified when gallery items are updated.
-    // The registration of this singleton must be after UpdateManager is registered.
-    ctx.add_singleton_model(MCPGalleryManager::new);
+        // MCPGalleryManager subscribes to UpdateManager so that it can be notified when gallery items are updated.
+        // The registration of this singleton must be after UpdateManager is registered.
+        ctx.add_singleton_model(MCPGalleryManager::new);
 
-    // SkillManager is used to cache SKILL.md files for all active terminal views and their working directories
-    ctx.add_singleton_model(SkillManager::new);
+        // SkillManager is used to cache SKILL.md files for all active terminal views and their working directories
+        ctx.add_singleton_model(SkillManager::new);
+    }
 
     // CloudViewModel subscribes to UpdateManager so that it can be notified when objects are
     // created on the server.
     ctx.add_singleton_model(CloudViewModel::new);
 
     // AIDocumentModel subscribes to UpdateManager so that it can be notified when notebooks are created on the server.
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(AIDocumentModel::new);
 
     // AgentConversationsModel subscribes to UpdateManager for RTC task updates.
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(AgentConversationsModel::new);
 
     // ByoLlmAuthBannerSessionState tracks dismissal of the BYO LLM auth banner (e.g., AWS Bedrock login).
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(ByoLlmAuthBannerSessionState::new);
 
     ctx.add_singleton_model(ExportManager::new);
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| NotebookManager::new(notebooks, ctx));
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| CodeManager::default());
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| OpenedFilesModel::new());
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(NotebookKeybindings::new);
     ctx.add_singleton_model(TerminalKeybindings::new);
     ctx.add_singleton_model(|_| ActiveSession::default());
@@ -1794,9 +2048,12 @@ pub(crate) fn initialize_app(
 
     ctx.add_singleton_model(LocalWorkflows::new);
 
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(LLMPreferences::new);
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(HarnessAvailabilityModel::new);
 
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
         ai::agent_tips::AITipModel::<ai::AgentTip>::new_for_agent_tips(ctx)
     });
@@ -1816,10 +2073,12 @@ pub(crate) fn initialize_app(
         FeatureFlag::SSHTmuxWrapper.set_user_preference(is_ssh_tmux_wrapper_enabled);
     }
 
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| AIExecutionProfilesModel::new(launch_mode, ctx));
 
     ctx.add_singleton_model(DefaultTerminal::new);
 
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
         let indices_to_restore = if UserWorkspaces::as_ref(ctx).is_codebase_context_enabled(ctx)
             && launch_mode.supports_indexing()
@@ -1841,9 +2100,11 @@ pub(crate) fn initialize_app(
         )
     });
 
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
         ProjectContextModel::new_from_persisted(persisted_project_rules, ctx)
     });
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
         PersistedWorkspace::new(
             persisted_workspaces,
@@ -1854,6 +2115,7 @@ pub(crate) fn initialize_app(
     });
     ctx.add_singleton_model(move |_| persistence_writer);
 
+    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(input_classifier::InputClassifierModel::new);
 
     ctx.add_singleton_model(move |_| IgnoredSuggestionsModel::new(persisted_ignored_suggestions));
@@ -1945,11 +2207,14 @@ pub(crate) fn app_callbacks(is_integration_test: bool) -> warpui::platform::AppC
             );
         })),
         on_will_terminate: Some(Box::new(move |ctx| {
-            NotebookManager::handle(ctx).update(ctx, |manager, ctx| {
-                // Notebooks are only saved periodically, so ensure that any pending changes have
-                // been sent to the writer thread before terminating.
-                manager.close_notebooks(ctx);
-            });
+            #[cfg(not(feature = "oss_release"))]
+            {
+                NotebookManager::handle(ctx).update(ctx, |manager, ctx| {
+                    // Notebooks are only saved periodically, so ensure that any pending changes have
+                    // been sent to the writer thread before terminating.
+                    manager.close_notebooks(ctx);
+                });
+            }
 
             PersistenceWriter::handle(ctx).update(ctx, |writer, _ctx| {
                 writer.terminate();
@@ -2349,6 +2614,7 @@ fn launch(ctx: &mut warpui::AppContext, app_state: Option<AppState>, launch_mode
             });
         }
         #[cfg_attr(target_family = "wasm", allow(unused_variables))]
+        #[cfg(not(feature = "oss_release"))]
         LaunchMode::CommandLine {
             command,
             global_options,

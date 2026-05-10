@@ -17,26 +17,33 @@ use crate::ai::predict::generate_ai_input_suggestions::GenerateAIInputSuggestion
 use crate::ai::predict::generate_am_query_suggestions;
 use crate::ai::predict::generate_am_query_suggestions::GenerateAMQuerySuggestionsRequest;
 use crate::ai::predict::predict_am_queries::{PredictAMQueriesRequest, PredictAMQueriesResponse};
+#[cfg(not(feature = "oss_release"))]
 use crate::ai::voice::transcribe::{TranscribeRequest, TranscribeResponse};
 use crate::auth::auth_manager::AuthManager;
 use crate::auth::auth_state::AuthState;
+use crate::oauth2;
+use crate::reqwest_eventsource;
+#[cfg(not(feature = "oss_release"))]
 use crate::server::graphql::default_request_options;
 use crate::server::server_api::presigned_upload::HttpStatusError;
+use crate::warp_managed_secrets::client::ManagedSecretsClient;
 use ai::AIClient;
 use auth::{AuthClient, AMBIENT_WORKLOAD_TOKEN_HEADER, CLOUD_AGENT_ID_HEADER};
+#[cfg(not(feature = "oss_release"))]
 use base64::prelude::BASE64_URL_SAFE;
+#[cfg(not(feature = "oss_release"))]
 use base64::Engine;
 use block::BlockClient;
 use channel_versions::ChannelVersions;
 use futures::StreamExt;
 use object::ObjectClient;
+#[cfg(not(feature = "oss_release"))]
 use prost::Message;
 use referral::ReferralsClient;
 use team::TeamClient;
 use url::Url;
 use warp_core::context_flag::ContextFlag;
 use warp_core::errors::{register_error, AnyhowErrorExt, ErrorExt};
-use warp_managed_secrets::client::ManagedSecretsClient;
 use warpui::{r#async::BoxFuture, ModelContext};
 use workspace::WorkspaceClient;
 
@@ -500,6 +507,7 @@ impl ServerApi {
         Ok(headers)
     }
 
+    #[cfg(feature = "auth_oauth")]
     fn create_oauth_client() -> self::auth::OAuth2Client {
         let server_root =
             Url::parse(&ChannelState::server_root_url()).expect("Server root URL must be valid");
@@ -517,6 +525,12 @@ impl ServerApi {
             .set_device_authorization_url(oauth2::DeviceAuthorizationUrl::from_url(device_url))
     }
 
+    #[cfg(not(feature = "auth_oauth"))]
+    fn create_oauth_client() -> self::auth::OAuth2Client {
+        self::auth::OAuth2Client
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     pub fn send_graphql_request<'a, QF, O: warp_graphql::client::Operation<QF> + Send + 'a>(
         &'a self,
         operation: O,
@@ -688,6 +702,7 @@ impl ServerApi {
     /// The stream is served by warp-server-rtc (not the main warp-server pool),
     /// so the URL is built from `ChannelState::rtc_http_url()` rather than
     /// `server_root_url()`.
+    #[cfg(not(feature = "oss_release"))]
     pub async fn stream_agent_events(
         &self,
         run_ids: &[String],
@@ -721,6 +736,16 @@ impl ServerApi {
         Ok(request.eventsource())
     }
 
+    #[cfg(feature = "oss_release")]
+    pub async fn stream_agent_events(
+        &self,
+        _run_ids: &[String],
+        _since_sequence: i64,
+    ) -> Result<http_client::EventSourceStream> {
+        Err(anyhow!("Agent event streaming is disabled in OSS builds"))
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     pub async fn stream_agent_events_for_task(
         &self,
         task_id: &AmbientAgentTaskId,
@@ -753,6 +778,18 @@ impl ServerApi {
         }
 
         Ok(request.eventsource())
+    }
+
+    #[cfg(feature = "oss_release")]
+    pub async fn stream_agent_events_for_task(
+        &self,
+        _task_id: &AmbientAgentTaskId,
+        _run_ids: &[String],
+        _since_sequence: i64,
+    ) -> Result<http_client::EventSourceStream> {
+        Err(anyhow!(
+            "Task-scoped agent event streaming is disabled in OSS builds"
+        ))
     }
 
     /// Sends a POST request to a public API endpoint and returns the raw response on success.
@@ -971,6 +1008,7 @@ impl ServerApi {
     }
 
     /// Hits the /ai/generate_input_suggestions endpoint to get the predicted next action, based on past context.
+    #[cfg(not(feature = "oss_release"))]
     pub async fn generate_ai_input_suggestions(
         &self,
         request: &GenerateAIInputSuggestionsRequest,
@@ -996,6 +1034,18 @@ impl ServerApi {
         Ok(response)
     }
 
+    #[cfg(feature = "oss_release")]
+    pub async fn generate_ai_input_suggestions(
+        &self,
+        _request: &GenerateAIInputSuggestionsRequest,
+    ) -> Result<generate_ai_input_suggestions::GenerateAIInputSuggestionsResponseV2, AIApiError>
+    {
+        Err(AIApiError::Other(anyhow!(
+            "AI input suggestions are disabled in OSS builds"
+        )))
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     pub async fn get_relevant_files(
         &self,
         request: &GetRelevantFiles,
@@ -1021,7 +1071,18 @@ impl ServerApi {
         Ok(response)
     }
 
+    #[cfg(feature = "oss_release")]
+    pub async fn get_relevant_files(
+        &self,
+        _request: &GetRelevantFiles,
+    ) -> Result<GetRelevantFilesResponse, AIApiError> {
+        Err(AIApiError::Other(anyhow!(
+            "Relevant file search is disabled in OSS builds"
+        )))
+    }
+
     /// Hits the /ai/generate_am_query_suggestions endpoint to get the predicted next query.
+    #[cfg(not(feature = "oss_release"))]
     pub async fn generate_am_query_suggestions(
         &self,
         request: &GenerateAMQuerySuggestionsRequest,
@@ -1057,6 +1118,17 @@ impl ServerApi {
         Ok(response)
     }
 
+    #[cfg(feature = "oss_release")]
+    pub async fn generate_am_query_suggestions(
+        &self,
+        _request: &GenerateAMQuerySuggestionsRequest,
+    ) -> Result<generate_am_query_suggestions::GenerateAMQuerySuggestionsResponse, AIApiError> {
+        Err(AIApiError::Other(anyhow!(
+            "AM query suggestions are disabled in OSS builds"
+        )))
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     pub async fn predict_am_queries(
         &self,
         request: &PredictAMQueriesRequest,
@@ -1080,7 +1152,18 @@ impl ServerApi {
         Ok(response)
     }
 
+    #[cfg(feature = "oss_release")]
+    pub async fn predict_am_queries(
+        &self,
+        _request: &PredictAMQueriesRequest,
+    ) -> Result<PredictAMQueriesResponse, AIApiError> {
+        Err(AIApiError::Other(anyhow!(
+            "AM query prediction is disabled in OSS builds"
+        )))
+    }
+
     /// Hits the /ai/transcribe endpoint to get the transcription for the given audio.
+    #[cfg(not(feature = "oss_release"))]
     pub async fn transcribe(
         &self,
         request: &TranscribeRequest,
@@ -1132,6 +1215,7 @@ impl ServerApi {
         }
     }
 
+    #[cfg(not(feature = "oss_release"))]
     pub async fn generate_multi_agent_output(
         &self,
         request: &warp_multi_agent_api::Request,
@@ -1224,6 +1308,17 @@ impl ServerApi {
                 Ok(output_stream.boxed())
             }
         }
+    }
+
+    #[cfg(feature = "oss_release")]
+    pub async fn generate_multi_agent_output(
+        &self,
+        _request: &warp_multi_agent_api::Request,
+    ) -> std::result::Result<AIOutputStream<warp_multi_agent_api::ResponseEvent>, Arc<AIApiError>>
+    {
+        Err(Arc::new(AIApiError::Other(anyhow!(
+            "Multi-agent output generation is disabled in OSS builds"
+        ))))
     }
 
     fn set_server_time(&self, server_time: ServerTime) {

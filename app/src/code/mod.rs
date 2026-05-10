@@ -6,24 +6,49 @@ use warp_util::file::FileSaveError;
 use warpui::elements::DropTargetData;
 use warpui::AppContext;
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 pub mod find_references_view;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 pub mod language_server_extension;
-#[cfg_attr(not(target_family = "wasm"), path = "local_code_editor.rs")]
+#[cfg_attr(
+    all(not(target_family = "wasm"), not(feature = "oss_release")),
+    path = "local_code_editor.rs"
+)]
 #[cfg_attr(target_family = "wasm", path = "local_code_editor_wasm.rs")]
+#[cfg_attr(feature = "oss_release", path = "local_code_editor_oss.rs")]
 pub mod local_code_editor;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
 pub use local_code_editor::ShowFindReferencesCard;
+#[cfg(not(feature = "oss_release"))]
 pub mod diff_viewer;
+#[cfg(feature = "oss_release")]
+#[path = "diff_viewer_oss.rs"]
+pub mod diff_viewer;
+#[cfg(not(feature = "oss_release"))]
 pub mod editor;
+#[cfg(feature = "oss_release")]
+#[path = "editor_oss.rs"]
+pub mod editor;
+#[cfg(not(feature = "oss_release"))]
 pub mod editor_management;
+#[cfg(feature = "oss_release")]
+#[path = "editor_management_oss.rs"]
+pub mod editor_management;
+#[cfg(not(feature = "oss_release"))]
 pub mod global_buffer_model;
+#[cfg(feature = "oss_release")]
+#[path = "global_buffer_model_oss.rs"]
+pub mod global_buffer_model;
+#[cfg(not(feature = "oss_release"))]
 pub mod inline_diff;
-#[cfg(feature = "local_fs")]
+#[cfg(all(feature = "local_fs", not(feature = "oss_release")))]
 pub mod language_server_shutdown_manager;
 #[cfg(not(target_family = "wasm"))]
 pub mod lsp_logs;
+#[cfg(not(feature = "oss_release"))]
+pub mod lsp_telemetry;
+#[cfg(feature = "oss_release")]
+#[path = "lsp_telemetry_oss.rs"]
 pub mod lsp_telemetry;
 
 #[derive(Debug, thiserror::Error)]
@@ -108,14 +133,20 @@ pub mod active_file;
 pub mod opened_files;
 pub use icon::icon_from_file_path;
 
-#[cfg_attr(not(target_family = "wasm"), path = "view.rs")]
-#[cfg_attr(target_family = "wasm", path = "wasm.rs")]
+#[cfg(all(not(feature = "oss_release"), not(target_family = "wasm")))]
+#[path = "view.rs"]
+pub mod view;
+#[cfg(all(not(feature = "oss_release"), target_family = "wasm"))]
+#[path = "wasm.rs"]
+pub mod view;
+#[cfg(feature = "oss_release")]
+#[path = "view_oss.rs"]
 pub mod view;
 
 pub fn init(app: &mut AppContext) {
     self::view::init(app);
     self::file_tree::init(app);
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
     self::find_references_view::init(app);
 }
 

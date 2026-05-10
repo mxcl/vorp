@@ -279,6 +279,9 @@ impl CodebaseIndexManager {
         );
     }
 
+    #[cfg(not(feature = "local_fs"))]
+    pub fn clean_up_deleted_indices(&mut self, _ctx: &mut ModelContext<Self>) {}
+
     /// Cleans up all indexed codebases.
     fn drop_all_indices(&mut self, ctx: &mut ModelContext<Self>) {
         self.drop_indices(self.codebase_indices.keys().cloned().collect_vec(), ctx);
@@ -948,6 +951,9 @@ impl CodebaseIndexManager {
             },
         );
     }
+
+    #[cfg(not(feature = "local_fs"))]
+    pub fn write_snapshot(&mut self, _working_directory: &Path, _ctx: &mut ModelContext<Self>) {}
 
     /// Schedules the next periodic snapshot write.
     #[cfg(feature = "local_fs")]

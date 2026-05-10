@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use ai::skills::{SkillProvider, SkillReference, SkillScope};
-use fuzzy_match::{match_indices_case_insensitive, FuzzyMatchResult};
+use fuzzy_match::{FuzzyMatchResult, match_indices_case_insensitive};
 use ordered_float::OrderedFloat;
 use warp_core::ui::icons::Icon;
 use warp_core::ui::theme::Fill;
@@ -22,10 +22,11 @@ use crate::search::data_source::{Query, QueryResult};
 use crate::search::mixer::DataSourceRunErrorWrapper;
 use crate::search::result_renderer::ItemHighlightState;
 use crate::search::{SearchItem, SyncDataSource};
+#[cfg(not(feature = "oss_release"))]
 use crate::terminal::cli_agent_sessions::{CLIAgentInputState, CLIAgentSessionsModel};
 use crate::terminal::input::inline_menu::styles as inline_styles;
 use crate::terminal::input::inline_menu::{
-    default_navigation_message_items, InlineMenuAction, InlineMenuMessageArgs, InlineMenuType,
+    InlineMenuAction, InlineMenuMessageArgs, InlineMenuType, default_navigation_message_items,
 };
 use crate::terminal::input::message_bar::{Message, MessageItem};
 use crate::terminal::model::session::active_session::{ActiveSession, ActiveSessionEvent};
@@ -94,10 +95,19 @@ impl SkillSelectorDataSource {
     /// Returns the supported skill providers for the active CLI agent, or `None` if
     /// CLI agent input is not open.
     fn active_cli_agent_providers(&self, app: &AppContext) -> Option<&'static [SkillProvider]> {
-        CLIAgentSessionsModel::as_ref(app)
-            .session(self.terminal_view_id)
-            .filter(|s| matches!(s.input_state, CLIAgentInputState::Open { .. }))
-            .map(|s| s.agent.supported_skill_providers())
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = app;
+            None
+        }
+
+        #[cfg(not(feature = "oss_release"))]
+        {
+            CLIAgentSessionsModel::as_ref(app)
+                .session(self.terminal_view_id)
+                .filter(|s| matches!(s.input_state, CLIAgentInputState::Open { .. }))
+                .map(|s| s.agent.supported_skill_providers())
+        }
     }
 
     pub fn set_include_bundled(&mut self, include_bundled: bool) {

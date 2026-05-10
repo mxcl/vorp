@@ -1,21 +1,25 @@
 pub mod telemetry;
 
+use crate::FeatureFlag;
 use crate::ai::agent::conversation::ConversationStatus;
 use crate::ai::agent_management::AgentNotificationsModel;
 use crate::code::editor::{add_color, remove_color};
 use crate::code::icon_from_file_path;
 use crate::safe_triangle::SafeTriangle;
 use crate::send_telemetry_from_app_ctx;
-use crate::terminal::cli_agent_sessions::listener::agent_supports_rich_status;
-use crate::terminal::cli_agent_sessions::CLIAgentSessionsModel;
-use crate::terminal::view::TerminalViewState;
 use crate::terminal::CLIAgent;
+#[cfg(not(feature = "oss_release"))]
+use crate::terminal::cli_agent_sessions::CLIAgentSession;
+#[cfg(not(feature = "oss_release"))]
+use crate::terminal::cli_agent_sessions::CLIAgentSessionsModel;
+#[cfg(not(feature = "oss_release"))]
+use crate::terminal::cli_agent_sessions::listener::agent_supports_rich_status;
+use crate::terminal::view::TerminalViewState;
 use crate::ui_components::agent_icon::terminal_view_agent_icon_variant;
-use crate::ui_components::icon_with_status::{render_icon_with_status, IconWithStatusVariant};
+use crate::ui_components::icon_with_status::{IconWithStatusVariant, render_icon_with_status};
 use crate::workspace::view::vertical_tabs::telemetry::{
     VerticalTabsChipEntrypoint, VerticalTabsTelemetryEvent,
 };
-use crate::FeatureFlag;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -23,16 +27,16 @@ use std::sync::{Arc, Mutex};
 use crate::appearance::Appearance;
 use crate::context_chips::display_chip::GitLineChanges;
 use crate::context_chips::github_pr_display_text_from_url;
-use crate::drive::{cloud_object_styling::warp_drive_icon_color, DriveObjectType};
+use crate::drive::{DriveObjectType, cloud_object_styling::warp_drive_icon_color};
 use crate::editor::EditorView;
-use crate::pane_group::pane::IPaneType;
 use crate::pane_group::TerminalPane;
+use crate::pane_group::pane::IPaneType;
 use crate::pane_group::{
     CodePane, NotebookPane, PaneGroup, PaneId, TabBarHoverIndex, WorkflowPane,
 };
-use crate::tab::{tab_position_id, SelectedTabColor, TabData};
-use crate::terminal::session_settings::SessionSettings;
+use crate::tab::{SelectedTabColor, TabData, tab_position_id};
 use crate::terminal::TerminalView;
+use crate::terminal::session_settings::SessionSettings;
 use crate::themes::theme::Fill as ThemeFill;
 use crate::ui_components::buttons::combo_inner_button;
 use crate::ui_components::icons::Icon as UiIcon;
@@ -53,26 +57,25 @@ use languages::language_by_filename;
 
 use pathfinder_color::ColorU;
 use pathfinder_geometry::rect::RectF;
-use pathfinder_geometry::vector::{vec2f, Vector2F};
+use pathfinder_geometry::vector::{Vector2F, vec2f};
 use settings::Setting as _;
 use std::path::{Path, PathBuf};
 use warp_core::context_flag::ContextFlag;
 use warp_core::telemetry::TelemetryEvent as _;
+use warp_core::ui::Icon as WarpIcon;
 use warp_core::ui::color::blend::Blend;
 use warp_core::ui::color::coloru_with_opacity;
 use warp_core::ui::theme::color::internal_colors;
 use warp_core::ui::theme::{AnsiColorIdentifier, Fill as WarpThemeFill, WarpTheme};
-use warp_core::ui::Icon as WarpIcon;
 use warpui::elements::DispatchEventResult;
 use warpui::elements::{
-    resizable_state_handle, Border, ChildAnchor, Clipped, ClippedScrollStateHandle,
-    ClippedScrollable, ConstrainedBox, Container, CornerRadius, CrossAxisAlignment, DragAxis,
-    DragBarSide, Draggable, DropShadow, DropTarget, Element, Empty, EventHandler, Expanded,
-    Fill as ElementFill, Flex, Hoverable, MainAxisAlignment, MainAxisSize, MouseStateHandle,
-    OffsetPositioning, Padding, ParentAnchor, ParentElement, ParentOffsetBounds,
-    PositionedElementAnchor, PositionedElementOffsetBounds, Radius, Resizable,
-    ResizableStateHandle, SavePosition, ScrollTarget, ScrollToPositionMode, ScrollbarWidth,
-    Shrinkable, Stack, Text,
+    Border, ChildAnchor, Clipped, ClippedScrollStateHandle, ClippedScrollable, ConstrainedBox,
+    Container, CornerRadius, CrossAxisAlignment, DragAxis, DragBarSide, Draggable, DropShadow,
+    DropTarget, Element, Empty, EventHandler, Expanded, Fill as ElementFill, Flex, Hoverable,
+    MainAxisAlignment, MainAxisSize, MouseStateHandle, OffsetPositioning, Padding, ParentAnchor,
+    ParentElement, ParentOffsetBounds, PositionedElementAnchor, PositionedElementOffsetBounds,
+    Radius, Resizable, ResizableStateHandle, SavePosition, ScrollTarget, ScrollToPositionMode,
+    ScrollbarWidth, Shrinkable, Stack, Text, resizable_state_handle,
 };
 use warpui::fonts::{Properties, Weight};
 use warpui::platform::Cursor;
@@ -1228,31 +1231,41 @@ fn render_detail_kind_badge_icon(
         TypedPane::Terminal(terminal_pane) => {
             let terminal_view = terminal_pane.terminal_view(app);
             let terminal_view = terminal_view.as_ref(app);
-            let cli_agent_session = CLIAgentSessionsModel::as_ref(app).session(terminal_view.id());
-            if let Some(icon) = cli_agent_session.and_then(|session| session.agent.icon()) {
-                let color = cli_agent_session
-                    .and_then(|session| session.agent.brand_color())
-                    .map(WarpThemeFill::Solid)
-                    .unwrap_or_else(|| theme.accent());
-                return icon.to_warpui_icon(color).finish();
+
+            #[cfg(feature = "oss_release")]
+            {
+                let _ = terminal_view;
+                return WarpIcon::Terminal.to_warpui_icon(disabled_text).finish();
             }
 
-            let icon = if terminal_view.is_ambient_agent_session(app) {
-                WarpIcon::OzCloud
-            } else if terminal_view
-                .selected_conversation_display_title(app)
-                .is_some()
+            #[cfg(not(feature = "oss_release"))]
             {
-                WarpIcon::Oz
-            } else {
-                WarpIcon::Terminal
-            };
-            let color = match icon {
-                WarpIcon::Oz | WarpIcon::OzCloud => oz_icon_fill(theme),
-                WarpIcon::Terminal => disabled_text,
-                _ => sub_text,
-            };
-            icon.to_warpui_icon(color).finish()
+                let cli_agent_session = cli_agent_session_for_terminal(terminal_view, app);
+                if let Some(icon) = cli_agent_session.and_then(|session| session.agent.icon()) {
+                    let color = cli_agent_session
+                        .and_then(|session| session.agent.brand_color())
+                        .map(WarpThemeFill::Solid)
+                        .unwrap_or_else(|| theme.accent());
+                    return icon.to_warpui_icon(color).finish();
+                }
+
+                let icon = if terminal_view.is_ambient_agent_session(app) {
+                    WarpIcon::OzCloud
+                } else if terminal_view
+                    .selected_conversation_display_title(app)
+                    .is_some()
+                {
+                    WarpIcon::Oz
+                } else {
+                    WarpIcon::Terminal
+                };
+                let color = match icon {
+                    WarpIcon::Oz | WarpIcon::OzCloud => oz_icon_fill(theme),
+                    WarpIcon::Terminal => disabled_text,
+                    _ => sub_text,
+                };
+                icon.to_warpui_icon(color).finish()
+            }
         }
         TypedPane::Code(_) => icon_from_file_path(&props.title, appearance)
             .unwrap_or_else(|| WarpIcon::Code2.to_warpui_icon(sub_text).finish()),
@@ -3026,8 +3039,14 @@ fn preferred_agent_tab_titles(
     (conversation_title, cli_agent_title)
 }
 
+#[cfg(feature = "oss_release")]
+fn terminal_agent_text(_terminal_view: &TerminalView, _app: &AppContext) -> TerminalAgentText {
+    TerminalAgentText::default()
+}
+
+#[cfg(not(feature = "oss_release"))]
 fn terminal_agent_text(terminal_view: &TerminalView, app: &AppContext) -> TerminalAgentText {
-    let cli_agent_session = CLIAgentSessionsModel::as_ref(app).session(terminal_view.id());
+    let cli_agent_session = cli_agent_session_for_terminal(terminal_view, app);
     let is_plugin_backed = cli_agent_session.is_some_and(|session| session.listener.is_some());
     let is_ambient_agent = terminal_view.is_ambient_agent_session(app);
 
@@ -3053,6 +3072,14 @@ fn terminal_agent_text(terminal_view: &TerminalView, app: &AppContext) -> Termin
     }
 
     agent_text
+}
+
+#[cfg(not(feature = "oss_release"))]
+fn cli_agent_session_for_terminal<'a>(
+    terminal_view: &TerminalView,
+    app: &'a AppContext,
+) -> Option<&'a CLIAgentSession> {
+    CLIAgentSessionsModel::as_ref(app).session(terminal_view.id())
 }
 
 fn terminal_pull_request_badge_label(pull_request_url: &str) -> String {
@@ -5338,13 +5365,18 @@ fn render_terminal_detail_section(
     let text_colors = detail_sidecar_text_colors(theme);
     let working_directory = terminal_view.display_working_directory(app);
     let git_branch = terminal_view.current_git_branch(app);
-    let cli_agent_session = CLIAgentSessionsModel::as_ref(app).session(terminal_view.id());
+    #[cfg(not(feature = "oss_release"))]
+    let cli_agent_session = cli_agent_session_for_terminal(terminal_view, app);
     let agent_text = terminal_agent_text(terminal_view, app);
     let (conversation_display_title, cli_agent_title) =
         preferred_agent_tab_titles(&agent_text, agent_tab_text_preference(app));
     let kind_label = terminal_kind_badge_label(agent_text.is_oz_agent, agent_text.cli_agent);
-    let status = if let Some(session) =
-        cli_agent_session.filter(|s| s.listener.is_some() && agent_supports_rich_status(&s.agent))
+
+    #[cfg(feature = "oss_release")]
+    let status: Option<ConversationStatus> = None;
+    #[cfg(not(feature = "oss_release"))]
+    let status = if let Some(session) = cli_agent_session
+        .filter(|s| s.listener.is_some() && { agent_supports_rich_status(&s.agent) })
     {
         Some(session.status.to_conversation_status())
     } else if agent_text.is_oz_agent {

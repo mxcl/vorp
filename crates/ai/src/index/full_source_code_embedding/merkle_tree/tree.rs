@@ -152,7 +152,7 @@ impl MerkleTree {
         };
 
         cfg_if! {
-            if #[cfg(not(target_family = "wasm"))] {
+            if #[cfg(feature = "local_fs")] {
                 let upsert_result = if tokio::runtime::Handle::try_current().is_ok() {
                     // `upsert_files` is expensive and can block a background thread for a while,
                     // so use `block_in_place` to tell tokio to move any tasks enqueued for this

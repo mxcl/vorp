@@ -9,30 +9,28 @@ use settings::Setting as _;
 use uuid::Uuid;
 use warp_core::channel::ChannelState;
 use warp_core::features::FeatureFlag;
-use warp_graphql::mutations::create_anonymous_user::{
-    AnonymousUserType, CreateAnonymousUserResult,
-};
 use warpui::{clipboard::ClipboardContent, Entity, ModelContext, SingletonEntity, UpdateModel};
 
 use super::auth_state::{AuthState, PersistAction};
 use super::auth_view_modal::{AuthRedirectPayload, AuthViewVariant};
 use super::credentials::{Credentials, FirebaseToken, LoginToken};
-use super::user::User;
+use super::user::{AnonymousUserType, User};
 use super::AuthStateProvider;
 use super::UserUid;
 use crate::ai::llms::LLMPreferences;
 use crate::ai::persisted_workspace::PersistedWorkspace;
 use crate::ai::AIRequestUsageModel;
 use crate::autoupdate::AutoupdateState;
+use crate::oauth2;
 use crate::persistence::ModelEvent;
 use crate::server::cloud_objects::update_manager::UpdateManager;
 use crate::server::server_api::auth::FetchUserResult;
 use crate::server::server_api::ServerApiProvider;
 use crate::server::{
-    graphql::get_user_facing_error_message,
     server_api::{
         auth::{
-            AnonymousUserCreationError, AuthClient, MintCustomTokenError, UserAuthenticationError,
+            AnonymousUserCreationError, AuthClient, CreateAnonymousUserResult,
+            MintCustomTokenError, UserAuthenticationError,
         },
         ServerApi,
     },
@@ -596,10 +594,8 @@ impl AuthManager {
         let custom_token = match response {
             Ok(response_data) => match response_data {
                 CreateAnonymousUserResult::CreateAnonymousUserOutput(output) => Ok(output.id_token),
-                CreateAnonymousUserResult::UserFacingError(user_facing_error) => {
-                    Err(AnonymousUserCreationError::UserFacingError(
-                        get_user_facing_error_message(user_facing_error),
-                    ))
+                CreateAnonymousUserResult::UserFacingError(message) => {
+                    Err(AnonymousUserCreationError::UserFacingError(message))
                 }
                 CreateAnonymousUserResult::Unknown => Err(AnonymousUserCreationError::Unknown),
             },

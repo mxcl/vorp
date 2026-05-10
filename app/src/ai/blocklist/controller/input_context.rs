@@ -31,7 +31,6 @@ use crate::{
         TerminalView,
     },
 };
-use warp_graphql::generic_string_object::GenericStringObjectFormat as GraphQLFormat;
 
 lazy_static! {
     // Regex to match <block:[block_id]> patterns
@@ -326,12 +325,11 @@ fn get_object_attachment_payload(
                 .and_then(|object| {
                     if let Some(ai_fact) = object.as_any().downcast_ref::<GenericCloudObject<GenericStringObjectId, CloudAIFactModel>>() {
                         let string_object = ai_fact as &dyn CloudStringObject;
-                        // Convert the format to GraphQL format since that's what the server expects
-                        let graphql_format: GraphQLFormat =
-                            string_object.generic_string_object_format().into();
                         Some(DriveObjectPayload::GenericStringObject {
                             payload: string_object.serialized().model_as_str().to_string(),
-                            object_type: graphql_format.to_string(),
+                            object_type: graphql_generic_string_object_format(
+                                string_object.generic_string_object_format(),
+                            ),
                         })
                     } else {
                         None
@@ -340,4 +338,32 @@ fn get_object_attachment_payload(
         }
         _ => None, // Other object types not supported for drive object attachments
     }
+}
+
+fn graphql_generic_string_object_format(format: GenericStringObjectFormat) -> String {
+    match format {
+        GenericStringObjectFormat::Json(JsonObjectType::EnvVarCollection) => {
+            "JsonEnvVarCollection"
+        }
+        GenericStringObjectFormat::Json(JsonObjectType::Preference) => "JsonPreference",
+        GenericStringObjectFormat::Json(JsonObjectType::WorkflowEnum) => "JsonWorkflowEnum",
+        GenericStringObjectFormat::Json(JsonObjectType::AIFact) => "JsonAIFact",
+        GenericStringObjectFormat::Json(JsonObjectType::MCPServer) => "JsonMCPServer",
+        GenericStringObjectFormat::Json(JsonObjectType::AIExecutionProfile) => {
+            "JsonAIExecutionProfile"
+        }
+        GenericStringObjectFormat::Json(JsonObjectType::TemplatableMCPServer) => {
+            "JsonTemplatableMCPServer"
+        }
+        GenericStringObjectFormat::Json(JsonObjectType::CloudEnvironment) => {
+            "JsonCloudEnvironment"
+        }
+        GenericStringObjectFormat::Json(JsonObjectType::ScheduledAmbientAgent) => {
+            "JsonScheduledAmbientAgent"
+        }
+        GenericStringObjectFormat::Json(JsonObjectType::CloudAgentConfig) => {
+            "JsonCloudAgentConfig"
+        }
+    }
+    .to_string()
 }

@@ -23,6 +23,7 @@ pub enum CommandPaletteItemAction {
     ExecuteWorkflow {
         id: SyncId,
     },
+    #[cfg(not(feature = "oss_release"))]
     OpenNotebook {
         id: SyncId,
     },
@@ -84,6 +85,7 @@ impl CommandPaletteItemAction {
             CommandPaletteItemAction::AcceptBinding { binding } => ItemSummary::Action {
                 binding_id: binding.id,
             },
+            #[cfg(not(feature = "oss_release"))]
             CommandPaletteItemAction::OpenNotebook { id } => ItemSummary::Notebook { id: *id },
             CommandPaletteItemAction::ExecuteWorkflow { id } => ItemSummary::Workflow { id: *id },
             CommandPaletteItemAction::InvokeEnvironmentVariables { id } => {
@@ -107,8 +109,8 @@ impl CommandPaletteItemAction {
                 ItemSummary::LaunchConfiguration
             }
             CommandPaletteItemAction::ViewInWarpDrive { id } => match id {
-                CloudObjectTypeAndId::Notebook(_)
-                | CloudObjectTypeAndId::Folder(_)
+                CloudObjectTypeAndId::Notebook(_) => ItemSummary::CloudObject,
+                CloudObjectTypeAndId::Folder(_)
                 | CloudObjectTypeAndId::GenericStringObject { .. } => ItemSummary::CloudObject,
                 CloudObjectTypeAndId::Workflow(id) => ItemSummary::Workflow { id: *id },
             },
@@ -163,6 +165,7 @@ pub enum ItemSummary {
     EnvVarCollection {
         id: SyncId,
     },
+    #[cfg(not(feature = "oss_release"))]
     Notebook {
         id: SyncId,
     },

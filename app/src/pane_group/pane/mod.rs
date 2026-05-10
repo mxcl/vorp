@@ -8,20 +8,45 @@
 //! The [`PaneContent`] interface requires implementers to maintain a [`PaneId`] for their pane.
 //! The [`PaneId`] must be created via a [`PaneView<BackingView>`]. The [`PaneId`] is consequently
 //! used to render a [`PaneView`] which internally renders the pane, including the [`BackingView`].
+#[cfg(not(feature = "oss_release"))]
 pub(super) mod ai_document_pane;
+#[cfg(feature = "oss_release")]
+#[path = "ai_document_pane_oss.rs"]
+pub(super) mod ai_document_pane;
+#[cfg(not(feature = "oss_release"))]
 pub(super) mod ai_fact_pane;
+#[cfg(feature = "oss_release")]
+#[path = "ai_fact_pane_oss.rs"]
+pub(super) mod ai_fact_pane;
+#[cfg(not(feature = "oss_release"))]
 pub(super) mod code_diff_pane;
+#[cfg(feature = "oss_release")]
+#[path = "code_diff_pane_oss.rs"]
+pub(super) mod code_diff_pane;
+#[cfg(not(feature = "oss_release"))]
 pub(super) mod code_diff_pane_model;
+#[cfg(not(feature = "oss_release"))]
+pub(super) mod code_pane;
+#[cfg(feature = "oss_release")]
+#[path = "code_pane_oss.rs"]
 pub(super) mod code_pane;
 pub(super) mod env_var_collection_pane;
 pub(crate) mod environment_management_pane;
 pub(super) mod execution_profile_editor_pane;
+#[cfg(not(feature = "oss_release"))]
+pub(super) mod file_pane;
+#[cfg(feature = "oss_release")]
+#[path = "file_pane_oss.rs"]
 pub(super) mod file_pane;
 pub(super) mod get_started_pane;
 pub(super) mod get_started_view;
 #[cfg(not(target_family = "wasm"))]
 pub(super) mod local_harness_launch;
 pub(super) mod network_log_pane;
+#[cfg(not(feature = "oss_release"))]
+pub(super) mod notebook_pane;
+#[cfg(feature = "oss_release")]
+#[path = "notebook_pane_oss.rs"]
 pub(super) mod notebook_pane;
 pub(super) mod settings_pane;
 pub(super) mod terminal_pane;
@@ -32,15 +57,17 @@ pub mod workflow_pane;
 
 use std::{any::Any, fmt::Display};
 
+#[cfg(not(feature = "oss_release"))]
+use crate::ai::ai_document_view::AIDocumentView;
+#[cfg(not(feature = "oss_release"))]
+use crate::ai::blocklist::inline_action::code_diff_view::CodeDiffView;
+#[cfg(not(feature = "oss_release"))]
+use crate::ai::facts::AIFactView;
 use crate::pane_group::focus_state::PaneFocusHandle;
 use crate::pane_group::pane::get_started_view::GetStartedView;
 use crate::view_components::action_button::ActionButton;
 use crate::{
     ai::execution_profiles::editor::ExecutionProfileEditorView,
-    ai::{
-        ai_document_view::AIDocumentView, blocklist::inline_action::code_diff_view::CodeDiffView,
-        facts::AIFactView,
-    },
     code::view::CodeView,
     drive::sharing::ShareableObject,
     env_vars::view::env_var_collection::EnvVarCollectionView,
@@ -190,6 +217,38 @@ impl PaneId {
         })
     }
 
+    #[cfg(feature = "oss_release")]
+    pub(super) fn oss_ai_fact_placeholder(pane_view_id: EntityId) -> Self {
+        Self(IPaneId {
+            pane_type: IPaneType::AIFact,
+            pane_view_id,
+        })
+    }
+
+    #[cfg(feature = "oss_release")]
+    pub(super) fn oss_ai_document_placeholder(pane_view_id: EntityId) -> Self {
+        Self(IPaneId {
+            pane_type: IPaneType::AIDocument,
+            pane_view_id,
+        })
+    }
+
+    #[cfg(feature = "oss_release")]
+    pub(super) fn oss_code_diff_placeholder(pane_view_id: EntityId) -> Self {
+        Self(IPaneId {
+            pane_type: IPaneType::CodeDiff,
+            pane_view_id,
+        })
+    }
+
+    #[cfg(feature = "oss_release")]
+    pub(super) fn oss_code_placeholder(pane_view_id: EntityId) -> Self {
+        Self(IPaneId {
+            pane_type: IPaneType::Code,
+            pane_view_id,
+        })
+    }
+
     fn new_from_ctx<T: BackingView>(pane_type: IPaneType, ctx: &ViewContext<PaneView<T>>) -> Self {
         Self(IPaneId {
             pane_type,
@@ -232,11 +291,13 @@ impl PaneId {
     }
 
     /// Creates a [`PaneId`] from a [`ViewContext<PaneView<TextView>>`]
+    #[cfg(not(feature = "oss_release"))]
     pub fn from_code_pane_ctx(ctx: &ViewContext<PaneView<CodeView>>) -> Self {
         Self::new_from_ctx(IPaneType::Code, ctx)
     }
 
     /// Creates a [`PaneId`] from a [`ViewContext<PaneView<CodeDiffView>>`]
+    #[cfg(not(feature = "oss_release"))]
     pub fn from_code_diff_pane_ctx(ctx: &ViewContext<PaneView<CodeDiffView>>) -> Self {
         Self::new_from_ctx(IPaneType::CodeDiff, ctx)
     }
@@ -247,11 +308,13 @@ impl PaneId {
     }
 
     /// Creates a [`PaneId`] from a [`ViewContext<PaneView<AIFactView>>`]
+    #[cfg(not(feature = "oss_release"))]
     pub fn from_ai_fact_pane_ctx(ctx: &ViewContext<PaneView<AIFactView>>) -> Self {
         Self::new_from_ctx(IPaneType::AIFact, ctx)
     }
 
     /// Creates a [`PaneId`] from a [`ViewContext<PaneView<AIDocumentView>>`]
+    #[cfg(not(feature = "oss_release"))]
     pub fn from_ai_document_pane_ctx(ctx: &ViewContext<PaneView<AIDocumentView>>) -> Self {
         Self::new_from_ctx(IPaneType::AIDocument, ctx)
     }
@@ -296,11 +359,13 @@ impl PaneId {
     }
 
     /// Creates a [`PaneId`] from a [`PaneView<TextView>`] entity ID.
+    #[cfg(not(feature = "oss_release"))]
     pub fn from_code_pane_view(code_pane_view: &ViewHandle<PaneView<CodeView>>) -> Self {
         Self::new(IPaneType::Code, code_pane_view)
     }
 
     /// Creates a [`PaneId`] from a [`PaneView<CodeDiffView>`] entity ID.
+    #[cfg(not(feature = "oss_release"))]
     pub fn from_code_diff_pane_view(
         code_diff_pane_view: &ViewHandle<PaneView<CodeDiffView>>,
     ) -> Self {
@@ -339,11 +404,13 @@ impl PaneId {
     }
 
     /// Creates a [`PaneId`] from a [`PaneView<AIFactView>`] entity ID.
+    #[cfg(not(feature = "oss_release"))]
     pub fn from_ai_fact_pane_view(ai_fact_pane_view: &ViewHandle<PaneView<AIFactView>>) -> Self {
         Self::new(IPaneType::AIFact, ai_fact_pane_view)
     }
 
     /// Creates a [`PaneId`] from a [`PaneView<AIDocumentView>`] entity ID.
+    #[cfg(not(feature = "oss_release"))]
     pub fn from_ai_document_pane_view(
         ai_document_pane_view: &ViewHandle<PaneView<AIDocumentView>>,
     ) -> Self {
@@ -459,10 +526,26 @@ impl PaneId {
                 ChildView::<PaneView<FileNotebookView>>::with_id(self.0.pane_view_id).finish()
             }
             IPaneType::Code => {
-                ChildView::<PaneView<CodeView>>::with_id(self.0.pane_view_id).finish()
+                #[cfg(feature = "oss_release")]
+                {
+                    warpui::elements::Empty::new().finish()
+                }
+
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    ChildView::<PaneView<CodeView>>::with_id(self.0.pane_view_id).finish()
+                }
             }
             IPaneType::CodeDiff => {
-                ChildView::<PaneView<CodeDiffView>>::with_id(self.0.pane_view_id).finish()
+                #[cfg(feature = "oss_release")]
+                {
+                    warpui::elements::Empty::new().finish()
+                }
+
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    ChildView::<PaneView<CodeDiffView>>::with_id(self.0.pane_view_id).finish()
+                }
             }
             IPaneType::EnvVarCollection => {
                 ChildView::<PaneView<EnvVarCollectionView>>::with_id(self.0.pane_view_id).finish()
@@ -477,10 +560,26 @@ impl PaneId {
                 ChildView::<PaneView<SettingsView>>::with_id(self.0.pane_view_id).finish()
             }
             IPaneType::AIFact => {
-                ChildView::<PaneView<AIFactView>>::with_id(self.0.pane_view_id).finish()
+                #[cfg(feature = "oss_release")]
+                {
+                    warpui::elements::Empty::new().finish()
+                }
+
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    ChildView::<PaneView<AIFactView>>::with_id(self.0.pane_view_id).finish()
+                }
             }
             IPaneType::AIDocument => {
-                ChildView::<PaneView<AIDocumentView>>::with_id(self.0.pane_view_id).finish()
+                #[cfg(feature = "oss_release")]
+                {
+                    warpui::elements::Empty::new().finish()
+                }
+
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    ChildView::<PaneView<AIDocumentView>>::with_id(self.0.pane_view_id).finish()
+                }
             }
             IPaneType::ExecutionProfileEditor => {
                 ChildView::<PaneView<ExecutionProfileEditorView>>::with_id(self.0.pane_view_id)

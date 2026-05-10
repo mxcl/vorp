@@ -290,6 +290,12 @@ pub enum CodeReviewTelemetryEvent {
 }
 
 impl TelemetryEvent for CodeReviewTelemetryEvent {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         CodeReviewTelemetryEventDiscriminants::from(self).name()
     }
@@ -391,6 +397,12 @@ impl TelemetryEvent for CodeReviewTelemetryEvent {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         CodeReviewTelemetryEventDiscriminants::from(self).description()
     }
@@ -403,6 +415,12 @@ impl TelemetryEvent for CodeReviewTelemetryEvent {
         CodeReviewTelemetryEventDiscriminants::from(self).contains_ugc()
     }
 
+    #[cfg(feature = "oss_release")]
+    fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
+        std::iter::empty()
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
         warp_core::telemetry::enum_events::<Self>()
     }
@@ -415,6 +433,12 @@ impl CodeReviewTelemetryEventDiscriminants {
 }
 
 impl TelemetryEventDesc for CodeReviewTelemetryEventDiscriminants {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         match self {
             Self::PaneOpened => "CodeReview.PaneOpened",
@@ -444,6 +468,12 @@ impl TelemetryEventDesc for CodeReviewTelemetryEventDiscriminants {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         match self {
             Self::PaneOpened => "Code review pane opened",

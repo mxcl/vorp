@@ -367,15 +367,19 @@ impl Input {
 
         // Handle the slash command action based on its kind
         match command.name {
+            #[cfg(not(feature = "oss_release"))]
             add_mcp if command.name == commands::ADD_MCP.name => {
                 ctx.dispatch_typed_action(&TerminalAction::OpenAddMCPPane);
             }
+            #[cfg(not(feature = "oss_release"))]
             add_prompt if command.name == commands::ADD_PROMPT.name => {
                 ctx.dispatch_typed_action(&TerminalAction::OpenAddPromptPane);
             }
+            #[cfg(not(feature = "oss_release"))]
             add_rule if command.name == commands::ADD_RULE.name => {
                 ctx.dispatch_typed_action(&TerminalAction::OpenAddRulePane);
             }
+            #[cfg(not(feature = "oss_release"))]
             agent_or_new
                 if command.name == commands::NEW.name || command.name == commands::AGENT.name =>
             {
@@ -431,6 +435,7 @@ impl Input {
                     origin: AgentViewEntryOrigin::SlashCommand { trigger },
                 });
             }
+            #[cfg(not(feature = "oss_release"))]
             cloud_agent if command.name == commands::CLOUD_AGENT.name => {
                 let prompt = argument.and_then(|argument| {
                     let trimmed = argument.trim();
@@ -445,9 +450,11 @@ impl Input {
                     initial_prompt: prompt,
                 });
             }
+            #[cfg(not(feature = "oss_release"))]
             create_docker_sandbox if command.name == commands::CREATE_DOCKER_SANDBOX.name => {
                 ctx.emit(Event::CreateDockerSandbox);
             }
+            #[cfg(not(feature = "oss_release"))]
             conversations if command.name == commands::CONVERSATIONS.name => {
                 if self.is_cloud_mode_input_v2_composing(ctx) {
                     self.suggestions_mode_model.update(ctx, |model, ctx| {
@@ -529,6 +536,7 @@ impl Input {
 
                 ctx.dispatch_typed_action(&WorkspaceAction::SetActiveTabColor(color));
             }
+            #[cfg(not(feature = "oss_release"))]
             create_env if command.name == commands::CREATE_ENVIRONMENT.name => {
                 // If the user included args after the slash command, treat them as repo paths/URLs.
                 let repos = argument
@@ -542,6 +550,7 @@ impl Input {
 
                 ctx.emit(Event::TriggerEnvironmentSetup { repos });
             }
+            #[cfg(not(feature = "oss_release"))]
             create_project if command.name == commands::CREATE_NEW_PROJECT.name => {
                 if argument.is_none_or(|args| args.is_empty()) {
                     show_error_toast(
@@ -555,6 +564,7 @@ impl Input {
                 let args = argument.expect("args are Some()");
                 self.initiate_create_new_project(args.to_owned(), ctx);
             }
+            #[cfg(not(feature = "oss_release"))]
             edit if command.name == commands::EDIT.name => {
                 #[cfg(feature = "local_fs")]
                 match argument {
@@ -639,6 +649,7 @@ impl Input {
                     return true;
                 }
             }
+            #[cfg(not(feature = "oss_release"))]
             export_to_clipboard if command.name == commands::EXPORT_TO_CLIPBOARD.name => {
                 let history = BlocklistAIHistoryModel::handle(ctx);
                 let Some(conversation) = history
@@ -664,6 +675,7 @@ impl Input {
                     toast_stack.add_ephemeral_toast(toast, window_id, ctx);
                 });
             }
+            #[cfg(not(feature = "oss_release"))]
             export_to_file if command.name == commands::EXPORT_TO_FILE.name => {
                 #[cfg(not(target_family = "wasm"))]
                 {
@@ -681,9 +693,11 @@ impl Input {
                     return true;
                 }
             }
+            #[cfg(not(feature = "oss_release"))]
             index if command.name == commands::INDEX.name => {
                 ctx.dispatch_typed_action(&TerminalAction::IndexProjectSpeedbump);
             }
+            #[cfg(not(feature = "oss_release"))]
             init if command.name == commands::INIT.name => {
                 ctx.dispatch_typed_action(&TerminalAction::InitProject);
             }
@@ -696,11 +710,13 @@ impl Input {
             feedback if command.name == commands::FEEDBACK.name => {
                 ctx.dispatch_typed_action(&WorkspaceAction::SendFeedback);
             }
+            #[cfg(not(feature = "oss_release"))]
             open_code_review if command.name == commands::OPEN_CODE_REVIEW.name => {
                 ctx.dispatch_typed_action(&TerminalAction::ToggleCodeReviewPane {
                     entrypoint: CodeReviewPaneEntrypoint::SlashCommand,
                 });
             }
+            #[cfg(not(feature = "oss_release"))]
             open_mcp_servers if command.name == commands::OPEN_MCP_SERVERS.name => {
                 ctx.dispatch_typed_action(&TerminalAction::OpenViewMCPPane);
             }
@@ -710,12 +726,15 @@ impl Input {
                 }
                 ctx.dispatch_typed_action(&WorkspaceAction::OpenSettingsFile);
             }
+            #[cfg(not(feature = "oss_release"))]
             open_project_rules if command.name == commands::OPEN_PROJECT_RULES.name => {
                 ctx.dispatch_typed_action(&TerminalAction::OpenProjectRulesPane);
             }
+            #[cfg(not(feature = "oss_release"))]
             open_rules if command.name == commands::OPEN_RULES.name => {
                 ctx.dispatch_typed_action(&TerminalAction::OpenRulesPane);
             }
+            #[cfg(not(feature = "oss_release"))]
             edit_skill if command.name == commands::EDIT_SKILL.name => {
                 if !FeatureFlag::ListSkills.is_enabled() {
                     return false;
@@ -723,6 +742,7 @@ impl Input {
                 // Open the skill selector menu - user will select a skill from the inline menu
                 self.open_skill_selector(ctx);
             }
+            #[cfg(not(feature = "oss_release"))]
             invoke_skill if command.name == commands::INVOKE_SKILL.name => {
                 if !FeatureFlag::ListSkills.is_enabled() {
                     return false;
@@ -734,6 +754,7 @@ impl Input {
                 // Open the skill selector menu for invocation - skill command will be inserted into buffer
                 self.open_invoke_skill_selector(ctx);
             }
+            #[cfg(not(feature = "oss_release"))]
             host if command.name == commands::HOST.name => {
                 if !self.is_cloud_mode_input_v2_composing(ctx) {
                     return false;
@@ -752,6 +773,7 @@ impl Input {
                 self.open_v2_host_selector(ctx);
                 return true;
             }
+            #[cfg(not(feature = "oss_release"))]
             harness if command.name == commands::HARNESS.name => {
                 if !self.is_cloud_mode_input_v2_composing(ctx) {
                     // Defensive: the command is registered only when the V2 flag is on and its
@@ -765,6 +787,7 @@ impl Input {
                 self.open_v2_harness_selector(ctx);
                 return true;
             }
+            #[cfg(not(feature = "oss_release"))]
             environment if command.name == commands::ENVIRONMENT.name => {
                 if !self.is_cloud_mode_input_v2_composing(ctx) {
                     return false;
@@ -776,6 +799,7 @@ impl Input {
                 self.open_v2_environment_selector(ctx);
                 return true;
             }
+            #[cfg(not(feature = "oss_release"))]
             models if command.name == commands::MODEL.name => {
                 if self.is_cloud_mode_input_v2_composing(ctx) {
                     self.suggestions_mode_model.update(ctx, |model, ctx| {
@@ -790,6 +814,7 @@ impl Input {
                     self.open_model_selector(ctx);
                 }
             }
+            #[cfg(not(feature = "oss_release"))]
             profiles if command.name == commands::PROFILE.name => {
                 if !FeatureFlag::InlineProfileSelector.is_enabled() {
                     return false;
@@ -797,6 +822,7 @@ impl Input {
 
                 self.open_profile_selector(ctx);
             }
+            #[cfg(not(feature = "oss_release"))]
             prompts if command.name == commands::PROMPTS.name => {
                 if self.is_cloud_mode_input_v2_composing(ctx) {
                     self.apply_v2_slash_section_filter(CloudModeV2Section::Prompts, ctx);
@@ -808,9 +834,11 @@ impl Input {
                     return false;
                 }
             }
+            #[cfg(not(feature = "oss_release"))]
             rewind if command.name == commands::REWIND.name => {
                 self.open_rewind_menu(ctx);
             }
+            #[cfg(not(feature = "oss_release"))]
             pr_comments if command.name == commands::PR_COMMENTS.name => {
                 if !FeatureFlag::PRCommentsSlashCommand.is_enabled() {
                     return false;
@@ -832,9 +860,11 @@ impl Input {
                     )
                 });
             }
+            #[cfg(not(feature = "oss_release"))]
             usage if command.name == commands::USAGE.name => {
                 ctx.dispatch_typed_action(&TerminalAction::OpenBillingAndUsagePane);
             }
+            #[cfg(not(feature = "oss_release"))]
             remote_control if command.name == commands::REMOTE_CONTROL.name => {
                 if !FeatureFlag::CreatingSharedSessions.is_enabled()
                     || !FeatureFlag::HOARemoteControl.is_enabled()
@@ -852,6 +882,7 @@ impl Input {
                 }
                 ctx.emit(Event::StartRemoteControl);
             }
+            #[cfg(not(feature = "oss_release"))]
             cost if command.name == commands::COST.name => {
                 let history = BlocklistAIHistoryModel::handle(ctx);
                 let conversation = history
@@ -876,7 +907,11 @@ impl Input {
                     ctx.dispatch_typed_action(&TerminalAction::ToggleUsageFooter);
                 }
             }
-            #[cfg(all(feature = "local_fs", not(target_family = "wasm")))]
+            #[cfg(all(
+                feature = "local_fs",
+                not(target_family = "wasm"),
+                not(feature = "oss_release")
+            ))]
             move_to_cloud if command.name == commands::MOVE_TO_CLOUD.name => {
                 if !FeatureFlag::OzHandoff.is_enabled()
                     || !FeatureFlag::HandoffLocalCloud.is_enabled()
@@ -891,6 +926,7 @@ impl Input {
                     initial_prompt: argument.cloned().filter(|s| !s.is_empty()),
                 });
             }
+            #[cfg(not(feature = "oss_release"))]
             fork if command.name == commands::FORK.name => {
                 let Some(conversation_id) = self
                     .ai_context_model
@@ -916,11 +952,12 @@ impl Input {
                     destination,
                 });
             }
+            #[cfg(not(feature = "oss_release"))]
             fork_from if command.name == commands::FORK_FROM.name => {
                 self.open_user_query_menu(UserQueryMenuAction::ForkFrom, ctx);
                 return true;
             }
-            #[cfg(not(target_family = "wasm"))]
+            #[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
             continue_locally if command.name == commands::CONTINUE_LOCALLY.name => {
                 let Some(conversation_id) = self
                     .ai_context_model
@@ -962,6 +999,7 @@ impl Input {
                     destination,
                 });
             }
+            #[cfg(not(feature = "oss_release"))]
             fork_and_compact if command.name == commands::FORK_AND_COMPACT.name => {
                 let Some(conversation_id) = self
                     .ai_context_model
@@ -990,6 +1028,7 @@ impl Input {
                     destination,
                 });
             }
+            #[cfg(not(feature = "oss_release"))]
             compact_and if command.name == commands::COMPACT_AND.name => {
                 if self
                     .ai_context_model
@@ -1009,6 +1048,7 @@ impl Input {
                     initial_prompt: argument.cloned(),
                 });
             }
+            #[cfg(not(feature = "oss_release"))]
             queue if command.name == commands::QUEUE.name => {
                 let Some(conversation_id) = self
                     .ai_context_model
@@ -1038,12 +1078,14 @@ impl Input {
                     self.submit_queued_prompt(prompt, ctx);
                 }
             }
+            #[cfg(not(feature = "oss_release"))]
             open_repo if command.name == commands::OPEN_REPO.name => {
                 if !FeatureFlag::InlineRepoMenu.is_enabled() {
                     return false;
                 }
                 self.open_repos_menu(ctx);
             }
+            #[cfg(not(feature = "oss_release"))]
             command_that_just_sends_ai_request_with_prefix
                 if command.name == commands::COMPACT.name
                     || command.name == commands::PLAN.name

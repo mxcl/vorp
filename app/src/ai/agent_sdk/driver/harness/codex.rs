@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
+use crate::warp_managed_secrets::ManagedSecretValue;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use parking_lot::Mutex;
@@ -11,7 +12,6 @@ use serde_json::{Map, Value};
 use tempfile::NamedTempFile;
 use uuid::Uuid;
 use warp_cli::agent::Harness;
-use warp_managed_secrets::ManagedSecretValue;
 use warpui::{ModelHandle, ModelSpawner, SingletonEntity};
 
 use crate::ai::agent::conversation::AIConversationId;

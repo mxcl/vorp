@@ -1,7 +1,7 @@
 //! Onboarding-specific AI types and conversions.
 
-use ai::LLMId;
 use onboarding::slides::OnboardingModelInfo;
+use onboarding::LLMId as OnboardingLLMId;
 use onboarding::OnboardingAuthState;
 use warp_core::ui::icons::Icon;
 use warpui::{AppContext, SingletonEntity};
@@ -19,7 +19,7 @@ const AUTO_COST_EFFICIENT_LLM_ID: &str = "auto-efficient";
 impl From<&LLMInfo> for OnboardingModelInfo {
     fn from(llm: &LLMInfo) -> Self {
         Self {
-            id: llm.id.clone(),
+            id: OnboardingLLMId::from(llm.id.as_str()),
             title: llm.display_name.clone(),
             icon: llm.provider.icon().unwrap_or(Icon::Oz),
             requires_upgrade: matches!(llm.disable_reason, Some(DisableReason::RequiresUpgrade)),
@@ -28,30 +28,32 @@ impl From<&LLMInfo> for OnboardingModelInfo {
     }
 }
 
-pub fn build_onboarding_models(prefs: &LLMPreferences) -> (Vec<OnboardingModelInfo>, LLMId) {
+pub fn build_onboarding_models(
+    prefs: &LLMPreferences,
+) -> (Vec<OnboardingModelInfo>, OnboardingLLMId) {
     let default_id = prefs.get_default_base_model().id.clone();
     let models: Vec<OnboardingModelInfo> = prefs
         .get_base_llm_choices_for_agent_mode()
         .map(|llm| {
             let mut info = OnboardingModelInfo::from(llm);
-            info.is_default = info.id == default_id;
+            info.is_default = info.id.as_str() == default_id.as_str();
             info
         })
         .collect();
-    (models, default_id)
+    (models, OnboardingLLMId::from(default_id.as_str()))
 }
 
 pub fn apply_free_tier_default_model_override(
     models: &mut [OnboardingModelInfo],
-    server_default_id: LLMId,
+    server_default_id: OnboardingLLMId,
     ctx: &mut AppContext,
-) -> LLMId {
+) -> OnboardingLLMId {
     // server only gives back cost-efficient as a default if you're on a free or no plan
     // if you ARE on some sort of plan... we should respect what the server says
-    if server_default_id != LLMId::from(AUTO_COST_EFFICIENT_LLM_ID) {
+    if server_default_id.as_str() != AUTO_COST_EFFICIENT_LLM_ID {
         return server_default_id;
     }
-    let auto_open_id = LLMId::from(AUTO_OPEN_LLM_ID);
+    let auto_open_id = OnboardingLLMId::from(AUTO_OPEN_LLM_ID);
     let auto_open_available = models.iter().any(|m| m.id == auto_open_id);
     if !auto_open_available || !FreeTierDefaultModel::should_default_to_auto_open(ctx) {
         return server_default_id;

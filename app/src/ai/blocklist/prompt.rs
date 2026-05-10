@@ -10,7 +10,15 @@ use crate::util::color::coloru_with_opacity;
 use crate::view_components::action_button::{ActionButtonTheme, NakedTheme};
 use crate::Appearance;
 
+#[cfg(not(feature = "oss_release"))]
 pub mod plan_and_todo_list;
+#[cfg(feature = "oss_release")]
+#[path = "prompt/plan_and_todo_list_oss.rs"]
+pub mod plan_and_todo_list;
+#[cfg(not(feature = "oss_release"))]
+pub mod prompt_alert;
+#[cfg(feature = "oss_release")]
+#[path = "prompt/prompt_alert_oss.rs"]
 pub mod prompt_alert;
 
 const BLURRED_OPACITY: u8 = 50;

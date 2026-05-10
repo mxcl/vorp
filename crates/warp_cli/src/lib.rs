@@ -90,7 +90,9 @@ pub struct GlobalOptions {
 
 /// Command-line argument parser for the main Warp binary. This is used across all channels.
 #[derive(Debug, Default, Parser, Clone)]
-#[command(
+#[cfg_attr(
+    not(feature = "oss_release"),
+    command(
     name = "oz",
     display_name = "Oz",
     about = r#"The orchestration platform for cloud agents
@@ -101,6 +103,11 @@ Use the CLI to:
 * Schedule cloud agents to run in the future
 * Manage the environments that cloud agents run in
 * Upload secrets to Oz's secure storage"#
+    )
+)]
+#[cfg_attr(
+    feature = "oss_release",
+    command(name = "warp", display_name = "Warp", about = "Warp terminal")
 )]
 #[clap(args_conflicts_with_subcommands = true)]
 pub struct Args {
@@ -356,8 +363,10 @@ impl Args {
         // Substitute the actual binary name into help output. Ideally clap would do this for us.
         let bin_name =
             binary_name().unwrap_or_else(|| ChannelState::channel().cli_command_name().to_string());
-        command = command.after_help(color_print::cformat!(
-            r#"<bold><underline>Examples:</underline></bold>
+        #[cfg(not(feature = "oss_release"))]
+        {
+            command = command.after_help(color_print::cformat!(
+                r#"<bold><underline>Examples:</underline></bold>
 
   <dim>$</dim> <bold>{bin_name} agent run --prompt "Build anything"</bold>
 
@@ -367,7 +376,21 @@ impl Args {
 * Use <bold>{bin_name} help</bold> to learn more about each command
 * Read the documentation at https://docs.warp.dev/reference/cli
 "#
-        ));
+            ));
+        }
+
+        #[cfg(feature = "oss_release")]
+        {
+            command = command.after_help(color_print::cformat!(
+                r#"<bold><underline>Examples:</underline></bold>
+
+  <dim>$</dim> <bold>{bin_name}</bold>
+
+<bold><underline>Learn more:</underline></bold>
+* Use <bold>{bin_name} help</bold> to learn more about each command
+"#
+            ));
+        }
 
         command
     }
@@ -544,6 +567,7 @@ pub enum Command {
     Worker(WorkerCommand),
 
     /// Commands that make up the Warp CLI.
+    #[cfg(not(feature = "oss_release"))]
     #[clap(flatten)]
     CommandLine(Box<CliCommand>),
 
@@ -585,7 +609,9 @@ impl Command {
     pub fn prints_to_stdout(&self) -> bool {
         match self {
             Command::Worker(_) => false,
-            Command::CommandLine(_) | Command::DumpDebugInfo => true,
+            #[cfg(not(feature = "oss_release"))]
+            Command::CommandLine(_) => true,
+            Command::DumpDebugInfo => true,
             Command::Completions { .. } => true,
             #[cfg(not(target_family = "wasm"))]
             Command::PrintTelemetryEvents => true,

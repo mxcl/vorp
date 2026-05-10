@@ -51,6 +51,10 @@ use crate::{
     ObjectActions,
 };
 
+#[cfg(not(feature = "oss_release"))]
+use super::items::ai_fact_collection::WarpDriveAIFactCollection;
+#[cfg(not(feature = "oss_release"))]
+use super::items::mcp_server_collection::WarpDriveMCPServerCollection;
 use super::{
     cloud_object_naming_dialog::CloudObjectNamingDialog,
     drive_helpers::{
@@ -61,9 +65,7 @@ use super::{
     empty_trash_confirmation_dialog::{EmptyTrashConfirmationDialog, EmptyTrashConfirmationEvent},
     folders::CloudFolder,
     items::{
-        ai_fact_collection::WarpDriveAIFactCollection,
         item::{tools_panel_menu_direction, ItemStates, WarpDriveRow},
-        mcp_server_collection::WarpDriveMCPServerCollection,
         WarpDriveItemId,
     },
     settings::WarpDriveSettings,
@@ -240,7 +242,8 @@ pub enum DriveIndexSection {
     JoinTeam,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[cfg_attr(not(feature = "oss_release"), derive(Debug))]
 pub enum DriveIndexAction {
     OpenObject(CloudObjectTypeAndId),
     OpenWorkflowInPane {
@@ -368,6 +371,13 @@ pub enum DriveIndexAction {
     DismissPersonalObjectLimits,
     SetCurrentWorkspace(WorkspaceUid),
     AttachPlanAsContext(AIDocumentId),
+}
+
+#[cfg(feature = "oss_release")]
+impl std::fmt::Debug for DriveIndexAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("DriveIndexAction")
+    }
 }
 
 impl DriveIndexAction {
@@ -565,12 +575,16 @@ pub struct DriveIndex {
 
     /// Drive item to represent collection of AI facts.
     /// Special-cased to always render at the top of the Personal space section.
+    #[cfg(not(feature = "oss_release"))]
     ai_fact_collection: WarpDriveAIFactCollection,
+    #[cfg(not(feature = "oss_release"))]
     ai_fact_collection_item_mouse_states: ItemStates,
 
     /// Drive item to represent collection of MCP servers.
     /// Special-cased to always render at the top of the Personal space section.
+    #[cfg(not(feature = "oss_release"))]
     mcp_server_collection: WarpDriveMCPServerCollection,
+    #[cfg(not(feature = "oss_release"))]
     mcp_server_collection_item_mouse_states: ItemStates,
 }
 
@@ -779,7 +793,9 @@ impl DriveIndex {
         let mut items = vec![];
         // Add the AI fact collection object + MCP server collection object for personal space
         if matches!(location, CloudObjectLocation::Space(Space::Personal)) {
+            #[cfg(not(feature = "oss_release"))]
             items.push(self.mcp_server_collection.id().to_string());
+            #[cfg(not(feature = "oss_release"))]
             items.push(self.ai_fact_collection.id().to_string());
         }
 
@@ -846,12 +862,14 @@ impl DriveIndex {
                     if !section_state.collapsed {
                         // Add AI fact collection object + MCP server collection object for personal space
                         if matches!(space, Space::Personal) {
+                            #[cfg(not(feature = "oss_release"))]
                             if FeatureFlag::McpServer.is_enabled()
                                 && ContextFlag::ShowMCPServers.is_enabled()
                             {
                                 self.ordered_items
                                     .push(WarpDriveItemId::MCPServerCollection);
                             }
+                            #[cfg(not(feature = "oss_release"))]
                             self.ordered_items.push(WarpDriveItemId::AIFactCollection);
                         }
                         // Sort and add the rest of the items in the space
@@ -999,7 +1017,9 @@ impl DriveIndex {
             dropdown
         });
 
+        #[cfg(not(feature = "oss_release"))]
         let ai_fact_collection = WarpDriveAIFactCollection::new(ClientId::default());
+        #[cfg(not(feature = "oss_release"))]
         let mcp_server_collection = WarpDriveMCPServerCollection::new(ClientId::default());
 
         Self {
@@ -1031,9 +1051,13 @@ impl DriveIndex {
             share_dialog_open_for_object: None,
             should_show_personal_object_limit_status: true,
             workspace_dropdown,
+            #[cfg(not(feature = "oss_release"))]
             ai_fact_collection,
+            #[cfg(not(feature = "oss_release"))]
             ai_fact_collection_item_mouse_states: Default::default(),
+            #[cfg(not(feature = "oss_release"))]
             mcp_server_collection,
+            #[cfg(not(feature = "oss_release"))]
             mcp_server_collection_item_mouse_states: Default::default(),
         }
     }
@@ -1888,6 +1912,7 @@ impl DriveIndex {
         .finish()
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn render_ai_fact_collection_item(
         &self,
         space: Space,
@@ -1924,6 +1949,7 @@ impl DriveIndex {
         Some(row.build().finish())
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn render_mcp_server_collection_item(
         &self,
         space: Space,
@@ -2312,6 +2338,7 @@ impl DriveIndex {
                         if matches!(space, Space::Personal)
                             && matches!(self.index_variant, DriveIndexVariant::MainIndex)
                         {
+                            #[cfg(not(feature = "oss_release"))]
                             if FeatureFlag::McpServer.is_enabled()
                                 && ContextFlag::ShowMCPServers.is_enabled()
                             {
@@ -2321,10 +2348,13 @@ impl DriveIndex {
                                     rendered_space.push(mcp_server_collection_item);
                                 }
                             }
-                            if let Some(ai_fact_collection_item) =
-                                self.render_ai_fact_collection_item(space, appearance, app)
+                            #[cfg(not(feature = "oss_release"))]
                             {
-                                rendered_space.push(ai_fact_collection_item);
+                                if let Some(ai_fact_collection_item) =
+                                    self.render_ai_fact_collection_item(space, appearance, app)
+                                {
+                                    rendered_space.push(ai_fact_collection_item);
+                                }
                             }
                         }
 
@@ -5395,19 +5425,19 @@ impl TypedActionView for DriveIndex {
                         ctx.focus(&self.cloud_object_naming_dialog.title_editor);
                     }
                     DriveObjectType::Workflow | DriveObjectType::AgentModeWorkflow => {
-                        log::error!(
-                            "Use DriveIndexAction::OpenWorkflowModal to open the modal instead"
-                        )
+                        log::error!("Use the dedicated workflow action to open the modal instead")
                     }
                     DriveObjectType::EnvVarCollection => {
-                        log::error!("Creation of EnvVarCollections is not yet supported")
+                        log::error!(
+                            "Creation of environment variable collections is not yet supported"
+                        )
                     }
                     DriveObjectType::AIFact | DriveObjectType::AIFactCollection => {
-                        log::error!("Use DriveIndexAction::OpenAIFactCollection to open the pane view instead");
+                        log::error!("Use the dedicated rules action to open the pane view instead");
                     }
                     DriveObjectType::MCPServer | DriveObjectType::MCPServerCollection => {
                         log::error!(
-                            "Use DriveIndexAction::OpenMCPServerCollection to open the pane view instead"
+                            "Use the dedicated server action to open the pane view instead"
                         );
                     }
                 }

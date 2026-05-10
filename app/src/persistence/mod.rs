@@ -30,7 +30,7 @@ use chrono::{DateTime, Local, Utc};
 use lsp::supported_servers::LSPServerType;
 use uuid::Uuid;
 use warp_core::command::ExitCode;
-use warp_graphql::scalars::time::ServerTimestamp;
+use crate::server::timestamp::ServerTimestamp;
 use warp_multi_agent_api as api;
 use warpui::{AppContext, Entity, SingletonEntity};
 

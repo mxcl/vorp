@@ -73,26 +73,61 @@ use warpui::{
 };
 
 mod admin_actions;
+#[cfg(not(feature = "oss_release"))]
 mod agent_assisted_environment_modal;
+#[cfg(not(feature = "oss_release"))]
 mod ai_page;
+#[cfg(feature = "oss_release")]
+mod ai_page_oss;
+#[cfg(feature = "oss_release")]
+use ai_page_oss as ai_page;
 mod appearance_page;
+#[cfg(not(feature = "oss_release"))]
 mod billing_and_usage;
+#[cfg(not(feature = "oss_release"))]
 mod billing_and_usage_page;
+#[cfg(feature = "oss_release")]
+mod billing_and_usage_page_oss;
+#[cfg(feature = "oss_release")]
+use billing_and_usage_page_oss as billing_and_usage_page;
+#[cfg(not(feature = "oss_release"))]
 mod code_page;
+#[cfg(feature = "oss_release")]
+mod code_page_oss;
+#[cfg(feature = "oss_release")]
+use code_page_oss as code_page;
+#[cfg(not(feature = "oss_release"))]
 mod delete_environment_confirmation_dialog;
 mod directory_color_add_picker;
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod environments_page;
+#[cfg(feature = "oss_release")]
+pub(crate) mod environments_page_oss;
+#[cfg(feature = "oss_release")]
+pub(crate) use environments_page_oss as environments_page;
 mod execution_profile_view;
 mod features;
 mod features_page;
 pub mod keybindings;
 mod main_page;
+#[cfg(not(feature = "oss_release"))]
 pub mod mcp_servers;
+#[cfg(not(feature = "oss_release"))]
 pub mod mcp_servers_page;
+#[cfg(feature = "oss_release")]
+pub mod mcp_servers_page_oss;
+#[cfg(feature = "oss_release")]
+pub use mcp_servers_page_oss as mcp_servers_page;
 mod nav;
 pub mod pane_manager;
+#[cfg(not(feature = "oss_release"))]
 mod platform;
+#[cfg(not(feature = "oss_release"))]
 mod platform_page;
+#[cfg(feature = "oss_release")]
+mod platform_page_oss;
+#[cfg(feature = "oss_release")]
+use platform_page_oss as platform_page;
 mod privacy;
 mod privacy_page;
 mod referrals_page;
@@ -100,10 +135,20 @@ mod settings_file_footer;
 pub(crate) mod settings_page;
 mod show_blocks_view;
 mod tab_menu;
+#[cfg(not(feature = "oss_release"))]
 mod teams_page;
+#[cfg(feature = "oss_release")]
+mod teams_page_oss;
+#[cfg(feature = "oss_release")]
+use teams_page_oss as teams_page;
 mod telemetry;
 mod transfer_ownership_confirmation_modal;
+#[cfg(not(feature = "oss_release"))]
 pub mod update_environment_form;
+#[cfg(feature = "oss_release")]
+pub mod update_environment_form_oss;
+#[cfg(feature = "oss_release")]
+pub use update_environment_form_oss as update_environment_form;
 mod warp_drive_page;
 mod warpify_page;
 
@@ -182,7 +227,8 @@ pub enum SettingsViewEvent {
 }
 
 /// Different navigation sections within the settings view
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(not(feature = "oss_release"), derive(Debug))]
 pub enum SettingsSection {
     About,
     Account,
@@ -222,11 +268,37 @@ pub enum SettingsSection {
     OzCloudAPIKeys,
 }
 
+#[cfg(feature = "oss_release")]
+impl fmt::Debug for SettingsSection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let _ = self;
+        f.write_str("SettingsSection")
+    }
+}
+
 use crate::util::bindings::custom_tag_to_keystroke;
 use std::fmt::{self, Display};
 
 impl Display for SettingsSection {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        #[cfg(feature = "oss_release")]
+        {
+            return match self {
+                SettingsSection::About => write!(f, "About"),
+                SettingsSection::Account => write!(f, "Account"),
+                SettingsSection::Appearance => write!(f, "Appearance"),
+                SettingsSection::Features => write!(f, "Features"),
+                SettingsSection::Keybindings => write!(f, "Keyboard shortcuts"),
+                SettingsSection::Privacy => write!(f, "Privacy"),
+                SettingsSection::Referrals => write!(f, "Referrals"),
+                SettingsSection::SharedBlocks => write!(f, "Shared blocks"),
+                SettingsSection::WarpDrive => write!(f, "Warp Drive"),
+                SettingsSection::Warpify => write!(f, "Warpify"),
+                _ => write!(f, "Unavailable"),
+            };
+        }
+
+        #[cfg(not(feature = "oss_release"))]
         match self {
             SettingsSection::BillingAndUsage => write!(f, "Billing and usage"),
             SettingsSection::Keybindings => write!(f, "Keyboard shortcuts"),
@@ -317,6 +389,24 @@ impl FromStr for SettingsSection {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        #[cfg(feature = "oss_release")]
+        {
+            return match s {
+                "About" => Ok(Self::About),
+                "Account" => Ok(Self::Account),
+                "Appearance" => Ok(Self::Appearance),
+                "Features" => Ok(Self::Features),
+                "Keyboard shortcuts" => Ok(Self::Keybindings),
+                "Privacy" => Ok(Self::Privacy),
+                "Referrals" => Ok(Self::Referrals),
+                "Shared blocks" => Ok(Self::SharedBlocks),
+                "Warpify" => Ok(Self::Warpify),
+                "WarpDrive" | "Warp Drive" => Ok(Self::WarpDrive),
+                _ => Err(()),
+            };
+        }
+
+        #[cfg(not(feature = "oss_release"))]
         match s {
             "About" => Ok(Self::About),
             "Account" => Ok(Self::Account),
@@ -1179,7 +1269,8 @@ impl SettingsView {
 
         // Build sidebar nav items. AI page is presented as an "Agents" umbrella
         // with subpages; the actual AI SettingsPage is hidden from direct sidebar listing.
-        let mut nav_items = if crate::terminal_only::is_enabled() {
+        let mut nav_items = if crate::terminal_only::is_enabled() || cfg!(feature = "oss_release")
+        {
             vec![
                 SettingsNavItem::Page(SettingsSection::Appearance),
                 SettingsNavItem::Page(SettingsSection::Features),
@@ -1227,7 +1318,7 @@ impl SettingsView {
             Some(section) if section.is_subpage() => section,
             other => other.unwrap_or_default(),
         };
-        let initial_page = if crate::terminal_only::is_enabled()
+        let initial_page = if (crate::terminal_only::is_enabled() || cfg!(feature = "oss_release"))
             && matches!(
                 initial_page,
                 SettingsSection::AI

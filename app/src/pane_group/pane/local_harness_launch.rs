@@ -1,21 +1,25 @@
 use std::{collections::HashMap, ffi::OsString, path::PathBuf, sync::Arc};
 
+#[cfg(not(feature = "oss_release"))]
+use crate::warp_managed_secrets::ManagedSecretValue;
+#[cfg(not(feature = "oss_release"))]
 use shell_words::quote as shell_quote;
+#[cfg(not(feature = "oss_release"))]
 use uuid::Uuid;
 use warp_cli::agent::Harness;
-use warp_managed_secrets::ManagedSecretValue;
 
+use crate::ai::ambient_agents::AmbientAgentTaskId;
+#[cfg(not(feature = "oss_release"))]
 use crate::ai::{
     agent_sdk::{
-        driver::{
-            harness::{harness_kind, HarnessKind},
-            AgentDriverError,
-        },
+        driver::harness::{harness_kind, HarnessKind},
+        driver::AgentDriverError,
         task_env_vars, validate_cli_installed,
     },
-    ambient_agents::{task::HarnessConfig, AgentConfigSnapshot, AmbientAgentTaskId},
+    ambient_agents::{task::HarnessConfig, AgentConfigSnapshot},
 };
 use crate::server::server_api::ai::AIClient;
+#[cfg(not(feature = "oss_release"))]
 use crate::terminal::cli_agent_sessions::plugin_manager::plugin_manager_for;
 use crate::terminal::shell::ShellType;
 
@@ -28,9 +32,17 @@ pub(super) struct PreparedLocalHarnessLaunch {
 }
 
 pub(super) fn normalize_local_child_harness(harness_type: &str) -> Option<Harness> {
+    #[cfg(feature = "oss_release")]
+    {
+        let _ = harness_type;
+        return None;
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     Harness::parse_local_child_harness(harness_type)
 }
 
+#[cfg(not(feature = "oss_release"))]
 pub(super) fn validate_local_harness_shell(shell_type: Option<ShellType>) -> Result<(), String> {
     match shell_type {
         Some(ShellType::Bash) | Some(ShellType::Zsh) | Some(ShellType::Fish) => Ok(()),
@@ -45,6 +57,7 @@ pub(super) fn validate_local_harness_shell(shell_type: Option<ShellType>) -> Res
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 pub(super) fn build_local_claude_child_command(prompt: &str) -> String {
     let session_id = Uuid::new_v4();
     let quoted_prompt = shell_quote(prompt);
@@ -55,15 +68,18 @@ pub(super) fn build_local_claude_child_command(prompt: &str) -> String {
     format!("claude --session-id {session_id} --dangerously-skip-permissions {quoted_prompt}")
 }
 
+#[cfg(not(feature = "oss_release"))]
 pub(super) fn build_local_opencode_child_command(prompt: &str) -> String {
     let quoted_prompt = shell_quote(prompt);
     format!("opencode --prompt {quoted_prompt}")
 }
+#[cfg(not(feature = "oss_release"))]
 pub(super) fn build_local_codex_child_command(prompt: &str) -> String {
     let quoted_prompt = shell_quote(prompt);
     format!("codex --dangerously-bypass-approvals-and-sandbox {quoted_prompt}")
 }
 
+#[cfg(not(feature = "oss_release"))]
 fn local_child_task_config(harness: Harness) -> Option<AgentConfigSnapshot> {
     match harness {
         Harness::Oz | Harness::Unknown => None,
@@ -76,6 +92,19 @@ fn local_child_task_config(harness: Harness) -> Option<AgentConfigSnapshot> {
     }
 }
 
+#[cfg(feature = "oss_release")]
+pub(super) async fn prepare_local_harness_child_launch(
+    _prompt: String,
+    _harness_type: String,
+    _parent_run_id: Option<String>,
+    _shell_type: Option<ShellType>,
+    _startup_directory: Option<PathBuf>,
+    _ai_client: Arc<dyn AIClient>,
+) -> Result<PreparedLocalHarnessLaunch, String> {
+    Err("Local child harnesses are unavailable in OSS builds.".to_string())
+}
+
+#[cfg(not(feature = "oss_release"))]
 pub(super) async fn prepare_local_harness_child_launch(
     prompt: String,
     harness_type: String,
@@ -181,6 +210,6 @@ pub(super) async fn prepare_local_harness_child_launch(
     })
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "oss_release")))]
 #[path = "local_harness_launch_tests.rs"]
 mod tests;

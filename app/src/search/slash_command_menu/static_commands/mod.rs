@@ -1,4 +1,8 @@
 pub mod bindings;
+#[cfg(not(feature = "oss_release"))]
+pub mod commands;
+#[cfg(feature = "oss_release")]
+#[path = "commands_oss.rs"]
 pub mod commands;
 
 use bitflags::bitflags;

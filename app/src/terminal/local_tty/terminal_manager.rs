@@ -1,17 +1,19 @@
 use crate::ai::aws_credentials::AwsCredentialRefresher as _;
 use crate::ai::llms::{LLMPreferences, LLMPreferencesEvent};
-use crate::auth::auth_state::AuthState;
 use crate::auth::AuthStateProvider;
+use crate::auth::auth_state::AuthState;
+use crate::terminal::TerminalManager as _;
 use crate::terminal::model::terminal_model::ExitReason;
 use crate::terminal::shared_session::replay_agent_conversations::reconstruct_response_events_from_conversations;
+#[cfg(not(feature = "oss_release"))]
+use crate::terminal::shared_session::shared_handlers::apply_cli_agent_state_update;
 use crate::terminal::shared_session::shared_handlers::{
-    apply_auto_approve_agent_actions_update, apply_cli_agent_state_update, apply_input_mode_update,
+    RemoteUpdateGuard, apply_auto_approve_agent_actions_update, apply_input_mode_update,
     apply_selected_agent_model_update, apply_selected_conversation_update,
-    build_selected_conversation_update, RemoteUpdateGuard,
+    build_selected_conversation_update,
 };
 use crate::terminal::shell::ShellName;
 use crate::terminal::warpify::settings::WarpifySettings;
-use crate::terminal::TerminalManager as _;
 use anyhow::Context as _;
 use async_broadcast::InactiveReceiver;
 use std::any::Any;
@@ -28,27 +30,31 @@ use session_sharing_protocol::sharer::{
 
 use crate::editor::CrdtOperation;
 use crate::network::{NetworkStatusEvent, NetworkStatusKind};
-use crate::terminal::available_shells::{AvailableShell, AvailableShells};
-use crate::terminal::shared_session::permissions_manager::SessionPermissionsManager;
 use crate::terminal::ShellLaunchData;
 use crate::terminal::ShellLaunchState;
+use crate::terminal::available_shells::{AvailableShell, AvailableShells};
+use crate::terminal::shared_session::permissions_manager::SessionPermissionsManager;
 use crate::view_components::ToastFlavor;
 
 use parking_lot::{FairMutex, Mutex};
 use pathfinder_geometry::vector::Vector2F;
 
+#[cfg(not(feature = "oss_release"))]
 use crate::terminal::cli_agent_sessions::{
     CLIAgentInputState, CLIAgentSessionsModel, CLIAgentSessionsModelEvent,
 };
+#[cfg(all(
+    not(any(test, feature = "integration_tests")),
+    not(feature = "oss_release")
+))]
+use session_sharing_protocol::common::LongRunningCommandAgentInteractionState;
 use session_sharing_protocol::common::{
     ActivePrompt, AgentPromptFailureReason, CLIAgentSessionState, CommandExecutionFailureReason,
     ControlAction, ControlActionFailureReason, SelectedAgentModel,
     UniversalDeveloperInputContextUpdate, WriteToPtyFailureReason,
 };
 #[cfg(not(any(test, feature = "integration_tests")))]
-use session_sharing_protocol::common::{
-    LongRunningCommandAgentInteractionState, SelectedConversation, UniversalDeveloperInputContext,
-};
+use session_sharing_protocol::common::{SelectedConversation, UniversalDeveloperInputContext};
 use settings::Setting as _;
 use warpui::r#async::executor::Background;
 use warpui::{AppContext, ModelContext, ModelHandle, SingletonEntity, ViewHandle, WindowId};
@@ -80,14 +86,15 @@ use warp_core::send_telemetry_from_ctx;
 
 use crate::terminal::model::session::Sessions;
 
+use crate::NetworkStatus;
 use crate::terminal::model_events::ModelEventDispatcher;
 use crate::terminal::safe_mode_settings::get_secret_obfuscation_mode;
 use crate::terminal::session_settings::{SessionSettings, SessionSettingsChangedEvent};
 use crate::terminal::shared_session::manager::Manager;
 use crate::terminal::shared_session::settings::SharedSessionSettings;
 use crate::terminal::shared_session::sharer::network::{
-    failed_to_add_guests_user_error, failed_to_initialize_session_user_error,
-    session_terminated_reason_string, Network, NetworkEvent,
+    Network, NetworkEvent, failed_to_add_guests_user_error,
+    failed_to_initialize_session_user_error, session_terminated_reason_string,
 };
 use crate::terminal::shared_session::{
     IsSharedSessionCreator, SharedSessionActionSource, SharedSessionScrollbackType,
@@ -100,13 +107,12 @@ use crate::terminal::writeable_pty::terminal_manager_util::{
     wire_up_remote_server_controller_with_view,
 };
 use crate::terminal::writeable_pty::{self, Message};
+use crate::terminal::{PTY_READS_BROADCAST_CHANNEL_SIZE, TerminalView, terminal_manager};
 use crate::terminal::{
+    TerminalModel,
     event_listener::ChannelEventListener,
     local_tty::{Pty, PtyOptions},
-    TerminalModel,
 };
-use crate::terminal::{terminal_manager, TerminalView, PTY_READS_BROADCAST_CHANNEL_SIZE};
-use crate::NetworkStatus;
 
 use super::mio_channel;
 use super::recorder;
@@ -1371,6 +1377,7 @@ impl TerminalManager {
                     )
                     .and_then(|update| update.selected_conversation);
 
+                #[cfg(not(feature = "oss_release"))]
                 let long_running_command_agent_interaction_state = {
                     let model = model.lock();
                     let active_block = model.block_list().active_block();
@@ -1387,10 +1394,14 @@ impl TerminalManager {
                     };
                     Some(state)
                 };
+                #[cfg(feature = "oss_release")]
+                let long_running_command_agent_interaction_state = None;
 
                 // Include CLI agent session state in initial context so
                 // late-joining viewers see the footer immediately.
+                #[cfg(not(feature = "oss_release"))]
                 let terminal_view_id = terminal_view.id();
+                #[cfg(not(feature = "oss_release"))]
                 let cli_agent_session = {
                     let sessions_model = CLIAgentSessionsModel::as_ref(ctx);
                     match sessions_model.session(terminal_view_id) {
@@ -1401,6 +1412,8 @@ impl TerminalManager {
                         None => CLIAgentSessionState::Inactive,
                     }
                 };
+                #[cfg(feature = "oss_release")]
+                let cli_agent_session = CLIAgentSessionState::Inactive;
 
                 let universal_developer_input_context = UniversalDeveloperInputContext {
                     input_mode: Some(input_config.into()),
@@ -1932,19 +1945,22 @@ impl TerminalManager {
 
                 // If a third-party CLI harness (e.g. Claude Code) is running, write
                 // the follow-up prompt directly to the PTY. The CLI handles it as
-                // interactive input. 
-                let terminal_view_id = terminal_view.id();
-                let has_active_cli_agent = CLIAgentSessionsModel::as_ref(ctx)
-                    .session(terminal_view_id)
-                    .is_some();
-                if has_active_cli_agent {
-                    // Reuse the rich input submit pipeline so agent-specific
-                    // strategies are applied. Bypasses the rich-input-UI side effects 
-  					// (telemetry, draft clear, editor buffer clear, pending-image consumption).
-                    terminal_view.update(ctx, |view, ctx| {
-                        view.submit_text_to_cli_agent_pty(request.prompt.clone(), ctx);
-                    });
-                    return;
+                // interactive input.
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    let terminal_view_id = terminal_view.id();
+                    let has_active_cli_agent = CLIAgentSessionsModel::as_ref(ctx)
+                        .session(terminal_view_id)
+                        .is_some();
+                    if has_active_cli_agent {
+                        // Reuse the rich input submit pipeline so agent-specific
+                        // strategies are applied. Bypasses the rich-input-UI side effects
+                        // (telemetry, draft clear, editor buffer clear, pending-image consumption).
+                        terminal_view.update(ctx, |view, ctx| {
+                            view.submit_text_to_cli_agent_pty(request.prompt.clone(), ctx);
+                        });
+                        return;
+                    }
                 }
 
                 // Execute the agent prompt in the Oz-harness case
@@ -2092,6 +2108,7 @@ impl TerminalManager {
                 }
 
                 // Apply CLI agent rich input state from the viewer.
+                #[cfg(not(feature = "oss_release"))]
                 if let Some(ref cli_agent_session) = context_update.cli_agent_session {
                     let weak_view_handle = terminal_view.downgrade();
                     apply_cli_agent_state_update(
@@ -2103,6 +2120,7 @@ impl TerminalManager {
                 }
 
                 // Only apply agent control / tagged-in updates if there is an active long-running command.
+                #[cfg(not(feature = "oss_release"))]
                 if model
                     .lock()
                     .block_list()
@@ -2339,6 +2357,7 @@ impl TerminalManager {
                     });
                 }
             }
+            #[cfg(not(feature = "oss_release"))]
             TerminalViewEvent::LongRunningCommandAgentInteractionStateChanged { state } => {
                 if !sharer_remote_update_guard.should_broadcast() {
                     return;
@@ -2362,6 +2381,7 @@ impl TerminalManager {
         let session_sharer_for_cli = shared_session_model.clone();
         let cli_guard = sharer_remote_update_guard_for_cli;
         let terminal_view_id = terminal_view.id();
+        #[cfg(not(feature = "oss_release"))]
         ctx.subscribe_to_model(&CLIAgentSessionsModel::handle(ctx), move |_, event, ctx| {
             if event.terminal_view_id() != terminal_view_id || !cli_guard.should_broadcast() {
                 return;

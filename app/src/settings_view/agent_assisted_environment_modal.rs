@@ -37,9 +37,6 @@ use crate::{
 };
 
 #[cfg(all(feature = "local_fs", not(target_family = "wasm")))]
-use git2::Repository as GitRepository;
-
-#[cfg(all(feature = "local_fs", not(target_family = "wasm")))]
 use ai::index::full_source_code_embedding::manager::CodebaseIndexManager;
 
 #[cfg(all(
@@ -569,11 +566,8 @@ impl AgentAssistedEnvironmentModal {
     fn handle_directory_picked(&mut self, selected_path: PathBuf, ctx: &mut ViewContext<Self>) {
         let selected_path = dunce::canonicalize(&selected_path).unwrap_or(selected_path);
 
-        // `discover` accepts subdirectories; we normalize to the repo working tree root.
-        match GitRepository::discover(&selected_path)
-            .ok()
-            .and_then(|repo| repo.workdir().map(|workdir| workdir.to_path_buf()))
-        {
+        // Accept subdirectories and normalize to the repo working tree root.
+        match crate::util::git::discover_worktree_root(&selected_path) {
             Some(repo_root) => {
                 self.add_repo_path(repo_root, ctx);
             }

@@ -1,35 +1,80 @@
+#[cfg(not(feature = "oss_release"))]
 pub mod code_review_view;
+#[cfg(feature = "oss_release")]
+#[path = "code_review_view_oss.rs"]
+pub mod code_review_view;
+#[cfg(not(feature = "oss_release"))]
 pub mod comment_list_view;
+#[cfg(not(feature = "oss_release"))]
 pub mod context;
+#[cfg(feature = "oss_release")]
+#[path = "context_oss.rs"]
+pub mod context;
+#[cfg(not(feature = "oss_release"))]
+pub mod diff_size_limits;
+#[cfg(feature = "oss_release")]
+#[path = "diff_size_limits_oss.rs"]
 pub mod diff_size_limits;
 #[cfg_attr(not(feature = "local_fs"), allow(dead_code))]
+#[cfg(not(feature = "oss_release"))]
 pub mod diff_state;
+#[cfg(feature = "oss_release")]
+#[path = "diff_state_oss.rs"]
+pub mod diff_state;
+#[cfg(not(feature = "oss_release"))]
 pub mod editor_state;
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod find_model;
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod git_dialog;
+#[cfg(not(feature = "oss_release"))]
 pub mod git_status_update;
+#[cfg(feature = "oss_release")]
+#[path = "git_status_update_oss.rs"]
+pub mod git_status_update;
+#[cfg(not(feature = "oss_release"))]
 mod hidden_lines;
+#[cfg(not(feature = "oss_release"))]
+pub mod telemetry_event;
+#[cfg(feature = "oss_release")]
+#[path = "telemetry_event_oss.rs"]
 pub mod telemetry_event;
 #[cfg_attr(not(feature = "local_fs"), allow(unused_imports))]
 pub use telemetry_event::CodeReviewTelemetryEvent;
 
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod code_review_header;
+#[cfg(feature = "oss_release")]
+#[path = "code_review_header_oss.rs"]
+pub(crate) mod code_review_header;
+#[cfg(not(feature = "oss_release"))]
+pub(crate) mod comment_rendering;
+#[cfg(feature = "oss_release")]
+#[path = "comment_rendering_oss.rs"]
 pub(crate) mod comment_rendering;
 pub mod comments;
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod diff_menu;
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod diff_selector;
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod file_invalidation_queue;
 
+#[cfg(not(feature = "oss_release"))]
 use code_review_view::CodeReviewAction;
 use std::path::{Path, PathBuf};
+#[cfg(not(feature = "oss_release"))]
 use warpui::{
     id,
     keymap::{EditableBinding, FixedBinding},
+};
+use warpui::{
     AppContext, Entity, EntityId, ModelContext, SingletonEntity, WeakViewHandle, WindowId,
 };
 
 use crate::code_review::telemetry_event::CodeReviewPaneEntrypoint;
 use crate::terminal::{view::TerminalView, CLIAgent};
+#[cfg(not(feature = "oss_release"))]
 use crate::util::bindings::CustomAction;
 
 /// Arguments needed to open or toggle the code review panel.
@@ -53,6 +98,10 @@ pub enum DiffSetScope {
 
 /// Register keybindings for code review functionality.
 pub fn init(app: &mut AppContext) {
+    #[cfg(feature = "oss_release")]
+    let _ = app;
+
+    #[cfg(not(feature = "oss_release"))]
     app.register_editable_bindings([
         EditableBinding::new(
             "code_review:save_all_unsaved_files",
@@ -71,6 +120,7 @@ pub fn init(app: &mut AppContext) {
         .with_enabled(|| crate::features::FeatureFlag::CodeReviewFind.is_enabled()),
     ]);
 
+    #[cfg(not(feature = "oss_release"))]
     app.register_fixed_bindings([FixedBinding::custom(
         CustomAction::Undo,
         CodeReviewAction::UndoRevert,
@@ -78,9 +128,12 @@ pub fn init(app: &mut AppContext) {
         id!("CodeReviewView") & !id!("IMEOpen"),
     )]);
 
-    diff_menu::init(app);
-    diff_selector::init(app);
-    git_dialog::init(app);
+    #[cfg(not(feature = "oss_release"))]
+    {
+        diff_menu::init(app);
+        diff_selector::init(app);
+        git_dialog::init(app);
+    }
 }
 
 /// Uses heuristics to determine if a file is auto-generated.

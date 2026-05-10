@@ -29,7 +29,8 @@ pub use model::{Event as ServerExperimentsEvent, ServerExperiments};
 
 /// The known server-side experiments.
 #[allow(clippy::enum_variant_names)]
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+#[cfg_attr(not(feature = "oss_release"), derive(Debug))]
 pub enum ServerExperiment {
     SessionSharingExperiment,
     SessionSharingControl,
@@ -59,6 +60,14 @@ pub enum ServerExperiment {
     /// Does not correspond to a real server-side experiment.
     #[cfg(test)]
     TestExperiment,
+}
+
+#[cfg(feature = "oss_release")]
+impl std::fmt::Debug for ServerExperiment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let _ = self;
+        f.write_str("ServerExperiment")
+    }
 }
 
 impl ServerExperiment {

@@ -1,14 +1,51 @@
+#[cfg(not(feature = "oss_release"))]
 mod block;
+#[cfg(feature = "oss_release")]
+#[path = "block_oss.rs"]
+mod block;
+#[cfg(not(feature = "oss_release"))]
 mod first_time_setup;
+#[cfg(feature = "oss_release")]
+mod first_time_setup_oss;
+#[cfg(feature = "oss_release")]
+use first_time_setup_oss as first_time_setup;
+#[cfg(not(feature = "oss_release"))]
 mod footer;
+#[cfg(feature = "oss_release")]
+#[path = "footer_oss.rs"]
+mod footer;
+#[cfg(not(feature = "oss_release"))]
 mod harness_selector;
+#[cfg(feature = "oss_release")]
+#[path = "harness_selector_oss.rs"]
+mod harness_selector;
+#[cfg(not(feature = "oss_release"))]
 mod host_selector;
+#[cfg(feature = "oss_release")]
+#[path = "host_selector_oss.rs"]
+mod host_selector;
+#[cfg(not(feature = "oss_release"))]
 mod loading_screen;
+#[cfg(feature = "oss_release")]
+#[path = "loading_screen_oss.rs"]
+mod loading_screen;
+#[cfg(not(feature = "oss_release"))]
 mod model;
+#[cfg(feature = "oss_release")]
+#[path = "model_oss.rs"]
+mod model;
+#[cfg(not(feature = "oss_release"))]
+mod model_selector;
+#[cfg(feature = "oss_release")]
+#[path = "model_selector_oss.rs"]
 mod model_selector;
 mod progress;
 mod progress_ui_state;
 mod tips;
+#[cfg(not(feature = "oss_release"))]
+mod view_impl;
+#[cfg(feature = "oss_release")]
+#[path = "view_impl_oss.rs"]
 mod view_impl;
 
 pub use block::*;

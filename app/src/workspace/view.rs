@@ -1,15 +1,39 @@
+#[cfg(not(feature = "oss_release"))]
 mod build_plan_migration_modal;
+#[cfg(feature = "oss_release")]
+mod build_plan_migration_modal_oss;
+#[cfg(feature = "oss_release")]
+use build_plan_migration_modal_oss as build_plan_migration_modal;
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod cloud_agent_capacity_modal;
+#[cfg(feature = "oss_release")]
+pub(crate) mod cloud_agent_capacity_modal_oss;
+#[cfg(feature = "oss_release")]
+pub(crate) use cloud_agent_capacity_modal_oss as cloud_agent_capacity_modal;
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod codex_modal;
+#[cfg(not(feature = "oss_release"))]
+pub mod conversation_list;
+#[cfg(feature = "oss_release")]
+#[path = "view/conversation_list_oss.rs"]
 pub mod conversation_list;
 #[cfg(enable_crash_recovery)]
 mod crash_recovery;
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod free_tier_limit_hit_modal;
+#[cfg(feature = "oss_release")]
+pub(crate) mod free_tier_limit_hit_modal_oss;
+#[cfg(feature = "oss_release")]
+pub(crate) use free_tier_limit_hit_modal_oss as free_tier_limit_hit_modal;
 pub mod global_search;
 pub(crate) mod launch_modal;
 pub(crate) mod left_panel;
 pub(crate) mod onboarding;
 pub(crate) mod openwarp_launch_modal;
+#[cfg(not(feature = "oss_release"))]
+pub(crate) mod right_panel;
+#[cfg(feature = "oss_release")]
+#[path = "view/right_panel_oss.rs"]
 pub(crate) mod right_panel;
 mod startup_directory;
 #[cfg(test)]
@@ -21,62 +45,68 @@ mod wasm_view;
 
 use self::vertical_tabs::telemetry::{VerticalTabsDisplayOption, VerticalTabsTelemetryEvent};
 use self::vertical_tabs::{
-    render_detail_sidecar, render_settings_popup, VerticalTabsPanelState,
-    VERTICAL_TABS_SETTINGS_BUTTON_POSITION_ID,
+    VERTICAL_TABS_SETTINGS_BUTTON_POSITION_ID, VerticalTabsPanelState, render_detail_sidecar,
+    render_settings_popup,
 };
 use crate::workspace::cross_window_tab_drag::{
     AttachTarget, CrossWindowTabDrag, DragResult, DropResult, GhostState,
 };
 pub(crate) use onboarding::OnboardingTutorial;
 
+use crate::ai::AIRequestUsageModel;
 use crate::ai::active_agent_views_model::ActiveAgentViewsModel;
 #[cfg(all(feature = "local_fs", not(target_family = "wasm")))]
 use crate::ai::agent::conversation::AIConversation;
 use crate::ai::agent_conversations_model::AgentConversationsModel;
 use crate::ai::agent_conversations_model::ConversationOrTask;
+use crate::ai::agent_management::AgentManagementEvent;
+use crate::ai::agent_management::notifications::NotificationFilter;
 use crate::ai::agent_management::notifications::toast_stack::AgentNotificationToastStack;
 use crate::ai::agent_management::notifications::view::{
     NotificationMailboxView, NotificationMailboxViewEvent,
 };
-use crate::ai::agent_management::notifications::NotificationFilter;
 use crate::ai::agent_management::telemetry::AgentManagementTelemetryEvent;
 use crate::ai::agent_management::view::{AgentManagementView, AgentManagementViewEvent};
-use crate::ai::agent_management::AgentManagementEvent;
-#[cfg(all(feature = "local_fs", not(target_family = "wasm")))]
+#[cfg(all(
+    feature = "local_fs",
+    not(target_family = "wasm"),
+    not(feature = "oss_release")
+))]
 use crate::ai::agent_sdk::driver::upload_snapshot_for_handoff;
-use crate::ai::ambient_agents::telemetry::{CloudAgentTelemetryEvent, CloudModeEntryPoint};
 use crate::ai::ambient_agents::AmbientAgentTaskId;
+use crate::ai::ambient_agents::telemetry::{CloudAgentTelemetryEvent, CloudModeEntryPoint};
+use crate::ai::blocklist::FORK_PREFIX;
+use crate::ai::blocklist::agent_view::AgentViewEntryOrigin;
 use crate::ai::blocklist::agent_view::agent_input_footer::editor::AgentToolbarEditorMode;
 #[cfg(all(feature = "local_fs", not(target_family = "wasm")))]
 use crate::ai::blocklist::agent_view::agent_input_footer::sort_environments_by_recency;
-use crate::ai::blocklist::agent_view::AgentViewEntryOrigin;
 #[cfg(all(feature = "local_fs", not(target_family = "wasm")))]
 use crate::ai::blocklist::handoff::touched_repos::{
     derive_touched_workspace, extract_paths_from_conversation, pick_handoff_overlap_env,
 };
-use crate::ai::blocklist::history_model::{load_conversation_from_server, CloudConversationData};
+use crate::ai::blocklist::history_model::{CloudConversationData, load_conversation_from_server};
 use crate::ai::blocklist::suggested_agent_mode_workflow_modal::SuggestedAgentModeWorkflowAndId;
 use crate::ai::blocklist::suggested_rule_modal::{
     SuggestedRuleAndId, SuggestedRuleModal, SuggestedRuleModalEvent,
 };
-use crate::ai::blocklist::FORK_PREFIX;
 #[cfg(all(feature = "local_fs", not(target_family = "wasm")))]
 use crate::ai::cloud_environments::CloudAmbientAgentEnvironment;
 use crate::ai::conversation_utils;
 use crate::ai::document::ai_document_model::{AIDocumentId, AIDocumentModel};
+#[cfg(not(feature = "oss_release"))]
+use crate::ai::facts::{AIFactManager, AIFactView, AIFactViewEvent};
 use crate::ai::llms::LLMPreferences;
 use crate::ai::persisted_workspace::PersistedWorkspace;
-use crate::ai::AIRequestUsageModel;
 use crate::ai::{
-    agent::{api::ServerConversationToken, conversation::AIConversationId, EntrypointType},
+    agent::{EntrypointType, api::ServerConversationToken, conversation::AIConversationId},
     blocklist::{
+        SlashCommandRequest,
         inline_action::code_diff_view::CodeDiffView,
         suggested_agent_mode_workflow_modal::{
             SuggestedAgentModeWorkflowModal, SuggestedAgentModeWorkflowModalEvent,
         },
-        SlashCommandRequest,
     },
-    facts::{view::AIFactPage, AIFactManager, AIFactView, AIFactViewEvent},
+    facts::view::AIFactPage,
 };
 use crate::ai_assistant::execution_context::WarpAiExecutionContext;
 use crate::app_state::{
@@ -84,10 +114,10 @@ use crate::app_state::{
     PaneNodeSnapshot, PaneUuid, RightPanelSnapshot, SettingsPaneSnapshot, TabSnapshot,
     TerminalPaneSnapshot, WindowSnapshot, WorkflowPaneSnapshot,
 };
-use crate::code_review::diff_state::DiffStateModel;
 #[cfg(feature = "local_fs")]
 use crate::code_review::CodeReviewTelemetryEvent;
 use crate::code_review::GlobalCodeReviewModel;
+use crate::code_review::diff_state::DiffStateModel;
 use crate::coding_panel_enablement_state::CodingPanelEnablementState;
 use crate::default_terminal::DefaultTerminal;
 use crate::notebooks::CloudNotebook;
@@ -124,11 +154,14 @@ use crate::util::file::external_editor::Editor;
 use crate::util::file::external_editor::EditorSettings;
 use crate::util::openable_file_type::FileTarget;
 #[cfg(feature = "local_fs")]
-use crate::util::openable_file_type::{resolve_file_target_with_editor_choice, EditorLayout};
+use crate::util::openable_file_type::{EditorLayout, resolve_file_target_with_editor_choice};
 
+use crate::BlocklistAIHistoryModel;
+#[cfg(not(feature = "oss_release"))]
+use crate::terminal::cli_agent_sessions::CLIAgentSessionsModel;
+use crate::terminal::cli_agent_sessions::CLIAgentSessionsModelEvent;
 #[cfg(not(target_family = "wasm"))]
-use crate::terminal::cli_agent_sessions::plugin_manager::{plugin_manager_for, PluginModalKind};
-use crate::terminal::cli_agent_sessions::{CLIAgentSessionsModel, CLIAgentSessionsModelEvent};
+use crate::terminal::cli_agent_sessions::plugin_manager::{PluginModalKind, plugin_manager_for};
 use crate::workspace::header_toolbar_editor::{HeaderToolbarEditorEvent, HeaderToolbarEditorModal};
 use crate::workspace::header_toolbar_item::HeaderToolbarItemKind;
 use crate::workspace::tab_settings::TabCloseButtonPosition;
@@ -138,6 +171,7 @@ use crate::workspace::view::build_plan_migration_modal::{
 use crate::workspace::view::cloud_agent_capacity_modal::{
     CloudAgentCapacityModal, CloudAgentCapacityModalEvent, CloudAgentCapacityModalVariant,
 };
+#[cfg(not(feature = "oss_release"))]
 use crate::workspace::view::codex_modal::{CodexModal, CodexModalEvent};
 use crate::workspace::view::free_tier_limit_hit_modal::{
     FreeTierLimitHitModal, FreeTierLimitHitModalEvent,
@@ -147,19 +181,18 @@ use crate::workspace::view::openwarp_launch_modal::{
     OpenWarpLaunchModal, OpenWarpLaunchModalEvent,
 };
 use crate::workspace::{ForkFromExchange, ForkedConversationDestination};
-use crate::BlocklistAIHistoryModel;
 use ai::index::full_source_code_embedding::manager::CodebaseIndexManager;
 #[cfg(all(target_os = "macos", feature = "crash_reporting"))]
 use sentry::protocol::{Attachment, AttachmentType};
 use serde_json;
 use warpui::notification::NotificationSendError;
 
+use super::WorkspaceRegistry;
 use super::hoa_onboarding::{
-    mark_hoa_onboarding_completed, HoaOnboardingFlow, HoaOnboardingFlowEvent, HoaOnboardingStep,
+    HoaOnboardingFlow, HoaOnboardingFlowEvent, HoaOnboardingStep, mark_hoa_onboarding_completed,
 };
 use super::lightbox_view::{LightboxParams, LightboxView, LightboxViewEvent};
 use super::util;
-use super::WorkspaceRegistry;
 use crate::ai::execution_profiles::editor::ExecutionProfileEditorManager;
 use crate::ai::execution_profiles::profiles::{AIExecutionProfilesModel, ClientProfileId};
 use crate::auth::auth_manager::{AuthManager, AuthManagerEvent};
@@ -175,12 +208,15 @@ use crate::code_review::telemetry_event::CodeReviewPaneEntrypoint;
 use crate::drive::export::ExportManager;
 use crate::drive::settings::WarpDriveSettings;
 use crate::launch_configs::launch_config::WindowTemplate;
+#[cfg(not(feature = "oss_release"))]
+use crate::pane_group::AIFactPane;
 use crate::pane_group::{
-    AIFactPane, CodeReviewPanelArg, Direction as PaneGroupDirection, EnvironmentManagementPane,
+    CodeReviewPanelArg, Direction as PaneGroupDirection, EnvironmentManagementPane,
     ExecutionProfileEditorPane, NetworkLogPane, PaneGroup, PaneId, TerminalPaneId,
 };
 use crate::quit_warning::UnsavedStateSummary;
 use crate::search::command_palette::view::NavigationMode;
+#[cfg(not(feature = "oss_release"))]
 use crate::search::slash_command_menu::static_commands::commands;
 use crate::server::network_log_pane_manager::NetworkLogPaneManager;
 use crate::server::server_api::ai::AIClient;
@@ -225,15 +261,15 @@ use crate::wasm_nux_dialog::WasmNUXDialog;
 use crate::drive::items::WarpDriveItemId;
 use crate::drive::settings::WarpDriveSettingsChangedEvent;
 use crate::env_vars::{
-    manager::{EnvVarCollectionManager, EnvVarCollectionSource},
     CloudEnvVarCollection,
+    manager::{EnvVarCollectionManager, EnvVarCollectionSource},
 };
 use crate::settings::cloud_preferences::CloudPreferencesSettings;
 
 use crate::appearance::{Appearance, AppearanceManager};
 use crate::auth::AuthStateProvider;
 use crate::autoupdate::{
-    is_incoming_version_past_current, AutoupdateState, AutoupdateStateEvent, RelaunchModel,
+    AutoupdateState, AutoupdateStateEvent, RelaunchModel, is_incoming_version_past_current,
 };
 use crate::banner::BannerState;
 use crate::changelog_model::{ChangelogModel, ChangelogRequestType, Event as ChangelogEvent};
@@ -251,12 +287,14 @@ use crate::drive::{
 };
 use crate::experiments::{BlockOnboarding, Experiment};
 use crate::menu::{
-    Event as MenuEvent, Menu, MenuItem, MenuItemFields, MenuSelectionSource,
-    DEFAULT_WIDTH as MENU_DEFAULT_WIDTH,
+    DEFAULT_WIDTH as MENU_DEFAULT_WIDTH, Event as MenuEvent, Menu, MenuItem, MenuItemFields,
+    MenuSelectionSource,
 };
 use crate::modal::{Modal, ModalEvent, ModalViewState};
 use crate::network::{NetworkStatus, NetworkStatusEvent};
-use crate::notebooks::manager::{NotebookManager, NotebookSource};
+#[cfg(not(feature = "oss_release"))]
+use crate::notebooks::manager::NotebookManager;
+use crate::notebooks::manager::NotebookSource;
 #[cfg(feature = "local_fs")]
 use crate::pane_group::FilePane;
 use crate::pane_group::{
@@ -276,11 +314,11 @@ use crate::prompt::editor_modal::{
 };
 use crate::referral_theme_status::ReferralThemeEvent;
 use crate::resource_center::{
-    mark_feature_used_and_write_to_user_defaults, skip_tips_and_write_to_user_defaults,
     ResourceCenterEvent, ResourceCenterPage, ResourceCenterView, Tip, TipAction, TipsCompleted,
+    mark_feature_used_and_write_to_user_defaults, skip_tips_and_write_to_user_defaults,
 };
 use crate::reward_view::{RewardEvent, RewardKind, RewardView};
-use crate::root_view::{quake_mode_window_id, NewWorkspaceSource, OpenLaunchConfigArg};
+use crate::root_view::{NewWorkspaceSource, OpenLaunchConfigArg, quake_mode_window_id};
 use crate::search::command_search::searcher::{
     AcceptedHistoryItem, AcceptedWorkflow, CommandSearchItemAction,
 };
@@ -298,10 +336,10 @@ use crate::server::telemetry::{
 };
 use crate::session_management::{SessionNavigationData, SessionSource};
 use crate::settings::{
-    active_theme_kind, respect_system_theme, AccessibilitySettings, AliasExpansionSettings,
-    AppEditorSettings, BlockVisibilitySettings, ChangelogSettings, CursorBlink, DebugSettings,
-    FontSettings, GPUSettings, InputSettings, MonospaceFontSize, PaneSettings, PrivacySettings,
-    SelectionSettings, Settings, SshSettings, ThemeSettings,
+    AccessibilitySettings, AliasExpansionSettings, AppEditorSettings, BlockVisibilitySettings,
+    ChangelogSettings, CursorBlink, DebugSettings, FontSettings, GPUSettings, InputSettings,
+    MonospaceFontSize, PaneSettings, PrivacySettings, SelectionSettings, Settings, SshSettings,
+    ThemeSettings, active_theme_kind, respect_system_theme,
 };
 use crate::settings_view::flags;
 use crate::settings_view::keybindings::{KeybindingChangedEvent, KeybindingChangedNotifier};
@@ -315,7 +353,7 @@ use crate::terminal::model::blockgrid::BlockGrid;
 use crate::terminal::model::session::Session;
 use crate::terminal::model::session::SessionId;
 use crate::terminal::resizable_data::{
-    ModalSizes, ModalType, ResizableData, DEFAULT_LEFT_PANEL_WIDTH, DEFAULT_RIGHT_PANEL_WIDTH,
+    DEFAULT_LEFT_PANEL_WIDTH, DEFAULT_RIGHT_PANEL_WIDTH, ModalSizes, ModalType, ResizableData,
 };
 use crate::terminal::safe_mode_settings::SafeModeSettings;
 use crate::terminal::session_settings::{
@@ -334,13 +372,13 @@ use crate::terminal::{self, SizeInfo, TerminalView};
 #[cfg(target_os = "macos")]
 use crate::workspace::cli_install;
 use crate::workspaces::user_workspaces::UserWorkspaces;
-use crate::{report_if_error, AgentNotificationsModel};
+use crate::{AgentNotificationsModel, report_if_error};
 use ::settings::{Setting, ToggleableSetting};
 use warp_core::features::FeatureFlag;
 
 use crate::search::{self, QueryFilter};
 use crate::terminal::view::{
-    SyncEvent, SyncInputType, TerminalAction, NOTIFICATIONS_TROUBLESHOOT_URL,
+    NOTIFICATIONS_TROUBLESHOOT_URL, SyncEvent, SyncInputType, TerminalAction,
 };
 use crate::terminal::{BlockListSettings, TerminalModel};
 use crate::themes::theme::{AnsiColorIdentifier, RespectSystemTheme, ThemeKind};
@@ -350,31 +388,32 @@ use crate::themes::theme_deletion_modal::{ThemeDeletionModal, ThemeDeletionModal
 use crate::tips::{TipsEvent, TipsView};
 use crate::ui_components::buttons::{combo_inner_button, icon_button_with_color};
 use crate::undo_close::UndoCloseStack;
-#[cfg(feature = "local_fs")]
-use crate::user_config::{
-    ensure_default_worktree_config, find_unused_tab_config_path, find_unused_toml_path,
-    find_unused_worktree_config_path, materialize_default_worktree_config, sanitize_toml_base_name,
-    tab_configs_dir,
-};
 use crate::user_config::{WarpConfig, WarpConfigUpdateEvent};
+#[cfg(all(feature = "local_fs", not(feature = "oss_release")))]
+use crate::user_config::{
+    ensure_default_worktree_config, find_unused_toml_path, find_unused_worktree_config_path,
+    materialize_default_worktree_config, sanitize_toml_base_name,
+};
+#[cfg(feature = "local_fs")]
+use crate::user_config::{find_unused_tab_config_path, tab_configs_dir};
 use crate::util::bindings::{
     keybinding_name_to_display_string, keybinding_name_to_keystroke, trigger_to_keystroke,
 };
 use crate::util::links;
-use crate::util::traffic_lights::{traffic_light_data, TrafficLightMouseStates, TrafficLightSide};
+use crate::util::traffic_lights::{TrafficLightMouseStates, TrafficLightSide, traffic_light_data};
 use crate::util::truncation::truncate_from_end;
 #[cfg(target_family = "wasm")]
 use crate::view_components::action_button::ActionButton;
 use crate::view_components::callout_bubble::{
-    render_callout_bubble, CalloutArrowDirection, CalloutArrowPosition, CalloutBubbleConfig,
+    CalloutArrowDirection, CalloutArrowPosition, CalloutBubbleConfig, render_callout_bubble,
 };
 use crate::view_components::{
     AgentToast, AgentToastStack, DismissibleToast, DismissibleToastStack, ToastLink,
 };
 use crate::window_settings::{WindowSettings, WindowSettingsChangedEvent, ZoomLevel};
 use crate::workflows::{
-    manager::WorkflowOpenSource, AIWorkflowOrigin, CloudWorkflow, WorkflowSelectionSource,
-    WorkflowSource, WorkflowType, WorkflowViewMode,
+    AIWorkflowOrigin, CloudWorkflow, WorkflowSelectionSource, WorkflowSource, WorkflowType,
+    WorkflowViewMode, manager::WorkflowOpenSource,
 };
 use crate::workspace::action::CommandSearchOptions;
 use crate::workspace::one_time_modal_model::OneTimeModalModel;
@@ -382,15 +421,15 @@ use crate::workspace::sync_inputs::SyncedInputState;
 use crate::workspace::toast_stack::{
     ToastStack as WorkspaceToastStack, ToastStackEvent as WorkspaceToastStackEvent,
 };
+use crate::{GlobalResourceHandles, send_telemetry_from_ctx};
 use crate::{
     ai_assistant::{
+        AI_ASSISTANT_FEATURE_NAME, AI_ASSISTANT_LOGO_COLOR, AskAIType,
         panel::{AIAssistantPanelEvent, AIAssistantPanelView},
-        AskAIType, AI_ASSISTANT_FEATURE_NAME, AI_ASSISTANT_LOGO_COLOR,
     },
     settings,
     ui_components::blended_colors,
 };
-use crate::{send_telemetry_from_ctx, GlobalResourceHandles};
 
 use futures::Future;
 use itertools::Itertools;
@@ -407,7 +446,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use warp_core::context_flag::ContextFlag;
 use warp_core::execution_mode::AppExecutionMode;
 use warp_core::semantic_selection::SemanticSelection;
-use warp_util::path::{user_friendly_path, LineAndColumnArg};
+use warp_util::path::{LineAndColumnArg, user_friendly_path};
 use warpui::fonts::Weight;
 use warpui::modals::{AlertDialogWithCallbacks, AppModalCallback};
 
@@ -474,17 +513,17 @@ use crate::tab_configs::{
     NewWorktreeModal, NewWorktreeModalEvent, TabConfigParamsModal, TabConfigParamsModalEvent,
 };
 
+use crate::TelemetryEvent;
 use crate::code::editor::{add_color, remove_color};
 use crate::palette::PaletteMode;
 use crate::search::command_palette::view::{Event as CommandPaletteEvent, View as CommandPalette};
 use crate::server::telemetry::{NotificationsTurnedOnSource, PaletteSource, TabRenameEvent};
 use crate::tab::{
-    tab_position_id, uses_vertical_tabs, NewSessionMenuItem, PaneNameMenuTarget, SelectedTabColor,
-    TabBarState, TabComponent, TabData, TabTelemetryAction, TAB_BAR_BORDER_HEIGHT,
+    NewSessionMenuItem, PaneNameMenuTarget, SelectedTabColor, TAB_BAR_BORDER_HEIGHT, TabBarState,
+    TabComponent, TabData, TabTelemetryAction, tab_position_id, uses_vertical_tabs,
 };
 use crate::terminal::view::ssh_file_upload::FileUploadId;
 use crate::ui_components::icons;
-use crate::TelemetryEvent;
 use autoupdate::AutoupdateStage;
 #[cfg(target_os = "macos")]
 use command::blocking::Command;
@@ -499,10 +538,10 @@ use std::path::Path;
 use std::path::PathBuf;
 #[cfg(target_os = "macos")]
 use std::process;
-use std::sync::{mpsc, Mutex};
+use std::sync::{Mutex, mpsc};
 use std::{cmp::Ordering, sync::Arc};
-use warp_core::ui::theme::{color::internal_colors, phenomenon::PhenomenonStyle, Fill};
-use warp_core::ui::{color::coloru_with_opacity, Icon};
+use warp_core::ui::theme::{Fill, color::internal_colors, phenomenon::PhenomenonStyle};
+use warp_core::ui::{Icon, color::coloru_with_opacity};
 use warp_editor::editor::NavigationKey;
 use warpui::keymap::Context;
 use warpui::notification::{RequestPermissionsOutcome, UserNotification};
@@ -512,6 +551,7 @@ use warpui::platform::{
 use warpui::text_layout::ClipConfig;
 use warpui::ui_components::components::{Coords, UiComponent, UiComponentStyles};
 use warpui::{
+    AppContext, Entity, TypedActionView, UpdateView, View, ViewContext, ViewHandle,
     accessibility::{
         AccessibilityContent, AccessibilityVerbosity, ActionAccessibilityContent, WarpA11yRole,
     },
@@ -523,8 +563,7 @@ use warpui::{
         PositionedElementAnchor, PositionedElementOffsetBounds, Radius, SavePosition, Shrinkable,
         Stack, Text,
     },
-    geometry::vector::{vec2f, Vector2F},
-    AppContext, Entity, TypedActionView, UpdateView, View, ViewContext, ViewHandle,
+    geometry::vector::{Vector2F, vec2f},
 };
 use warpui::{
     EntityId, FocusContext, ModelHandle, SingletonEntity, UpdateModel, ViewAsRef, WeakViewHandle,
@@ -993,6 +1032,7 @@ pub struct Workspace {
     openwarp_launch_modal: ViewHandle<OpenWarpLaunchModal>,
     enable_auto_reload_modal: ViewHandle<EnableAutoReloadModal>,
     build_plan_migration_modal: ViewHandle<BuildPlanMigrationModal>,
+    #[cfg(not(feature = "oss_release"))]
     codex_modal: ViewHandle<CodexModal>,
     cloud_agent_capacity_modal: ViewHandle<CloudAgentCapacityModal>,
     free_tier_limit_hit_modal: ViewHandle<FreeTierLimitHitModal>,
@@ -1027,6 +1067,7 @@ pub struct Workspace {
     transcript_details_panel: ViewHandle<ConversationDetailsPanel>,
 
     file_upload_sessions: FileUploadSessions,
+    #[cfg(not(feature = "oss_release"))]
     ai_fact_view: ViewHandle<AIFactView>,
     left_panel_open: bool,
     vertical_tabs_panel_open: bool,
@@ -1956,12 +1997,16 @@ impl Workspace {
                     && ai_settings.default_tab_config_path() == path.to_string_lossy();
                 if is_removed_default {
                     AISettings::handle(ctx).update(ctx, |settings, ctx| {
-                        report_if_error!(settings
-                            .default_session_mode_internal
-                            .set_value(DefaultSessionMode::Terminal, ctx));
-                        report_if_error!(settings
-                            .default_tab_config_path
-                            .set_value(String::new(), ctx));
+                        report_if_error!(
+                            settings
+                                .default_session_mode_internal
+                                .set_value(DefaultSessionMode::Terminal, ctx)
+                        );
+                        report_if_error!(
+                            settings
+                                .default_tab_config_path
+                                .set_value(String::new(), ctx)
+                        );
                     });
                 }
                 if let Err(e) = std::fs::remove_file(path) {
@@ -2664,10 +2709,14 @@ impl Workspace {
             me.handle_build_plan_migration_modal_event(event, ctx);
         });
 
-        let codex_modal = ctx.add_typed_action_view(CodexModal::new);
-        ctx.subscribe_to_view(&codex_modal, |me, _, event, ctx| {
-            me.handle_codex_modal_event(event, ctx);
-        });
+        #[cfg(not(feature = "oss_release"))]
+        let codex_modal = {
+            let codex_modal = ctx.add_typed_action_view(CodexModal::new);
+            ctx.subscribe_to_view(&codex_modal, |me, _, event, ctx| {
+                me.handle_codex_modal_event(event, ctx);
+            });
+            codex_modal
+        };
 
         let cloud_agent_capacity_modal =
             ctx.add_typed_action_view(|_| CloudAgentCapacityModal::new());
@@ -2724,14 +2773,18 @@ impl Workspace {
             me.handle_command_search_event(event, ctx);
         });
 
-        let ai_fact_view = ctx.add_typed_action_view(AIFactView::new);
-        ctx.subscribe_to_view(&ai_fact_view, move |me, _, event, ctx| {
-            me.handle_ai_fact_view_event(event, ctx);
-        });
+        #[cfg(not(feature = "oss_release"))]
+        let ai_fact_view = {
+            let ai_fact_view = ctx.add_typed_action_view(AIFactView::new);
+            ctx.subscribe_to_view(&ai_fact_view, move |me, _, event, ctx| {
+                me.handle_ai_fact_view_event(event, ctx);
+            });
 
-        AIFactManager::handle(ctx).update(ctx, |manager, _| {
-            manager.register_view(window_id, ai_fact_view.clone());
-        });
+            AIFactManager::handle(ctx).update(ctx, |manager, _| {
+                manager.register_view(window_id, ai_fact_view.clone());
+            });
+            ai_fact_view
+        };
 
         let working_directories_model =
             ctx.add_model(|_| pane_group::WorkingDirectoriesModel::new());
@@ -2829,6 +2882,7 @@ impl Workspace {
             &BlocklistAIHistoryModel::handle(ctx),
             Self::handle_history_model_event,
         );
+        #[cfg(not(feature = "oss_release"))]
         ctx.subscribe_to_model(&CLIAgentSessionsModel::handle(ctx), |me, _, event, ctx| {
             me.handle_cli_agent_sessions_event(event, ctx);
         });
@@ -2871,6 +2925,7 @@ impl Workspace {
 
         // Show the Warp AI warm welcome iff the user hasn't dismissed it nor interacted with Warp AI before.
         // Also, avoid showing it in integration tests to prevent interaction with other tests.
+        #[cfg(not(feature = "oss_release"))]
         let mut should_show_ai_assistant_warm_welcome: bool = !FeatureFlag::AgentMode.is_enabled()
             && AISettings::as_ref(ctx).is_any_ai_enabled(ctx)
             && !matches!(ChannelState::channel(), Channel::Integration)
@@ -2881,9 +2936,12 @@ impl Workspace {
                 .and_then(|s| serde_json::from_str(&s).ok())
                 .map(|dismissed: bool| !dismissed)
                 .unwrap_or(true);
+        #[cfg(feature = "oss_release")]
+        let should_show_ai_assistant_warm_welcome = false;
 
         // Don't automatically show the Warp AI welcome during onboarding if the block onboarding flow is being used.
         // This way, we can delay the reveal until the end of the onboarding flow so as not to overwhelm the user.
+        #[cfg(not(feature = "oss_release"))]
         if matches!(
             BlockOnboarding::get_group(ctx),
             Some(BlockOnboarding::VariantOne) | Some(BlockOnboarding::VariantTwo)
@@ -3149,6 +3207,7 @@ impl Workspace {
             native_modal,
             shared_objects_creation_denied_modal,
             file_upload_sessions: Default::default(),
+            #[cfg(not(feature = "oss_release"))]
             ai_fact_view,
             left_panel_open: false,
             vertical_tabs_panel_open: false,
@@ -3181,6 +3240,7 @@ impl Workspace {
             agent_management_view,
             notification_mailbox_view,
             notification_toast_stack,
+            #[cfg(not(feature = "oss_release"))]
             codex_modal,
             cloud_agent_capacity_modal,
             free_tier_limit_hit_modal,
@@ -3225,7 +3285,7 @@ impl Workspace {
         self.palette.clone()
     }
 
-    #[cfg(any(test, feature = "integration_tests"))]
+    #[cfg(all(any(test, feature = "integration_tests"), not(feature = "oss_release")))]
     pub fn ai_fact_view(&self) -> ViewHandle<AIFactView> {
         self.ai_fact_view.clone()
     }
@@ -5572,9 +5632,11 @@ impl Workspace {
             right,
         };
         TabSettings::handle(ctx).update(ctx, |settings, ctx| {
-            report_if_error!(settings
-                .header_toolbar_chip_selection
-                .set_value(selection, ctx));
+            report_if_error!(
+                settings
+                    .header_toolbar_chip_selection
+                    .set_value(selection, ctx)
+            );
         });
     }
 
@@ -5622,9 +5684,11 @@ impl Workspace {
         if !FeatureFlag::ConfigurableToolbar.is_enabled() {
             return;
         }
-        let items = vec![MenuItemFields::new("Re-arrange toolbar items")
-            .with_on_select_action(WorkspaceAction::OpenHeaderToolbarEditor)
-            .into_item()];
+        let items = vec![
+            MenuItemFields::new("Re-arrange toolbar items")
+                .with_on_select_action(WorkspaceAction::OpenHeaderToolbarEditor)
+                .into_item(),
+        ];
         self.header_toolbar_context_menu
             .update(ctx, |menu, ctx| menu.set_items(items, ctx));
         self.show_header_toolbar_context_menu = Some(position);
@@ -5643,6 +5707,7 @@ impl Workspace {
         ctx.focus(&self.header_toolbar_editor_modal);
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn handle_ai_fact_view_event(&mut self, event: &AIFactViewEvent, ctx: &mut ViewContext<Self>) {
         match event {
             AIFactViewEvent::OpenSettings => {
@@ -6234,9 +6299,10 @@ impl Workspace {
             }
         }
 
-        // 5. Separator + worktree config entry + new tab config
+        // 5. Separator + new tab config
         if !crate::terminal_only::is_enabled() && FeatureFlag::TabConfigs.is_enabled() {
             menu_items.push(MenuItem::Separator);
+            #[cfg(not(feature = "oss_release"))]
             menu_items.push(
                 MenuItemFields::new_submenu("New worktree config")
                     .with_icon(icons::Icon::Dataflow02)
@@ -6946,6 +7012,17 @@ impl Workspace {
     /// Open the notebook identified by `source`. If the notebook is already open in another pane,
     /// that pane is focused. If the notebook is not open, the notebook will be opened in a new
     /// pane if default_to_new_pane is true; otherwise, it'll be opened in a new tab.
+    #[cfg(feature = "oss_release")]
+    pub fn open_notebook(
+        &mut self,
+        _source: &NotebookSource,
+        _settings: &OpenWarpDriveObjectSettings,
+        _ctx: &mut ViewContext<Self>,
+        _default_to_new_pane: bool,
+    ) {
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     pub fn open_notebook(
         &mut self,
         source: &NotebookSource,
@@ -7188,6 +7265,9 @@ impl Workspace {
         let window_id = ctx.window_id();
         let object_settings = Default::default();
         match cloud_object {
+            #[cfg(feature = "oss_release")]
+            CloudObjectTypeAndId::Notebook(_) => None,
+            #[cfg(not(feature = "oss_release"))]
             CloudObjectTypeAndId::Notebook(sync_id) => Some(Box::new(
                 NotebookManager::handle(ctx).update(ctx, |notebook_manager, ctx| {
                     notebook_manager.create_pane(
@@ -7551,32 +7631,40 @@ impl Workspace {
         page: Option<AIFactPage>,
         ctx: &mut ViewContext<Self>,
     ) {
-        // Ensure there is only one AI Fact Collection pane per window
-        let manager = AIFactManager::handle(ctx);
-
-        // Navigate to and focus existing pane
-        if let Some(locator) = manager.as_ref(ctx).find_pane(ctx.window_id()) {
-            if let Some(page) = page {
-                self.ai_fact_view.update(ctx, |view, ctx| {
-                    view.update_page(page, ctx);
-                });
-            }
-            self.focus_pane(locator, ctx);
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = (direction, page, ctx);
             return;
         }
 
-        let pane = AIFactPane::from_view(self.ai_fact_view.clone(), ctx);
-        self.ai_fact_view.update(ctx, |view, ctx| {
-            view.update_page(page.unwrap_or_default(), ctx);
-        });
-        let direction = direction.unwrap_or(Direction::Left);
-        self.active_tab_pane_group().update(ctx, |pane_group, ctx| {
-            pane_group
-                .add_pane_with_direction(direction, pane, true /* focus_new_pane */, ctx);
-        });
+        #[cfg(not(feature = "oss_release"))]
+        {
+            // Ensure there is only one AI Fact Collection pane per window
+            let manager = AIFactManager::handle(ctx);
 
-        // Focus WD index item
-        self.set_selected_object(Some(WarpDriveItemId::AIFactCollection), ctx);
+            // Navigate to and focus existing pane
+            if let Some(locator) = manager.as_ref(ctx).find_pane(ctx.window_id()) {
+                if let Some(page) = page {
+                    self.ai_fact_view.update(ctx, |view, ctx| {
+                        view.update_page(page, ctx);
+                    });
+                }
+                self.focus_pane(locator, ctx);
+                return;
+            }
+
+            let pane = AIFactPane::from_view(self.ai_fact_view.clone(), ctx);
+            self.ai_fact_view.update(ctx, |view, ctx| {
+                view.update_page(page.unwrap_or_default(), ctx);
+            });
+            let direction = direction.unwrap_or(Direction::Left);
+            self.active_tab_pane_group().update(ctx, |pane_group, ctx| {
+                pane_group.add_pane_with_direction(direction, pane, true, ctx);
+            });
+
+            // Focus WD index item
+            self.set_selected_object(Some(WarpDriveItemId::AIFactCollection), ctx);
+        }
     }
 
     /// Open the Execution Profile Editor pane
@@ -7756,17 +7844,21 @@ impl Workspace {
 
     fn toggle_recording_mode(&self, ctx: &mut ViewContext<Self>) {
         DebugSettings::handle(ctx).update(ctx, |debug_settings, settings_ctx| {
-            report_if_error!(debug_settings
-                .recording_mode
-                .toggle_and_save_value(settings_ctx));
+            report_if_error!(
+                debug_settings
+                    .recording_mode
+                    .toggle_and_save_value(settings_ctx)
+            );
         });
     }
 
     fn toggle_in_band_generators(&self, ctx: &mut ViewContext<Self>) {
         DebugSettings::handle(ctx).update(ctx, |debug_settings, settings_ctx| {
-            report_if_error!(debug_settings
-                .are_in_band_generators_for_all_sessions_enabled
-                .toggle_and_save_value(settings_ctx));
+            report_if_error!(
+                debug_settings
+                    .are_in_band_generators_for_all_sessions_enabled
+                    .toggle_and_save_value(settings_ctx)
+            );
         });
     }
 
@@ -7929,9 +8021,11 @@ impl Workspace {
 
         // Mark that we've done the one-time auto-open
         AISettings::handle(ctx).update(ctx, |settings, ctx| {
-            report_if_error!(settings
-                .has_auto_opened_conversation_list
-                .set_value(true, ctx));
+            report_if_error!(
+                settings
+                    .has_auto_opened_conversation_list
+                    .set_value(true, ctx)
+            );
         });
     }
 
@@ -8953,6 +9047,7 @@ impl Workspace {
         };
 
         match label.as_str() {
+            #[cfg(not(feature = "oss_release"))]
             "New worktree config" => {
                 self.tab_config_action_sidecar_item = None;
                 let auto_select_first_repo = self.new_session_dropdown_menu.read(ctx, |menu, _| {
@@ -9258,7 +9353,7 @@ impl Workspace {
     /// substituted with a fresh name on every open.
     /// When `Some(name)` (manual naming), the commands are baked in and a
     /// `worktree_branch_name` param is added so re-opens show the params modal.
-    #[cfg(feature = "local_fs")]
+    #[cfg(all(feature = "local_fs", not(feature = "oss_release")))]
     fn handle_new_worktree_submit(
         &mut self,
         repo: &str,
@@ -9343,7 +9438,7 @@ impl Workspace {
         }
     }
 
-    #[cfg(not(feature = "local_fs"))]
+    #[cfg(any(not(feature = "local_fs"), feature = "oss_release"))]
     fn handle_new_worktree_submit(
         &mut self,
         _repo: &str,
@@ -9353,6 +9448,7 @@ impl Workspace {
     ) {
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn open_repo_picker_for_new_worktree_modal(&mut self, ctx: &mut ViewContext<Self>) {
         let modal_view = self.new_worktree_modal.view.clone();
         ctx.open_file_picker(
@@ -9375,10 +9471,13 @@ impl Workspace {
         );
     }
 
+    #[cfg(feature = "oss_release")]
+    fn open_repo_picker_for_new_worktree_modal(&mut self, _ctx: &mut ViewContext<Self>) {}
+
     /// Opens a worktree in the given repo using the default worktree tab config,
     /// saving the materialized config to `~/.warp/tab_configs/` first.
     /// The branch name is auto-generated.
-    #[cfg(feature = "local_fs")]
+    #[cfg(all(feature = "local_fs", not(feature = "oss_release")))]
     fn open_worktree_in_repo(&mut self, repo_path: String, ctx: &mut ViewContext<Self>) {
         log::info!("open_worktree_in_repo requested: repo_path={repo_path:?}");
         let config_path = ensure_default_worktree_config();
@@ -9455,11 +9554,12 @@ impl Workspace {
         );
     }
 
-    #[cfg(not(feature = "local_fs"))]
+    #[cfg(any(not(feature = "local_fs"), feature = "oss_release"))]
     fn open_worktree_in_repo(&mut self, _repo_path: String, _ctx: &mut ViewContext<Self>) {}
 
     /// Opens a native folder picker to add a new repo to PersistedWorkspace,
     /// triggered from the "+ Add new repo..." item in the New worktree config submenu.
+    #[cfg(not(feature = "oss_release"))]
     fn open_folder_picker_for_worktree_submenu(&mut self, ctx: &mut ViewContext<Self>) {
         ctx.open_file_picker(
             move |result, ctx| {
@@ -9475,6 +9575,9 @@ impl Workspace {
             warpui::platform::FilePickerConfiguration::new().folders_only(),
         );
     }
+
+    #[cfg(feature = "oss_release")]
+    fn open_folder_picker_for_worktree_submenu(&mut self, _ctx: &mut ViewContext<Self>) {}
 
     fn handle_enable_auto_reload_modal_event(
         &mut self,
@@ -9846,9 +9949,11 @@ impl Workspace {
 
     pub fn toggle_block_snackbar(&mut self, ctx: &mut ViewContext<Self>) {
         BlockListSettings::handle(ctx).update(ctx, |blocklist_settings, ctx| {
-            report_if_error!(blocklist_settings
-                .snackbar_enabled
-                .toggle_and_save_value(ctx));
+            report_if_error!(
+                blocklist_settings
+                    .snackbar_enabled
+                    .toggle_and_save_value(ctx)
+            );
         });
     }
 
@@ -9860,9 +9965,11 @@ impl Workspace {
 
     pub fn toggle_syntax_highlighting(&mut self, ctx: &mut ViewContext<Self>) {
         InputSettings::handle(ctx).update(ctx, |input_settings, ctx| {
-            report_if_error!(input_settings
-                .syntax_highlighting
-                .toggle_and_save_value(ctx));
+            report_if_error!(
+                input_settings
+                    .syntax_highlighting
+                    .toggle_and_save_value(ctx)
+            );
         });
     }
 
@@ -9877,9 +9984,11 @@ impl Workspace {
         ctx: &mut ViewContext<Self>,
     ) {
         AccessibilitySettings::handle(ctx).update(ctx, |accessibility_settings, ctx| {
-            report_if_error!(accessibility_settings
-                .a11y_verbosity
-                .set_value(verbosity, ctx));
+            report_if_error!(
+                accessibility_settings
+                    .a11y_verbosity
+                    .set_value(verbosity, ctx)
+            );
         });
     }
 
@@ -10809,7 +10918,11 @@ impl Workspace {
             ctx,
         );
 
-        #[cfg(all(feature = "local_tty", not(target_family = "wasm")))]
+        #[cfg(all(
+            feature = "local_tty",
+            not(target_family = "wasm"),
+            not(feature = "oss_release")
+        ))]
         if is_docker_sandbox {
             if let Some(terminal_view) = self
                 .active_tab_pane_group()
@@ -10821,7 +10934,11 @@ impl Workspace {
                 log::warn!("Could not find docker sandbox terminal view after creating new tab");
             }
         }
-        #[cfg(not(all(feature = "local_tty", not(target_family = "wasm"))))]
+        #[cfg(not(all(
+            feature = "local_tty",
+            not(target_family = "wasm"),
+            not(feature = "oss_release")
+        )))]
         let _ = is_docker_sandbox;
         // If the default session mode is Agent and AI is enabled, enter agent view
         if should_enter_agent_view {
@@ -10975,6 +11092,16 @@ impl Workspace {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    pub fn add_tab_for_cloud_notebook(
+        &mut self,
+        _notebook_id: SyncId,
+        _settings: &OpenWarpDriveObjectSettings,
+        _ctx: &mut ViewContext<Self>,
+    ) {
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     pub fn add_tab_for_cloud_notebook(
         &mut self,
         notebook_id: SyncId,
@@ -11011,6 +11138,15 @@ impl Workspace {
     }
 
     /// Add a tab with a file notebook pane open.
+    #[cfg(feature = "oss_release")]
+    pub fn add_tab_for_file_notebook(
+        &mut self,
+        _file_path: Option<PathBuf>,
+        _ctx: &mut ViewContext<Self>,
+    ) {
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     pub fn add_tab_for_file_notebook(
         &mut self,
         file_path: Option<PathBuf>,
@@ -12499,6 +12635,7 @@ impl Workspace {
 
                 self.invoke_environment_variables(env_var_collection.clone(), false, ctx);
             }
+            #[cfg(not(feature = "oss_release"))]
             CommandPaletteEvent::OpenNotebook { id } => self.open_notebook(
                 &NotebookSource::Existing(*id),
                 &OpenWarpDriveObjectSettings::default(),
@@ -12959,7 +13096,11 @@ impl Workspace {
     /// All failure modes — ineligibility, fork RPC failure, and local fork
     /// materialization failure — surface an error toast and **do not open** any
     /// pane. The local conversation is unaffected.
-    #[cfg(all(feature = "local_fs", not(target_family = "wasm")))]
+    #[cfg(all(
+        feature = "local_fs",
+        not(target_family = "wasm"),
+        not(feature = "oss_release")
+    ))]
     fn start_local_to_cloud_handoff(
         &mut self,
         initial_prompt: Option<String>,
@@ -13044,7 +13185,11 @@ impl Workspace {
     /// prevents the bookkeeping exit triggered by `restore_conversation_after_view_creation`
     /// (re-entering agent view for the forked conversation) from tearing down
     /// the just-pushed pane.
-    #[cfg(all(feature = "local_fs", not(target_family = "wasm")))]
+    #[cfg(all(
+        feature = "local_fs",
+        not(target_family = "wasm"),
+        not(feature = "oss_release")
+    ))]
     fn complete_local_to_cloud_handoff_open(
         &mut self,
         source_view: ViewHandle<TerminalView>,
@@ -15081,10 +15226,13 @@ impl Workspace {
             return;
         };
 
+        #[cfg(not(feature = "oss_release"))]
         let prefix = CLIAgentSessionsModel::as_ref(ctx)
             .session(terminal_view_handle.id())
             .map(|session| session.agent.skill_command_prefix())
             .unwrap_or("/");
+        #[cfg(feature = "oss_release")]
+        let prefix = "/";
         let prompt = format!("{prefix}update-tab-config Update {} to...", path.display());
 
         terminal_view_handle.update(ctx, |terminal_view, ctx| {
@@ -15313,6 +15461,7 @@ impl Workspace {
                             ctx.notify();
                         });
                     }
+                    #[cfg(not(feature = "oss_release"))]
                     AcceptNotebook(sync_id) => {
                         self.open_notebook(
                             &NotebookSource::Existing(*sync_id),
@@ -15996,9 +16145,11 @@ impl Workspace {
 
     fn reset_zoom(&mut self, ctx: &mut ViewContext<Self>) {
         WindowSettings::handle(ctx).update(ctx, |window_settings, ctx| {
-            report_if_error!(window_settings
-                .zoom_level
-                .set_value(ZoomLevel::default_value(), ctx));
+            report_if_error!(
+                window_settings
+                    .zoom_level
+                    .set_value(ZoomLevel::default_value(), ctx)
+            );
         });
     }
 
@@ -16018,9 +16169,11 @@ impl Workspace {
         };
 
         WindowSettings::handle(ctx).update(ctx, |window_settings, ctx| {
-            report_if_error!(window_settings
-                .zoom_level
-                .set_value(crate::window_settings::ZoomLevel::VALUES[next_index], ctx));
+            report_if_error!(
+                window_settings
+                    .zoom_level
+                    .set_value(crate::window_settings::ZoomLevel::VALUES[next_index], ctx)
+            );
         });
     }
 
@@ -16033,9 +16186,11 @@ impl Workspace {
 
     fn set_terminal_font_size(&mut self, new_font_size: f32, ctx: &mut ViewContext<Self>) {
         FontSettings::handle(ctx).update(ctx, |font_settings, ctx| {
-            report_if_error!(font_settings
-                .monospace_font_size
-                .set_value(new_font_size, ctx));
+            report_if_error!(
+                font_settings
+                    .monospace_font_size
+                    .set_value(new_font_size, ctx)
+            );
         });
     }
 
@@ -16288,9 +16443,10 @@ impl Workspace {
         }
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn handle_codex_modal_event(&mut self, event: &CodexModalEvent, ctx: &mut ViewContext<Self>) {
-        use crate::ai::blocklist::agent_view::AgentViewEntryOrigin;
         use crate::AIExecutionProfilesModel;
+        use crate::ai::blocklist::agent_view::AgentViewEntryOrigin;
 
         match event {
             CodexModalEvent::Close => {
@@ -16388,11 +16544,14 @@ impl Workspace {
             .and_then(|view| view.as_ref(ctx).active_session_is_local(ctx))
             .is_some_and(|is_local| !is_local);
 
+        #[cfg(not(feature = "oss_release"))]
         let custom_command_prefix = active_view.and_then(|view| {
             CLIAgentSessionsModel::as_ref(ctx)
                 .session(view.id())
                 .and_then(|s| s.custom_command_prefix.clone())
         });
+        #[cfg(feature = "oss_release")]
+        let custom_command_prefix = None;
 
         self.active_tab_pane_group().update(ctx, |pane_group, ctx| {
             let pane_id = pane_group.add_terminal_pane_ignoring_default_session_mode(
@@ -16434,14 +16593,23 @@ impl Workspace {
 
     /// Opens the Codex modal.
     pub fn open_codex_modal(&mut self, ctx: &mut ViewContext<Self>) {
-        if crate::terminal_only::is_enabled() {
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = ctx;
             return;
         }
 
-        self.current_workspace_state.is_codex_modal_open = true;
-        ctx.focus(&self.codex_modal);
-        ctx.notify();
-        send_telemetry_from_ctx!(TelemetryEvent::CodexModalOpened, ctx);
+        #[cfg(not(feature = "oss_release"))]
+        {
+            if crate::terminal_only::is_enabled() {
+                return;
+            }
+
+            self.current_workspace_state.is_codex_modal_open = true;
+            ctx.focus(&self.codex_modal);
+            ctx.notify();
+            send_telemetry_from_ctx!(TelemetryEvent::CodexModalOpened, ctx);
+        }
     }
 
     /// Opens a new tab and enters agent view with a prompt from a Linear deeplink.
@@ -16864,6 +17032,7 @@ impl Workspace {
         ctx.notify();
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn render_ai_assistant_warm_welcome(&self, appearance: &Appearance) -> Box<dyn Element> {
         let theme = appearance.theme();
         let background_color = theme.surface_2();
@@ -17895,6 +18064,7 @@ impl Workspace {
         }
 
         // Legacy AI assistant button (non-agent-mode only)
+        #[cfg(not(feature = "oss_release"))]
         if is_online
             && !FeatureFlag::AgentMode.is_enabled()
             && !is_web_anonymous_user
@@ -17928,7 +18098,6 @@ impl Workspace {
                         .finish(),
                 );
             }
-
         }
 
         if self.auth_state.is_anonymous_or_logged_out()
@@ -18489,6 +18658,7 @@ impl Workspace {
         Align::new(hoverable.finish()).finish()
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn render_legacy_warp_ai_entrypoint_button(&self, appearance: &Appearance) -> Box<dyn Element> {
         let (icon, action, label) = (
             icons::Icon::AiAssistant,
@@ -19869,11 +20039,14 @@ impl Workspace {
                 .insert(flags::SHOW_OZ_UPDATES_IN_ZERO_STATE_FLAG);
         }
 
-        if *ai_settings
-            .should_render_use_agent_footer_for_user_commands
-            .value()
+        #[cfg(not(feature = "oss_release"))]
         {
-            context.set.insert(flags::USE_AGENT_FOOTER_FLAG);
+            if *ai_settings
+                .should_render_use_agent_footer_for_user_commands
+                .value()
+            {
+                context.set.insert(flags::USE_AGENT_FOOTER_FLAG);
+            }
         }
 
         match ai_settings.thinking_display_mode {
@@ -20066,23 +20239,29 @@ impl Workspace {
     }
 
     fn open_tab_and_focus_oz_launch_modal(&mut self, ctx: &mut ViewContext<Self>) {
-        // Create a new tab with one terminal session titled "Introducing Oz"
-        self.add_tab_with_pane_layout(
-            PanesLayout::SingleTerminal(Box::new(NewTerminalOptions {
-                shell: None,
-                initial_directory: None,
-                hide_homepage: false,
-                ..Default::default()
-            })),
-            Arc::new(HashMap::new()),
-            Some("Introducing Oz".to_string()),
-            ctx,
-        );
-        self.oz_launch_modal.tab_pane_group_id = self
-            .tabs
-            .get(self.active_tab_index)
-            .map(|tab| tab.pane_group.id());
-        ctx.focus(&self.oz_launch_modal.view);
+        #[cfg(feature = "oss_release")]
+        {
+            self.focus_openwarp_launch_modal(ctx);
+        }
+        #[cfg(not(feature = "oss_release"))]
+        {
+            self.add_tab_with_pane_layout(
+                PanesLayout::SingleTerminal(Box::new(NewTerminalOptions {
+                    shell: None,
+                    initial_directory: None,
+                    hide_homepage: false,
+                    ..Default::default()
+                })),
+                Arc::new(HashMap::new()),
+                Some("Introducing Oz".to_string()),
+                ctx,
+            );
+            self.oz_launch_modal.tab_pane_group_id = self
+                .tabs
+                .get(self.active_tab_index)
+                .map(|tab| tab.pane_group.id());
+            ctx.focus(&self.oz_launch_modal.view);
+        }
     }
 
     fn focus_build_plan_migration_modal(&mut self, ctx: &mut ViewContext<Self>) {
@@ -20290,12 +20469,16 @@ impl TypedActionView for Workspace {
                         } else {
                             // Config missing or deleted — clear and fall through to Terminal.
                             AISettings::handle(ctx).update(ctx, |settings, ctx| {
-                                report_if_error!(settings
-                                    .default_session_mode_internal
-                                    .set_value(DefaultSessionMode::Terminal, ctx));
-                                report_if_error!(settings
-                                    .default_tab_config_path
-                                    .set_value(String::new(), ctx));
+                                report_if_error!(
+                                    settings
+                                        .default_session_mode_internal
+                                        .set_value(DefaultSessionMode::Terminal, ctx)
+                                );
+                                report_if_error!(
+                                    settings
+                                        .default_tab_config_path
+                                        .set_value(String::new(), ctx)
+                                );
                             });
                             self.add_terminal_tab(false, ctx);
                         }
@@ -20415,9 +20598,11 @@ impl TypedActionView for Workspace {
                 AISettings::handle(ctx).update(ctx, |settings, ctx| {
                     report_if_error!(settings.default_session_mode_internal.set_value(*mode, ctx));
                     if let Some(path) = tab_config_path {
-                        report_if_error!(settings
-                            .default_tab_config_path
-                            .set_value(path.to_string_lossy().into_owned(), ctx));
+                        report_if_error!(
+                            settings
+                                .default_tab_config_path
+                                .set_value(path.to_string_lossy().into_owned(), ctx)
+                        );
                     }
                 });
                 #[cfg(feature = "local_tty")]
@@ -20474,9 +20659,17 @@ impl TypedActionView for Workspace {
                 self.add_tab_for_code_file(path, None, ctx);
             }
             OpenLocalToCloudHandoffPane { initial_prompt } => {
-                #[cfg(all(feature = "local_fs", not(target_family = "wasm")))]
+                #[cfg(all(
+                    feature = "local_fs",
+                    not(target_family = "wasm"),
+                    not(feature = "oss_release")
+                ))]
                 self.start_local_to_cloud_handoff(initial_prompt.clone(), ctx);
-                #[cfg(not(all(feature = "local_fs", not(target_family = "wasm"))))]
+                #[cfg(not(all(
+                    feature = "local_fs",
+                    not(target_family = "wasm"),
+                    not(feature = "oss_release")
+                )))]
                 let _ = initial_prompt;
             }
             OpenNetworkLogPane => {
@@ -21632,6 +21825,7 @@ impl TypedActionView for Workspace {
             NewCodeFile => {
                 self.add_tab_for_new_code_file(ctx);
             }
+            #[cfg(not(feature = "oss_release"))]
             OpenNotebook { id } => self.open_notebook(
                 &NotebookSource::Existing(*id),
                 &OpenWarpDriveObjectSettings::default(),
@@ -21753,6 +21947,7 @@ impl TypedActionView for Workspace {
                 });
             }
             InsertForkSlashCommand => {
+                #[cfg(not(feature = "oss_release"))]
                 self.active_tab_pane_group().update(ctx, |pane_group, ctx| {
                     if let Some(terminal_view) = pane_group.active_session_view(ctx) {
                         terminal_view.update(ctx, |terminal, ctx| {
@@ -21909,14 +22104,14 @@ impl TypedActionView for Workspace {
                     FeatureFlag::OpenWarpLaunchModal.is_enabled()
                 );
             }
-            #[cfg(debug_assertions)]
+            #[cfg(all(debug_assertions, not(feature = "oss_release")))]
             InstallOpenCodeWarpPlugin => {
                 let message = set_opencode_warp_plugin("github:warpdotdev/opencode-warp-internal");
                 self.toast_stack.update(ctx, |view, ctx| {
                     view.add_ephemeral_toast(DismissibleToast::default(message), ctx);
                 });
             }
-            #[cfg(debug_assertions)]
+            #[cfg(all(debug_assertions, not(feature = "oss_release")))]
             UseLocalOpenCodeWarpPlugin => {
                 let message = match dirs::home_dir() {
                     Some(home) => {
@@ -23228,6 +23423,7 @@ impl View for Workspace {
             stack.add_child(ChildView::new(&self.build_plan_migration_modal).finish());
         }
 
+        #[cfg(not(feature = "oss_release"))]
         if self.current_workspace_state.is_codex_modal_open {
             stack.add_child(ChildView::new(&self.codex_modal).finish());
         }
@@ -23361,6 +23557,7 @@ impl View for Workspace {
             }
         }
 
+        #[cfg(not(feature = "oss_release"))]
         if !FeatureFlag::AgentMode.is_enabled()
             && AISettings::as_ref(app).is_any_ai_enabled(app)
             && self.should_show_ai_assistant_warm_welcome
@@ -24411,7 +24608,7 @@ fn compute_default_panel_widths(
 /// Idempotently sets the opencode-warp plugin entry in `~/.config/opencode/opencode.json`.
 /// Removes any existing opencode-warp plugin entries (both local file:// and github:) and adds
 /// the given `new_entry`. Creates the config file with a default structure if it doesn't exist.
-#[cfg(debug_assertions)]
+#[cfg(all(debug_assertions, not(feature = "oss_release")))]
 fn set_opencode_warp_plugin(new_entry: &str) -> String {
     let Some(home) = dirs::home_dir() else {
         return "Failed to determine home directory".to_string();

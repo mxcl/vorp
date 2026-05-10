@@ -5,6 +5,7 @@ use crate::terminal::model::{
 };
 use chrono::{DateTime, FixedOffset, Utc};
 use serde::{Deserialize, Serialize};
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::share_block::DisplaySetting as GqlDisplaySetting;
 
 // These are pixel heights of various parts of an embedded block.
@@ -28,6 +29,7 @@ pub enum DisplaySetting {
     Other(String),
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<DisplaySetting> for GqlDisplaySetting {
     fn from(value: DisplaySetting) -> Self {
         match value {

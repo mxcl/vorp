@@ -8,21 +8,22 @@ use warpui::{
     fonts::{Properties, Weight},
     keymap::Keystroke,
     prelude::{vec2f, ConstrainedBox, Cursor, Empty, Hoverable, MouseStateHandle},
-    scene::{Border, CornerRadius, Radius},
+    scene::Border,
+    AppContext, Element, Entity, ModelHandle, SingletonEntity, TypedActionView, View, ViewContext,
+};
+#[cfg(not(feature = "oss_release"))]
+use warpui::{
+    scene::{CornerRadius, Radius},
     ui_components::{
         checkbox::Checkbox,
         components::{UiComponent, UiComponentStyles},
     },
-    AppContext, Element, Entity, ModelHandle, SingletonEntity, TypedActionView, View, ViewContext,
 };
 
 use crate::{
-    ai::blocklist::agent_view::{
-        AgentViewController, AgentViewControllerEvent, ENTER_AGENT_VIEW_NEW_CONVERSATION_KEYSTROKE,
-        ENTER_CLOUD_AGENT_VIEW_NEW_CONVERSATION_KEYSTROKE,
-    },
+    ai::blocklist::agent_view::AgentViewController,
     appearance::Appearance,
-    settings::{AISettings, AISettingsChangedEvent, InputModeSettings},
+    settings::InputModeSettings,
     terminal::{
         self,
         event::BlockType,
@@ -31,16 +32,24 @@ use crate::{
         settings::{TerminalSettings, TerminalSettingsChangedEvent},
         view::TerminalAction,
     },
+};
+#[cfg(not(feature = "oss_release"))]
+use crate::{
+    ai::blocklist::agent_view::{
+        AgentViewControllerEvent, ENTER_AGENT_VIEW_NEW_CONVERSATION_KEYSTROKE,
+        ENTER_CLOUD_AGENT_VIEW_NEW_CONVERSATION_KEYSTROKE,
+    },
+    settings::{AISettings, AISettingsChangedEvent},
     ui_components::blended_colors,
     util::bindings::keybinding_name_to_keystroke,
-    workspace::tab_settings::TabSettings,
-    workspace::tab_settings::TabSettingsChangedEvent,
+    workspace::tab_settings::{TabSettings, TabSettingsChangedEvent},
     workspace::view::TOGGLE_RIGHT_PANEL_BINDING_NAME,
     WorkspaceAction,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TerminalViewZeroStateAction {
+    #[cfg(not(feature = "oss_release"))]
     ToggleNLD,
     Dismiss,
 }
@@ -48,10 +57,14 @@ pub enum TerminalViewZeroStateAction {
 #[derive(Default)]
 struct StateHandles {
     dismiss_button: MouseStateHandle,
+    #[cfg(not(feature = "oss_release"))]
     start_new_conversation: MouseStateHandle,
+    #[cfg(not(feature = "oss_release"))]
     start_cloud_conversation: MouseStateHandle,
     open_history_menu: MouseStateHandle,
+    #[cfg(not(feature = "oss_release"))]
     open_code_review: MouseStateHandle,
+    #[cfg(not(feature = "oss_release"))]
     nld_checkbox: MouseStateHandle,
 }
 
@@ -82,23 +95,27 @@ impl TerminalViewZeroStateBlock {
             },
         );
 
-        let model_events_clone = model_events_dispatcher.clone();
-        ctx.subscribe_to_model(agent_view_controller, move |me, controller, event, ctx| {
-            if let AgentViewControllerEvent::ExitedAgentView {
-                original_exchange_count,
-                final_exchange_count,
-                ..
-            } = event
-            {
-                if original_exchange_count != final_exchange_count {
-                    me.should_hide = true;
-                    ctx.unsubscribe_to_model(&model_events_clone);
-                    ctx.unsubscribe_to_model(&controller);
-                    ctx.notify()
+        #[cfg(not(feature = "oss_release"))]
+        {
+            let model_events_clone = model_events_dispatcher.clone();
+            ctx.subscribe_to_model(agent_view_controller, move |me, controller, event, ctx| {
+                if let AgentViewControllerEvent::ExitedAgentView {
+                    original_exchange_count,
+                    final_exchange_count,
+                    ..
+                } = event
+                {
+                    if original_exchange_count != final_exchange_count {
+                        me.should_hide = true;
+                        ctx.unsubscribe_to_model(&model_events_clone);
+                        ctx.unsubscribe_to_model(&controller);
+                        ctx.notify()
+                    }
                 }
-            }
-        });
+            });
+        }
 
+        #[cfg(not(feature = "oss_release"))]
         ctx.subscribe_to_model(&AISettings::handle(ctx), |me, _, event, ctx| {
             if matches!(event, AISettingsChangedEvent::IsAnyAIEnabled { .. })
                 && !TerminalSettings::as_ref(ctx).should_show_zero_state_block(ctx)
@@ -119,16 +136,21 @@ impl TerminalViewZeroStateBlock {
             }
         });
 
+        #[cfg(not(feature = "oss_release"))]
         ctx.subscribe_to_model(&TabSettings::handle(ctx), |_, _, event, ctx| {
             if matches!(event, TabSettingsChangedEvent::ShowCodeReviewButton { .. }) {
                 ctx.notify();
             }
         });
 
-        let ai_settings = AISettings::as_ref(ctx);
+        #[cfg(not(feature = "oss_release"))]
+        let should_render_nld_checkbox = AISettings::as_ref(ctx).is_any_ai_enabled(ctx);
+        #[cfg(feature = "oss_release")]
+        let should_render_nld_checkbox = false;
+
         Self {
             should_hide: false,
-            should_render_nld_checkbox: ai_settings.is_any_ai_enabled(ctx),
+            should_render_nld_checkbox,
             state_handles: Default::default(),
         }
     }
@@ -185,8 +207,11 @@ impl View for TerminalViewZeroStateBlock {
                     .finish(),
             );
 
-        let mut items = vec![
-            render_standard_message(
+        let mut items = Vec::new();
+
+        #[cfg(not(feature = "oss_release"))]
+        {
+            items.push(render_standard_message(
                 Message::new(vec![MessageItem::clickable(
                     vec![
                         MessageItem::keystroke(ENTER_AGENT_VIEW_NEW_CONVERSATION_KEYSTROKE.clone()),
@@ -198,8 +223,8 @@ impl View for TerminalViewZeroStateBlock {
                     self.state_handles.start_new_conversation.clone(),
                 )]),
                 app,
-            ),
-            render_standard_message(
+            ));
+            items.push(render_standard_message(
                 Message::new(vec![MessageItem::clickable(
                     vec![
                         MessageItem::keystroke(
@@ -213,25 +238,30 @@ impl View for TerminalViewZeroStateBlock {
                     self.state_handles.start_cloud_conversation.clone(),
                 )]),
                 app,
-            ),
-            render_standard_message(
-                Message::new(vec![MessageItem::clickable(
-                    vec![
-                        MessageItem::keystroke(Keystroke {
-                            key: "up".to_owned(),
-                            ..Default::default()
-                        }),
-                        MessageItem::text("cycle past commands and conversations"),
-                    ],
-                    |ctx| {
-                        ctx.dispatch_typed_action(TerminalAction::OpenInlineHistoryMenu);
-                    },
-                    self.state_handles.open_history_menu.clone(),
-                )]),
-                app,
-            ),
-        ];
+            ));
+        }
 
+        items.push(render_standard_message(
+            Message::new(vec![MessageItem::clickable(
+                vec![
+                    MessageItem::keystroke(Keystroke {
+                        key: "up".to_owned(),
+                        ..Default::default()
+                    }),
+                    #[cfg(not(feature = "oss_release"))]
+                    MessageItem::text("cycle past commands and conversations"),
+                    #[cfg(feature = "oss_release")]
+                    MessageItem::text("cycle past commands"),
+                ],
+                |ctx| {
+                    ctx.dispatch_typed_action(TerminalAction::OpenInlineHistoryMenu);
+                },
+                self.state_handles.open_history_menu.clone(),
+            )]),
+            app,
+        ));
+
+        #[cfg(not(feature = "oss_release"))]
         if *TabSettings::as_ref(app).show_code_review_button {
             if let Some(keystroke) =
                 keybinding_name_to_keystroke(TOGGLE_RIGHT_PANEL_BINDING_NAME, app)
@@ -269,6 +299,7 @@ impl View for TerminalViewZeroStateBlock {
             });
         }
 
+        #[cfg(not(feature = "oss_release"))]
         if self.should_render_nld_checkbox {
             let checkbox = render_nld_checkbox(self.state_handles.nld_checkbox.clone(), app);
             content.add_child(
@@ -348,6 +379,7 @@ impl TypedActionView for TerminalViewZeroStateBlock {
                 });
                 ctx.notify();
             }
+            #[cfg(not(feature = "oss_release"))]
             TerminalViewZeroStateAction::ToggleNLD => {
                 let ai_settings = AISettings::handle(ctx);
                 let new_value = !*ai_settings.as_ref(ctx).nld_in_terminal_enabled_internal;
@@ -366,6 +398,7 @@ impl Entity for TerminalViewZeroStateBlock {
     type Event = ();
 }
 
+#[cfg(not(feature = "oss_release"))]
 fn render_nld_checkbox(mouse_state: MouseStateHandle, app: &AppContext) -> Box<dyn Element> {
     let appearance = Appearance::handle(app).as_ref(app);
     let theme = appearance.theme();

@@ -6,5 +6,6 @@ pub type EmbeddingSearchMixer = SearchMixer<EmbeddingSearchItemAction>;
 #[derive(Clone, Debug)]
 pub enum EmbeddingSearchItemAction {
     AcceptWorkflow(SyncId),
+    #[cfg(not(feature = "oss_release"))]
     AcceptNotebook(SyncId),
 }

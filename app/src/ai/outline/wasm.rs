@@ -6,6 +6,10 @@ use super::OutlineStatus;
 
 pub struct RepoOutlines {}
 
+pub enum RepoOutlinesEvent {
+    OutlinesUpdated(PathBuf),
+}
+
 impl RepoOutlines {
     pub fn new(_ctx: &mut ModelContext<Self>) -> Self {
         Self {}
@@ -21,7 +25,7 @@ impl RepoOutlines {
 }
 
 impl Entity for RepoOutlines {
-    type Event = ();
+    type Event = RepoOutlinesEvent;
 }
 
 impl SingletonEntity for RepoOutlines {}

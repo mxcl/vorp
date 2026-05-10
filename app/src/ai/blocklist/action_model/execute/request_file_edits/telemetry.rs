@@ -149,6 +149,12 @@ pub struct MalformedFinalLineProxyEvent {
 }
 
 impl TelemetryEvent for RequestFileEditsTelemetryEvent {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         RequestFileEditsTelemetryEventDiscriminants::from(self).name()
     }
@@ -182,6 +188,12 @@ impl TelemetryEvent for RequestFileEditsTelemetryEvent {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         RequestFileEditsTelemetryEventDiscriminants::from(self).description()
     }
@@ -194,6 +206,12 @@ impl TelemetryEvent for RequestFileEditsTelemetryEvent {
         RequestFileEditsTelemetryEventDiscriminants::from(self).contains_ugc()
     }
 
+    #[cfg(feature = "oss_release")]
+    fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
+        std::iter::empty()
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
         warp_core::telemetry::enum_events::<Self>()
     }
@@ -206,6 +224,12 @@ impl RequestFileEditsTelemetryEventDiscriminants {
 }
 
 impl TelemetryEventDesc for RequestFileEditsTelemetryEventDiscriminants {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         match self {
             Self::EditResolved => "AgentMode.Code.SuggestedEditResolved",
@@ -221,6 +245,12 @@ impl TelemetryEventDesc for RequestFileEditsTelemetryEventDiscriminants {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         match self {
             Self::EditResolved => "Agent Mode pending code edit suggestion resolved",

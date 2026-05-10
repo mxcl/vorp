@@ -1,24 +1,36 @@
 use std::collections::HashMap;
 
-use anyhow::{anyhow, Context, Result};
+use crate::warp_managed_secrets::{
+    client::{ManagedSecretValue, SecretOwner, TaskIdentityToken},
+    ManagedSecret, ManagedSecretType,
+};
+#[cfg(not(feature = "oss_release"))]
+use anyhow::Context;
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+#[cfg(not(feature = "oss_release"))]
 use cynic::{MutationBuilder, QueryBuilder};
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::issue_task_identity_token::{
     IssueTaskIdentityToken, IssueTaskIdentityTokenInput, IssueTaskIdentityTokenResult,
     IssueTaskIdentityTokenVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::object_permissions::OwnerType;
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::queries::list_managed_secrets::{
     ListManagedSecrets, ListManagedSecretsVariables, ManagedSecretsInput, ManagedSecretsResult,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::queries::managed_secret_config::{
     GetManagedSecretConfig, GetManagedSecretConfigVariables, UserResult,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::queries::task_secrets::{
-    ManagedSecretValue, TaskSecrets, TaskSecretsInput, TaskSecretsResult, TaskSecretsVariables,
+    TaskSecrets, TaskSecretsInput, TaskSecretsResult, TaskSecretsVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::{
-    managed_secrets::{ManagedSecret, ManagedSecretType},
     mutations::{
         create_managed_secret::{
             CreateManagedSecret, CreateManagedSecretInput, CreateManagedSecretResult,
@@ -35,15 +47,16 @@ use warp_graphql::{
     },
     object_permissions::Owner,
 };
-use warp_managed_secrets::client::{SecretOwner, TaskIdentityToken};
 
 use super::ServerApi;
+#[cfg(not(feature = "oss_release"))]
 use crate::server::graphql::{get_request_context, get_user_facing_error_message};
 
-pub use warp_managed_secrets::client::{ManagedSecretConfigs, ManagedSecretsClient};
+pub use crate::warp_managed_secrets::client::{ManagedSecretConfigs, ManagedSecretsClient};
 
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(not(feature = "oss_release"))]
 impl ManagedSecretsClient for ServerApi {
     async fn get_managed_secret_configs(&self) -> Result<ManagedSecretConfigs> {
         let variables = GetManagedSecretConfigVariables {
@@ -59,7 +72,8 @@ impl ManagedSecretsClient for ServerApi {
                     for team in workspace.teams {
                         if let Some(config) = team.managed_secrets {
                             // DO NOT inline the `insert` call into the `debug_assert!` macro. It will get compiled out in release builds.
-                            let prior_config = team_configs.insert(team.uid.into_inner(), config);
+                            let prior_config =
+                                team_configs.insert(team.uid.into_inner(), managed_secret_config(config));
                             debug_assert!(
                                 prior_config.is_none(),
                                 "Duplicate team UID returned from server"
@@ -68,7 +82,7 @@ impl ManagedSecretsClient for ServerApi {
                     }
                 }
                 Ok(ManagedSecretConfigs {
-                    user_secrets: output.user.managed_secrets,
+                    user_secrets: output.user.managed_secrets.map(managed_secret_config),
                     team_secrets: team_configs,
                 })
             }
@@ -115,7 +129,7 @@ impl ManagedSecretsClient for ServerApi {
 
         match response.create_managed_secret {
             CreateManagedSecretResult::CreateManagedSecretOutput(output) => {
-                Ok(output.managed_secret)
+                Ok(managed_secret(output.managed_secret))
             }
             CreateManagedSecretResult::UserFacingError(error) => {
                 Err(anyhow!(get_user_facing_error_message(error)))
@@ -191,7 +205,7 @@ impl ManagedSecretsClient for ServerApi {
 
         match response.update_managed_secret {
             UpdateManagedSecretResult::UpdateManagedSecretOutput(output) => {
-                Ok(output.managed_secret)
+                Ok(managed_secret(output.managed_secret))
             }
             UpdateManagedSecretResult::UserFacingError(error) => {
                 Err(anyhow!(get_user_facing_error_message(error)))
@@ -212,7 +226,9 @@ impl ManagedSecretsClient for ServerApi {
         let response = self.send_graphql_request(operation, None).await?;
 
         match response.managed_secrets {
-            ManagedSecretsResult::ManagedSecretsOutput(output) => Ok(output.managed_secrets),
+            ManagedSecretsResult::ManagedSecretsOutput(output) => {
+                Ok(output.managed_secrets.into_iter().map(managed_secret).collect())
+            }
             ManagedSecretsResult::UserFacingError(error) => {
                 Err(anyhow!(get_user_facing_error_message(error)))
             }
@@ -241,7 +257,7 @@ impl ManagedSecretsClient for ServerApi {
             TaskSecretsResult::TaskSecretsOutput(output) => {
                 let mut secrets = HashMap::new();
                 for entry in output.secrets {
-                    secrets.insert(entry.name, entry.value);
+                    secrets.insert(entry.name, managed_secret_value(entry.value)?);
                 }
                 Ok(secrets)
             }
@@ -254,7 +270,7 @@ impl ManagedSecretsClient for ServerApi {
 
     async fn issue_task_identity_token(
         &self,
-        options: warp_managed_secrets::client::IdentityTokenOptions,
+        options: crate::warp_managed_secrets::client::IdentityTokenOptions,
     ) -> Result<TaskIdentityToken> {
         let requested_duration_seconds = options
             .requested_duration
@@ -287,5 +303,178 @@ impl ManagedSecretsClient for ServerApi {
                 Err(anyhow!("Unknown error while issuing task identity token"))
             }
         }
+    }
+}
+
+#[cfg(all(not(feature = "oss_release"), feature = "warp_managed_secrets"))]
+fn managed_secret_config(
+    config: warp_graphql::managed_secrets::ManagedSecretConfig,
+) -> crate::warp_managed_secrets::ManagedSecretConfig {
+    config
+}
+
+#[cfg(all(not(feature = "oss_release"), not(feature = "warp_managed_secrets")))]
+fn managed_secret_config(
+    config: warp_graphql::managed_secrets::ManagedSecretConfig,
+) -> crate::warp_managed_secrets::ManagedSecretConfig {
+    crate::warp_managed_secrets::ManagedSecretConfig {
+        public_key: config.public_key,
+    }
+}
+
+#[cfg(all(not(feature = "oss_release"), feature = "warp_managed_secrets"))]
+fn managed_secret(secret: warp_graphql::managed_secrets::ManagedSecret) -> ManagedSecret {
+    secret
+}
+
+#[cfg(all(not(feature = "oss_release"), not(feature = "warp_managed_secrets")))]
+fn managed_secret(secret: warp_graphql::managed_secrets::ManagedSecret) -> ManagedSecret {
+    ManagedSecret {
+        name: secret.name,
+        description: secret.description,
+        created_at: server_timestamp(secret.created_at),
+        updated_at: server_timestamp(secret.updated_at),
+        owner: crate::warp_managed_secrets::ManagedSecretOwner {
+            uid: secret.owner.uid.into_inner(),
+            type_: match secret.owner.type_ {
+                warp_graphql::object::SpaceType::Team => {
+                    crate::warp_managed_secrets::ManagedSecretOwnerType::Team
+                }
+                warp_graphql::object::SpaceType::User => {
+                    crate::warp_managed_secrets::ManagedSecretOwnerType::User
+                }
+            },
+        },
+        type_: managed_secret_type(secret.type_),
+    }
+}
+
+#[cfg(all(not(feature = "oss_release"), not(feature = "warp_managed_secrets")))]
+fn server_timestamp(
+    timestamp: warp_graphql::scalars::time::ServerTimestamp,
+) -> crate::server::timestamp::ServerTimestamp {
+    crate::server::timestamp::ServerTimestamp::from_unix_timestamp_micros(
+        timestamp.timestamp_micros(),
+    )
+    .expect("GraphQL timestamp should round-trip through microseconds")
+}
+
+#[cfg(all(not(feature = "oss_release"), not(feature = "warp_managed_secrets")))]
+fn managed_secret_type(
+    type_: warp_graphql::managed_secrets::ManagedSecretType,
+) -> ManagedSecretType {
+    match type_ {
+        warp_graphql::managed_secrets::ManagedSecretType::AnthropicApiKey => {
+            ManagedSecretType::AnthropicApiKey
+        }
+        warp_graphql::managed_secrets::ManagedSecretType::AnthropicBedrockAccessKey => {
+            ManagedSecretType::AnthropicBedrockAccessKey
+        }
+        warp_graphql::managed_secrets::ManagedSecretType::AnthropicBedrockApiKey => {
+            ManagedSecretType::AnthropicBedrockApiKey
+        }
+        warp_graphql::managed_secrets::ManagedSecretType::Dotenvx => ManagedSecretType::Dotenvx,
+        warp_graphql::managed_secrets::ManagedSecretType::RawValue => ManagedSecretType::RawValue,
+    }
+}
+
+#[cfg(all(not(feature = "oss_release"), feature = "warp_managed_secrets"))]
+fn managed_secret_value(
+    value: warp_graphql::queries::task_secrets::ManagedSecretValue,
+) -> Result<ManagedSecretValue> {
+    Ok(value)
+}
+
+#[cfg(all(not(feature = "oss_release"), not(feature = "warp_managed_secrets")))]
+fn managed_secret_value(
+    value: warp_graphql::queries::task_secrets::ManagedSecretValue,
+) -> Result<ManagedSecretValue> {
+    match value {
+        warp_graphql::queries::task_secrets::ManagedSecretValue::ManagedSecretRawValue(raw) => {
+            Ok(ManagedSecretValue::raw_value(raw.value))
+        }
+        warp_graphql::queries::task_secrets::ManagedSecretValue::ManagedSecretAnthropicApiKeyValue(
+            value,
+        ) => Ok(ManagedSecretValue::anthropic_api_key(value.api_key)),
+        warp_graphql::queries::task_secrets::ManagedSecretValue::ManagedSecretAnthropicBedrockAccessKeyValue(
+            value,
+        ) => Ok(ManagedSecretValue::anthropic_bedrock_access_key(
+            value.aws_access_key_id,
+            value.aws_secret_access_key,
+            value.aws_session_token,
+            value.aws_region,
+        )),
+        warp_graphql::queries::task_secrets::ManagedSecretValue::ManagedSecretAnthropicBedrockApiKeyValue(
+            value,
+        ) => Ok(ManagedSecretValue::anthropic_bedrock_api_key(
+            value.aws_bearer_token_bedrock,
+            value.aws_region,
+        )),
+        warp_graphql::queries::task_secrets::ManagedSecretValue::Unknown => {
+            Err(anyhow!("Unknown managed secret value type"))
+        }
+    }
+}
+
+#[cfg(feature = "oss_release")]
+fn managed_secrets_unavailable<T>() -> Result<T> {
+    Err(anyhow!(
+        "Managed secrets server APIs are not available in this build"
+    ))
+}
+
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(feature = "oss_release")]
+impl ManagedSecretsClient for ServerApi {
+    async fn get_managed_secret_configs(&self) -> Result<ManagedSecretConfigs> {
+        Ok(ManagedSecretConfigs {
+            user_secrets: None,
+            team_secrets: HashMap::new(),
+        })
+    }
+
+    async fn create_managed_secret(
+        &self,
+        _owner: SecretOwner,
+        _name: String,
+        _secret_type: ManagedSecretType,
+        _encrypted_value: String,
+        _description: Option<String>,
+    ) -> Result<ManagedSecret> {
+        managed_secrets_unavailable()
+    }
+
+    async fn delete_managed_secret(&self, _owner: SecretOwner, _name: String) -> Result<()> {
+        Ok(())
+    }
+
+    async fn update_managed_secret(
+        &self,
+        _owner: SecretOwner,
+        _name: String,
+        _encrypted_value: Option<String>,
+        _description: Option<String>,
+    ) -> Result<ManagedSecret> {
+        managed_secrets_unavailable()
+    }
+
+    async fn list_secrets(&self) -> Result<Vec<ManagedSecret>> {
+        Ok(Vec::new())
+    }
+
+    async fn get_task_secrets(
+        &self,
+        _task_id: String,
+        _workload_token: String,
+    ) -> Result<HashMap<String, ManagedSecretValue>> {
+        Ok(HashMap::new())
+    }
+
+    async fn issue_task_identity_token(
+        &self,
+        _options: crate::warp_managed_secrets::client::IdentityTokenOptions,
+    ) -> Result<TaskIdentityToken> {
+        managed_secrets_unavailable()
     }
 }

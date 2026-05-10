@@ -3,12 +3,29 @@
 use std::fmt::{Display, Formatter};
 
 use anyhow::{Ok, Result};
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::experiment::Experiment;
 
 use super::ServerExperiment;
 
 impl Display for ServerExperiment {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        #[cfg(feature = "oss_release")]
+        {
+            let str = match self {
+                Self::SessionSharingControl => "SESSION_SHARING_CONTROL",
+                Self::SessionSharingExperiment => "SESSION_SHARING_EXPERIMENT",
+                Self::TmuxSshWarpificationControl => "TMUX_SSH_WARPIFICATION_CONTROL",
+                Self::TmuxSshWarpificationExperiment => "TMUX_SSH_WARPIFICATION_EXPERIMENT",
+                Self::SshRemoteServerControl => "SSH_REMOTE_SERVER_CONTROL",
+                Self::SshRemoteServerExperiment => "SSH_REMOTE_SERVER_EXPERIMENT",
+                _ => "DISABLED_SERVER_EXPERIMENT",
+            };
+            return write!(f, "{str}");
+        }
+
+        #[cfg(not(feature = "oss_release"))]
+        {
         let str = match self {
             Self::SessionSharingControl => "SESSION_SHARING_CONTROL",
             Self::SessionSharingExperiment => "SESSION_SHARING_EXPERIMENT",
@@ -42,11 +59,29 @@ impl Display for ServerExperiment {
             Self::TestExperiment => "TEST_EXPERIMENT",
         };
         write!(f, "{str}")
+        }
     }
 }
 
 impl ServerExperiment {
     pub fn from_string(s: String) -> Result<Self> {
+        #[cfg(feature = "oss_release")]
+        {
+            return match s.as_str() {
+                "SESSION_SHARING_CONTROL" => Ok(Self::SessionSharingControl),
+                "SESSION_SHARING_EXPERIMENT" => Ok(Self::SessionSharingExperiment),
+                "TMUX_SSH_WARPIFICATION_CONTROL" => Ok(Self::TmuxSshWarpificationControl),
+                "TMUX_SSH_WARPIFICATION_EXPERIMENT" => Ok(Self::TmuxSshWarpificationExperiment),
+                "SSH_REMOTE_SERVER_CONTROL" => Ok(Self::SshRemoteServerControl),
+                "SSH_REMOTE_SERVER_EXPERIMENT" => Ok(Self::SshRemoteServerExperiment),
+                s => Err(anyhow::anyhow!(
+                    "String doesn't match any OSS server experiment variant {s}"
+                )),
+            };
+        }
+
+        #[cfg(not(feature = "oss_release"))]
+        {
         match s.as_str() {
             "SESSION_SHARING_CONTROL" => Ok(Self::SessionSharingControl),
             "SESSION_SHARING_EXPERIMENT" => Ok(Self::SessionSharingExperiment),
@@ -77,9 +112,11 @@ impl ServerExperiment {
                 "String doesn't match any server experiment variant {s}"
             )),
         }
+        }
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl TryFrom<Experiment> for ServerExperiment {
     type Error = anyhow::Error;
 

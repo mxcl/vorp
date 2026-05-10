@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::generate_metadata_for_command::{
     GenerateMetadataForCommandFailureType, GenerateMetadataForCommandSuccess,
 };
@@ -36,6 +37,7 @@ pub struct GeneratedArgument {
     pub default_value: String,
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<GenerateMetadataForCommandSuccess> for GeneratedCommandMetadata {
     fn from(value: GenerateMetadataForCommandSuccess) -> Self {
         GeneratedCommandMetadata {
@@ -80,6 +82,7 @@ impl GeneratedCommandMetadataError {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl From<GenerateMetadataForCommandFailureType> for GeneratedCommandMetadataError {
     fn from(value: GenerateMetadataForCommandFailureType) -> Self {
         match value {

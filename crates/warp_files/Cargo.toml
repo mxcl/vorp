@@ -13,15 +13,18 @@ async-fs.workspace = true
 futures.workspace = true
 thiserror.workspace = true
 warpui.workspace = true
-remote_server.workspace = true
+remote_server = { workspace = true, optional = true }
 warp_core.workspace = true
 warp_util.workspace = true
 watcher.workspace = true
 notify-debouncer-full.workspace = true
-repo_metadata.workspace = true
+repo_metadata = { workspace = true, optional = true }
 log.workspace = true
 
 [features]
+default = ["remote_server", "repository_watching"]
+remote_server = ["dep:remote_server"]
+repository_watching = ["dep:repo_metadata"]
 test-util = []
 
 [dev-dependencies]

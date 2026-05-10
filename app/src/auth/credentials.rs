@@ -8,9 +8,24 @@
 //!   When using Firebase, this is an OAuth2 refresh token.
 //! * [`AuthToken`], which is a short-lived token that's included in all other server requests.
 //!   When using Firebase, this is an OAuth2 access token.
-use warp_graphql::object_permissions::OwnerType;
-
 use super::user::FirebaseAuthTokens;
+
+/// Local representation of the owner type for API-key credentials.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AuthOwnerType {
+    User,
+    Team,
+}
+
+#[cfg(not(feature = "oss_release"))]
+impl From<warp_graphql::object_permissions::OwnerType> for AuthOwnerType {
+    fn from(value: warp_graphql::object_permissions::OwnerType) -> Self {
+        match value {
+            warp_graphql::object_permissions::OwnerType::User => AuthOwnerType::User,
+            warp_graphql::object_permissions::OwnerType::Team => AuthOwnerType::Team,
+        }
+    }
+}
 
 /// Represents the different ways a user can authenticate with Warp.
 #[derive(Clone, Debug)]
@@ -21,7 +36,7 @@ pub enum Credentials {
     ApiKey {
         key: String,
         /// The owner type for this API key. Only set after user info is fetched from the server.
-        owner_type: Option<OwnerType>,
+        owner_type: Option<AuthOwnerType>,
     },
     /// Authentication derived from an ambient browser session cookie.
     SessionCookie,
@@ -54,7 +69,7 @@ impl Credentials {
     }
 
     /// Returns the owner type if this is an API key credential.
-    pub fn api_key_owner_type(&self) -> Option<OwnerType> {
+    pub fn api_key_owner_type(&self) -> Option<AuthOwnerType> {
         match self {
             Credentials::ApiKey { owner_type, .. } => *owner_type,
             Credentials::Firebase(_) => None,

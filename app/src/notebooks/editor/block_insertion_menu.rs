@@ -1,3 +1,4 @@
+#[cfg(not(feature = "oss_release"))]
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -16,23 +17,31 @@ use warpui::{
     AppContext, Element, SingletonEntity, ViewContext, ViewHandle,
 };
 
+#[cfg(not(feature = "oss_release"))]
+use crate::drive::CloudObjectTypeAndId;
+#[cfg(not(feature = "oss_release"))]
+use crate::notebooks::editor::embedded_item::EmbeddedWorkflow;
+#[cfg(not(feature = "oss_release"))]
+use crate::search::notebook_embedding::{
+    searcher::EmbeddingSearchItemAction,
+    view::{EmbeddingSearchEvent, EmbeddingSearchMenu},
+};
+#[cfg(not(feature = "oss_release"))]
+use crate::server::ids::SyncId;
 use crate::{
     appearance::Appearance,
-    cloud_object::{model::persistence::CloudModel, ObjectIdType, Space},
-    drive::CloudObjectTypeAndId,
+    cloud_object::Space,
     menu::{self, Menu, MenuItemFields},
-    notebooks::telemetry::EmbeddedObjectInfo,
-    search::notebook_embedding::{
-        searcher::EmbeddingSearchItemAction,
-        view::{EmbeddingSearchEvent, EmbeddingSearchMenu},
-    },
-    server::ids::SyncId,
     themes::theme::Fill,
     ui_components::{buttons::icon_button, icons::Icon},
 };
+#[cfg(not(feature = "oss_release"))]
+use crate::{
+    cloud_object::{model::persistence::CloudModel, ObjectIdType},
+    notebooks::telemetry::EmbeddedObjectInfo,
+};
 
 use super::{
-    embedded_item::EmbeddedWorkflow,
     view::{EditorViewAction, EditorViewEvent, RichTextEditorView},
     BlockType,
 };
@@ -55,6 +64,7 @@ pub struct BlockInsertionMenuState {
     // Whether the embedded object search menu is open.
     pub embedded_object_search_open: bool,
     /// The embedded object search menu, lazily created when embedded objects are enabled.
+    #[cfg(not(feature = "oss_release"))]
     embedded_object_search: Option<ViewHandle<EmbeddingSearchMenu>>,
     pub menu: ViewHandle<Menu<EditorViewAction>>,
 }
@@ -66,21 +76,25 @@ impl BlockInsertionMenuState {
 
         ctx.subscribe_to_view(&menu, RichTextEditorView::handle_block_insertion_menu_event);
 
-        let embedded_object_search = if embedded_objects_enabled {
-            let embedded_object_search = ctx.add_typed_action_view(EmbeddingSearchMenu::new);
-            ctx.subscribe_to_view(
-                &embedded_object_search,
-                RichTextEditorView::handle_embedded_object_search_menu_event,
-            );
-            Some(embedded_object_search)
-        } else {
-            None
+        #[cfg(not(feature = "oss_release"))]
+        let embedded_object_search = {
+            if embedded_objects_enabled {
+                let embedded_object_search = ctx.add_typed_action_view(EmbeddingSearchMenu::new);
+                ctx.subscribe_to_view(
+                    &embedded_object_search,
+                    RichTextEditorView::handle_embedded_object_search_menu_event,
+                );
+                Some(embedded_object_search)
+            } else {
+                None
+            }
         };
 
         Self {
             open_at_source: None,
             button_state: Default::default(),
             embedded_object_search_open: false,
+            #[cfg(not(feature = "oss_release"))]
             embedded_object_search,
             menu,
         }
@@ -90,6 +104,11 @@ impl BlockInsertionMenuState {
         embedded_objects_enabled: bool,
         ctx: &mut ViewContext<Menu<EditorViewAction>>,
     ) -> Menu<EditorViewAction> {
+        #[cfg(feature = "oss_release")]
+        let embedded_objects_enabled = {
+            let _ = embedded_objects_enabled;
+            false
+        };
         let appearance = Appearance::as_ref(ctx);
         let mut menu = Menu::new().prevent_interaction_with_other_elements();
 
@@ -165,6 +184,10 @@ impl RichTextEditorView {
         ctx.emit(EditorViewEvent::OpenedBlockInsertionMenu(source));
     }
 
+    #[cfg(feature = "oss_release")]
+    pub(super) fn open_embedded_object_search(&mut self, _ctx: &mut ViewContext<Self>) {}
+
+    #[cfg(not(feature = "oss_release"))]
     pub(super) fn open_embedded_object_search(&mut self, ctx: &mut ViewContext<Self>) {
         let Some(embedded_object_search) = &self.insertion_menu_state.embedded_object_search else {
             return;
@@ -179,6 +202,11 @@ impl RichTextEditorView {
     }
 
     /// Set the space containing this notebook.
+    #[cfg(feature = "oss_release")]
+    pub fn set_space(&mut self, _space: Space, _ctx: &mut ViewContext<Self>) {}
+
+    /// Set the space containing this notebook.
+    #[cfg(not(feature = "oss_release"))]
     pub fn set_space(&mut self, space: Space, ctx: &mut ViewContext<Self>) {
         if let Some(embedded_object_search) = &self.insertion_menu_state.embedded_object_search {
             embedded_object_search.update(ctx, |menu, ctx| menu.set_embedding_space(space, ctx));
@@ -200,6 +228,7 @@ impl RichTextEditorView {
         self.insertion_menu_state.open_at_source.is_some()
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn handle_embedded_object_search_menu_event(
         &mut self,
         _handle: ViewHandle<EmbeddingSearchMenu>,
@@ -212,6 +241,7 @@ impl RichTextEditorView {
                 EmbeddingSearchItemAction::AcceptWorkflow(id) => {
                     self.insert_embedded_workflow(id, ctx)
                 }
+                #[cfg(not(feature = "oss_release"))]
                 EmbeddingSearchItemAction::AcceptNotebook(id) => {
                     self.insert_embedded_notebook(id, ctx)
                 }
@@ -220,6 +250,7 @@ impl RichTextEditorView {
     }
 
     /// Insert an embedded workflow block at the current insertion menu source.
+    #[cfg(not(feature = "oss_release"))]
     fn insert_embedded_workflow(&mut self, id: &SyncId, ctx: &mut ViewContext<Self>) {
         self.insert_block(
             warp_editor::content::text::BlockType::Item(BufferBlockItem::Embedded {
@@ -241,6 +272,7 @@ impl RichTextEditorView {
     }
 
     /// Insert an embedded notebook inline view at the current insertion menu source.
+    #[cfg(not(feature = "oss_release"))]
     fn insert_embedded_notebook(&mut self, id: &SyncId, ctx: &mut ViewContext<Self>) {
         let (title, link) = CloudModel::handle(ctx).read(ctx, |model, _| {
             let title = model
@@ -367,17 +399,27 @@ impl RichTextEditorView {
                     .finish(),
                 PositionedElementOffsetBounds::ParentByPosition,
             )
-        } else if let Some(embedded_object_search) =
-            &self.insertion_menu_state.embedded_object_search
-        {
-            (
-                ChildView::new(embedded_object_search).finish(),
-                // Embedded object search menu is not bounded by the editor.
-                PositionedElementOffsetBounds::WindowByPosition,
-            )
         } else {
-            // Embedded object search is open but no menu exists - shouldn't happen.
-            return;
+            #[cfg(not(feature = "oss_release"))]
+            {
+                if let Some(embedded_object_search) =
+                    &self.insertion_menu_state.embedded_object_search
+                {
+                    (
+                        ChildView::new(embedded_object_search).finish(),
+                        // Embedded object search menu is not bounded by the editor.
+                        PositionedElementOffsetBounds::WindowByPosition,
+                    )
+                } else {
+                    // Embedded object search is open but no menu exists - shouldn't happen.
+                    return;
+                }
+            }
+            #[cfg(feature = "oss_release")]
+            {
+                // Embedded object search is disabled in OSS.
+                return;
+            }
         };
 
         let positioning = match source {

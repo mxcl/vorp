@@ -1,7 +1,7 @@
 use warpui::AppContext;
 use warpui::ModelContext;
 
-use super::TemplatableMCPServerManager;
+use super::{McpIntegration, TemplatableMCPServerManager};
 use crate::ai::mcp::templatable::{CloudTemplatableMCPServer, TemplatableMCPServer};
 use crate::ai::mcp::templatable_installation::{TemplatableMCPServerInstallation, VariableValue};
 use crate::ai::mcp::MCPServerUpdate;
@@ -9,6 +9,7 @@ use crate::cloud_object::Space;
 use crate::server::cloud_objects::update_manager::InitiatedBy;
 use crate::server::ids::ServerId;
 use std::collections::{HashMap, HashSet};
+use url::Url;
 use uuid::Uuid;
 
 impl TemplatableMCPServerManager {
@@ -60,6 +61,10 @@ impl TemplatableMCPServerManager {
     pub fn get_all_templatable_mcp_servers(&self) -> Vec<&TemplatableMCPServer> {
         log::warn!("Getting all TemplatableMCPServers is not supported in WASM");
         vec![]
+    }
+
+    pub fn is_mcp_server_running(&self, _integration: McpIntegration) -> bool {
+        false
     }
 
     /// Gets a TemplatableMCPServer by its UUID.
@@ -280,6 +285,10 @@ impl TemplatableMCPServerManager {
         false
     }
 
+    pub fn handle_oauth_callback(&mut self, _url: &Url) -> anyhow::Result<()> {
+        anyhow::bail!("MCP OAuth callbacks are not supported in this build")
+    }
+
     pub fn spawn_ephemeral_server(
         &mut self,
         _installation: TemplatableMCPServerInstallation,
@@ -298,6 +307,26 @@ impl TemplatableMCPServerManager {
 
     pub fn has_oauth_credentials_for_file_based_server(&self, _hash: u64) -> bool {
         false
+    }
+
+    pub fn is_server_active(&self, _installation_uuid: Uuid) -> bool {
+        false
+    }
+
+    pub fn is_server_active_or_pending(&self, _uuid: Uuid) -> bool {
+        false
+    }
+
+    pub fn server_from_tool(&self, _tool: String) -> Option<&Uuid> {
+        None
+    }
+
+    pub fn server_from_resource(&self, _name: &str, _uri: Option<&str>) -> Option<&Uuid> {
+        None
+    }
+
+    pub fn get_all_runnable_mcp_servers(_ctx: &AppContext) -> Vec<(Uuid, String)> {
+        Vec::new()
     }
 
     pub fn extract_server_info<T: std::cmp::Eq + std::hash::Hash>(

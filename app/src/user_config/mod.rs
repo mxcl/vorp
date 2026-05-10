@@ -220,7 +220,7 @@ pub fn is_tab_config_toml(path: &Path) -> bool {
 
 /// Ensures `~/.warp/default_tab_configs/worktree.toml` exists, creating it
 /// from the embedded template if missing. Returns the path to the file.
-#[cfg(feature = "local_fs")]
+#[cfg(all(feature = "local_fs", not(feature = "oss_release")))]
 pub(crate) fn ensure_default_worktree_config() -> PathBuf {
     let dir = default_tab_configs_dir();
     let path = dir.join("worktree.toml");
@@ -242,7 +242,7 @@ pub(crate) fn ensure_default_worktree_config() -> PathBuf {
     path
 }
 
-#[cfg(feature = "local_fs")]
+#[cfg(all(feature = "local_fs", not(feature = "oss_release")))]
 pub(crate) fn materialize_default_worktree_config(
     template_toml: &str,
     config_name: &str,

@@ -100,7 +100,9 @@ impl DataSourceStore {
 
             if WarpDriveSettings::is_warp_drive_enabled(ctx) {
                 let mut warp_drive_filters = HashSet::from([
+                    #[cfg(not(feature = "oss_release"))]
                     QueryFilter::Notebooks,
+                    #[cfg(not(feature = "oss_release"))]
                     QueryFilter::Plans,
                     QueryFilter::Drive,
                     QueryFilter::Workflows,
@@ -190,6 +192,7 @@ impl DataSourceStore {
                 .warp_drive_data_source
                 .as_ref(app)
                 .query_result(id, app),
+            #[cfg(not(feature = "oss_release"))]
             ItemSummary::Notebook { id } => self
                 .warp_drive_data_source
                 .as_ref(app)

@@ -3,25 +3,32 @@ use crate::workspaces::user_workspaces::WorkspacesMetadataResponse;
 use crate::workspaces::workspace::AiOverages;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+#[cfg(not(feature = "oss_release"))]
 use cynic::{MutationBuilder, QueryBuilder};
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::error::UserFacingErrorInterface;
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::purchase_addon_credits::{
     PurchaseAddonCredits, PurchaseAddonCreditsInput, PurchaseAddonCreditsResult,
     PurchaseAddonCreditsVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::stripe_billing_portal::{
     StripeBillingPortal, StripeBillingPortalInput, StripeBillingPortalResult,
     StripeBillingPortalVariables,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::mutations::update_workspace_settings::{
     AddonCreditsSettingsInput, UpdateWorkspaceSettings, UpdateWorkspaceSettingsInput,
     UpdateWorkspaceSettingsResult, UpdateWorkspaceSettingsVariables,
     UsageBasedPricingSettingsInput,
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::queries::get_ai_overages_for_workspace::{
     GetAiOveragesForWorkspace, GetAiOveragesForWorkspaceVariables, UserResult,
 };
 
+#[cfg(not(feature = "oss_release"))]
 use crate::server::graphql::{get_request_context, get_user_facing_error_message};
 use crate::server::ids::ServerId;
 
@@ -60,6 +67,7 @@ pub trait WorkspaceClient: 'static + Send + Sync {
 
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(not(feature = "oss_release"))]
 impl WorkspaceClient for ServerApi {
     async fn generate_stripe_billing_portal_link(&self, team_uid: ServerId) -> Result<String> {
         let variables = StripeBillingPortalVariables {
@@ -219,5 +227,58 @@ impl WorkspaceClient for ServerApi {
             }
             UpdateWorkspaceSettingsResult::Unknown => Err(anyhow!("Unknown error")),
         }
+    }
+}
+
+#[cfg(feature = "oss_release")]
+fn workspace_unavailable<T>() -> Result<T> {
+    Err(anyhow!(
+        "Workspace billing server APIs are not available in this build"
+    ))
+}
+
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(feature = "oss_release")]
+impl WorkspaceClient for ServerApi {
+    async fn generate_stripe_billing_portal_link(&self, _team_uid: ServerId) -> Result<String> {
+        workspace_unavailable()
+    }
+
+    async fn update_usage_based_pricing_settings(
+        &self,
+        _team_uid: ServerId,
+        _usage_based_pricing_enabled: bool,
+        _max_monthly_spend_cents: Option<u32>,
+    ) -> Result<WorkspacesMetadataResponse> {
+        TeamClient::workspaces_metadata(self)
+            .await
+            .map(|metadata| metadata.metadata)
+    }
+
+    async fn refresh_ai_overages(&self) -> Result<AiOverages> {
+        workspace_unavailable()
+    }
+
+    async fn purchase_addon_credits(
+        &self,
+        _team_uid: ServerId,
+        _credits: i32,
+    ) -> Result<WorkspacesMetadataResponse> {
+        TeamClient::workspaces_metadata(self)
+            .await
+            .map(|metadata| metadata.metadata)
+    }
+
+    async fn update_addon_credits_settings(
+        &self,
+        _team_uid: ServerId,
+        _auto_reload_enabled: Option<bool>,
+        _max_monthly_spend_cents: Option<i32>,
+        _selected_auto_reload_credit_denomination: Option<i32>,
+    ) -> Result<WorkspacesMetadataResponse> {
+        TeamClient::workspaces_metadata(self)
+            .await
+            .map(|metadata| metadata.metadata)
     }
 }

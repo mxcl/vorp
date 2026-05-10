@@ -8,8 +8,6 @@ use crate::scope::ObjectScope;
 #[derive(Debug, Clone, Subcommand)]
 pub enum SecretCommand {
     /// Create a new secret.
-    ///
-    /// Use `oz secret create anthropic api-key <NAME>` to create a Claude/Anthropic auth secret.
     Create(CreateSecretArgs),
     /// Delete a secret.
     Delete(DeleteSecretArgs),
@@ -23,9 +21,13 @@ pub enum SecretCommand {
 }
 
 #[derive(Debug, Clone, Args)]
-#[command(args_conflicts_with_subcommands = true)]
+#[cfg_attr(
+    not(feature = "oss_release"),
+    command(args_conflicts_with_subcommands = true)
+)]
 pub struct CreateSecretArgs {
     /// Provider-specific creation subcommand.
+    #[cfg(not(feature = "oss_release"))]
     #[command(subcommand)]
     pub provider: Option<CreateProvider>,
 
@@ -48,12 +50,14 @@ pub struct CreateSecretArgs {
 }
 
 /// Provider-specific secret creation subcommands.
+#[cfg(not(feature = "oss_release"))]
 #[derive(Debug, Clone, Subcommand)]
 pub enum CreateProvider {
     /// Create a Claude/Anthropic auth secret.
     Anthropic(AnthropicCreateArgs),
 }
 
+#[cfg(not(feature = "oss_release"))]
 #[derive(Debug, Clone, Args)]
 pub struct AnthropicCreateArgs {
     #[command(subcommand)]
@@ -61,6 +65,7 @@ pub struct AnthropicCreateArgs {
 }
 
 /// Anthropic credential type.
+#[cfg(not(feature = "oss_release"))]
 #[derive(Debug, Clone, Subcommand)]
 pub enum AnthropicMethod {
     /// Direct Anthropic API key.
@@ -75,6 +80,7 @@ pub enum AnthropicMethod {
 }
 
 /// Fields shared by all provider-specific secret creation subcommands.
+#[cfg(not(feature = "oss_release"))]
 #[derive(Debug, Clone, Args)]
 pub struct CommonSecretCreateArgs {
     /// Name of the secret.
@@ -89,6 +95,7 @@ pub struct CommonSecretCreateArgs {
 }
 
 /// Arguments for creating an Anthropic API key secret.
+#[cfg(not(feature = "oss_release"))]
 #[derive(Debug, Clone, Args)]
 pub struct AnthropicApiKeyArgs {
     #[clap(flatten)]
@@ -99,6 +106,7 @@ pub struct AnthropicApiKeyArgs {
 }
 
 /// Arguments for creating an Anthropic Bedrock API key secret.
+#[cfg(not(feature = "oss_release"))]
 #[derive(Debug, Clone, Args)]
 pub struct BedrockApiKeyArgs {
     #[clap(flatten)]
@@ -114,6 +122,7 @@ pub struct BedrockApiKeyArgs {
 }
 
 /// Arguments for creating an Anthropic Bedrock access key secret.
+#[cfg(not(feature = "oss_release"))]
 #[derive(Debug, Clone, Args)]
 pub struct BedrockAccessKeyArgs {
     #[clap(flatten)]
@@ -186,8 +195,10 @@ pub struct ValueArgs {
 pub enum SecretType {
     #[default]
     RawValue,
+    #[cfg(not(feature = "oss_release"))]
     AnthropicApiKey,
     // Not exposed via the CLI `--type` flag; constructed internally for provider subcommands.
+    #[cfg(not(feature = "oss_release"))]
     #[value(skip)]
     AnthropicBedrockApiKey,
 }
@@ -196,7 +207,9 @@ impl fmt::Display for SecretType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SecretType::RawValue => write!(f, "raw-value"),
+            #[cfg(not(feature = "oss_release"))]
             SecretType::AnthropicApiKey => write!(f, "anthropic-api-key"),
+            #[cfg(not(feature = "oss_release"))]
             SecretType::AnthropicBedrockApiKey => write!(f, "anthropic-bedrock-api-key"),
         }
     }

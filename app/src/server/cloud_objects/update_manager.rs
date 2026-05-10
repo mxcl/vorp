@@ -1,5 +1,8 @@
 #[cfg(not(target_family = "wasm"))]
 use crate::ai::mcp::templatable::{CloudTemplatableMCPServerModel, TemplatableMCPServer};
+#[cfg(not(feature = "oss_release"))]
+use crate::cloud_object::ServerCloudAgentConfig;
+use crate::server::timestamp::ServerTimestamp;
 use crate::{
     ai::{
         agent::conversation::AIConversationId,
@@ -10,6 +13,7 @@ use crate::{
             profiles::AIExecutionProfilesModel, AIExecutionProfile, CloudAIExecutionProfileModel,
         },
         facts::{AIFact, CloudAIFactModel},
+        mcp::MCPGalleryTemplate,
     },
     auth::{auth_manager::AuthManager, AuthStateProvider},
     cloud_object::{
@@ -26,11 +30,11 @@ use crate::{
         GenericCloudObject, GenericServerObject, GenericStringObjectFormat, JsonObjectType,
         NumInFlightRequests, ObjectDeleteResult, ObjectIdType, ObjectMetadataUpdateResult,
         ObjectPermissionsUpdateData, ObjectType, Owner, Revision, RevisionAndLastEditor,
-        ServerAIExecutionProfile, ServerAIFact, ServerAmbientAgentEnvironment,
-        ServerCloudAgentConfig, ServerCloudObject, ServerEnvVarCollection, ServerFolder,
-        ServerMCPServer, ServerMetadata, ServerNotebook, ServerObject, ServerPermissions,
-        ServerPreference, ServerScheduledAmbientAgent, ServerTemplatableMCPServer, ServerWorkflow,
-        ServerWorkflowEnum, Space, UpdateCloudObjectResult,
+        ServerAIExecutionProfile, ServerAIFact, ServerAmbientAgentEnvironment, ServerCloudObject,
+        ServerEnvVarCollection, ServerFolder, ServerMCPServer, ServerMetadata, ServerNotebook,
+        ServerObject, ServerPermissions, ServerPreference, ServerScheduledAmbientAgent,
+        ServerTemplatableMCPServer, ServerWorkflow, ServerWorkflowEnum, Space,
+        UpdateCloudObjectResult,
     },
     drive::{
         folders::{CloudFolderModel, FolderId},
@@ -80,9 +84,7 @@ use std::future::Future;
 use std::sync::{mpsc::SyncSender, Arc};
 use std::time::Duration;
 use warp_core::features::FeatureFlag;
-use warp_graphql::mcp_gallery_template::MCPGalleryTemplate;
-use warp_graphql::object_permissions::AccessLevel;
-use warp_graphql::scalars::time::ServerTimestamp;
+use warp_server_client::cloud_object::AccessLevel;
 use warpui::r#async::{FutureId, Timer};
 use warpui::{duration_with_jitter, AppContext};
 use warpui::{Entity, ModelContext, RequestState, RetryOption, SingletonEntity};
@@ -1007,6 +1009,7 @@ impl UpdateManager {
                         ctx,
                     ));
                 }
+                #[cfg(not(feature = "oss_release"))]
                 GenericStringObjectFormat::Json(JsonObjectType::CloudAgentConfig) => {
                     let typed_objects = objects
                         .iter()
@@ -1022,6 +1025,8 @@ impl UpdateManager {
                         ctx,
                     ));
                 }
+                #[cfg(feature = "oss_release")]
+                GenericStringObjectFormat::Json(JsonObjectType::CloudAgentConfig) => {}
             }
         }
 
@@ -1860,8 +1865,9 @@ impl UpdateManager {
             | ServerCloudObject::MCPServer(_)
             | ServerCloudObject::TemplatableMCPServer(_)
             | ServerCloudObject::AmbientAgentEnvironment(_)
-            | ServerCloudObject::ScheduledAmbientAgent(_)
-            | ServerCloudObject::CloudAgentConfig(_) => {}
+            | ServerCloudObject::ScheduledAmbientAgent(_) => {}
+            #[cfg(not(feature = "oss_release"))]
+            ServerCloudObject::CloudAgentConfig(_) => {}
         }
     }
 

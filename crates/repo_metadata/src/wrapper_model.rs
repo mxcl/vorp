@@ -5,7 +5,6 @@
 //! [`RemoteRepoMetadataModel`] and dispatches operations based on
 //! [`RepositoryIdentifier`].
 
-#[cfg(feature = "local_fs")]
 use std::path::Path;
 
 use warp_core::HostId;
@@ -230,6 +229,15 @@ impl RepoMetadataModel {
         self.local.as_ref(ctx).find_repository_for_path(path)
     }
 
+    #[cfg(not(feature = "local_fs"))]
+    pub fn find_repository_for_path(
+        &self,
+        _path: &Path,
+        _ctx: &AppContext,
+    ) -> Option<StandardizedPath> {
+        None
+    }
+
     // ── Local-specific operations ────────────────────────────────────
     // These delegate to the local sub-model. Remote equivalents will be
     // added once the remote client ↔ server sync layer is in place.
@@ -245,6 +253,17 @@ impl RepoMetadataModel {
             .update(ctx, |local, ctx| local.index_directory(repository, ctx))
     }
 
+    #[cfg(not(feature = "local_fs"))]
+    pub fn index_directory(
+        &self,
+        _repository: ModelHandle<crate::repository::Repository>,
+        _ctx: &mut ModelContext<Self>,
+    ) -> Result<(), RepoMetadataError> {
+        Err(RepoMetadataError::RepoNotFound(
+            "local repository metadata is not available in this build".to_string(),
+        ))
+    }
+
     /// Lazily indexes a local standalone path with only the first level of children.
     #[cfg(feature = "local_fs")]
     pub fn index_lazy_loaded_path(
@@ -255,6 +274,17 @@ impl RepoMetadataModel {
         let path = path.clone();
         self.local
             .update(ctx, |local, ctx| local.index_lazy_loaded_path(&path, ctx))
+    }
+
+    #[cfg(not(feature = "local_fs"))]
+    pub fn index_lazy_loaded_path(
+        &self,
+        _path: &StandardizedPath,
+        _ctx: &mut ModelContext<Self>,
+    ) -> Result<(), RepoMetadataError> {
+        Err(RepoMetadataError::RepoNotFound(
+            "local repository metadata is not available in this build".to_string(),
+        ))
     }
 
     /// Loads a specific directory inside an already-tracked local tree.
@@ -272,12 +302,28 @@ impl RepoMetadataModel {
         })
     }
 
+    #[cfg(not(feature = "local_fs"))]
+    pub fn load_directory(
+        &self,
+        _repo_root: &StandardizedPath,
+        _dir_path: &StandardizedPath,
+        _ctx: &mut ModelContext<Self>,
+    ) -> Result<(), RepoMetadataError> {
+        Err(RepoMetadataError::RepoNotFound(
+            "local repository metadata is not available in this build".to_string(),
+        ))
+    }
+
     /// Removes a lazily-loaded local standalone path from tracking.
     #[cfg(feature = "local_fs")]
     pub fn remove_lazy_loaded_path(&self, path: &StandardizedPath, ctx: &mut ModelContext<Self>) {
         let path = path.clone();
         self.local
             .update(ctx, |local, ctx| local.remove_lazy_loaded_path(&path, ctx));
+    }
+
+    #[cfg(not(feature = "local_fs"))]
+    pub fn remove_lazy_loaded_path(&self, _path: &StandardizedPath, _ctx: &mut ModelContext<Self>) {
     }
 
     // ── Remote-specific operations ─────────────────────────────────

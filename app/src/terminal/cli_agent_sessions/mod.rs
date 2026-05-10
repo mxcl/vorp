@@ -1,8 +1,21 @@
+#[cfg(not(feature = "oss_release"))]
 pub mod event;
+#[cfg(feature = "oss_release")]
+#[path = "event_oss.rs"]
+pub mod event;
+#[cfg(not(feature = "oss_release"))]
+pub mod listener;
+#[cfg(feature = "oss_release")]
+#[path = "listener_oss.rs"]
 pub mod listener;
 #[cfg(not(target_family = "wasm"))]
+#[cfg(not(feature = "oss_release"))]
+pub(crate) mod plugin_manager;
+#[cfg(all(not(target_family = "wasm"), feature = "oss_release"))]
+#[path = "plugin_manager_oss.rs"]
 pub(crate) mod plugin_manager;
 
+#[cfg(not(feature = "oss_release"))]
 use std::collections::{HashMap, HashSet};
 
 use warpui::{Entity, EntityId, ModelContext, ModelHandle, SingletonEntity};
@@ -11,7 +24,9 @@ use crate::ai::blocklist::InputConfig;
 
 use self::listener::CLIAgentSessionListener;
 use super::CLIAgent;
-use event::{CLIAgentEvent, CLIAgentEventType};
+use event::CLIAgentEvent;
+#[cfg(not(feature = "oss_release"))]
+use event::CLIAgentEventType;
 
 /// Status of a tracked CLI agent session.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -150,6 +165,7 @@ impl CLIAgentSession {
 
     /// Applies an event to this session, updating context and status.
     /// Returns the new status if it changed, or `None` if the event was irrelevant.
+    #[cfg(not(feature = "oss_release"))]
     fn apply_event(&mut self, event: &CLIAgentEvent) -> Option<CLIAgentSessionStatus> {
         self.session_context.cwd = event.cwd.clone().or(self.session_context.cwd.take());
         self.session_context.project = event
@@ -273,9 +289,11 @@ impl CLIAgentSessionsModelEvent {
 
 /// Singleton model that tracks pane-scoped CLI agent state and plugin-enriched session context.
 pub struct CLIAgentSessionsModel {
+    #[cfg(not(feature = "oss_release"))]
     sessions: HashMap<EntityId, CLIAgentSession>,
     /// Tracks (agent, remote_host) pairs where an auto plugin operation (install or update) has failed.
     /// Shared across all views so failure in one tab is reflected everywhere.
+    #[cfg(not(feature = "oss_release"))]
     plugin_auto_failures: HashSet<(CLIAgent, Option<String>)>,
 }
 
@@ -287,17 +305,38 @@ impl SingletonEntity for CLIAgentSessionsModel {}
 
 impl CLIAgentSessionsModel {
     pub fn new() -> Self {
-        Self {
-            sessions: HashMap::new(),
-            plugin_auto_failures: HashSet::new(),
+        #[cfg(feature = "oss_release")]
+        {
+            Self {}
+        }
+
+        #[cfg(not(feature = "oss_release"))]
+        {
+            Self {
+                sessions: HashMap::new(),
+                plugin_auto_failures: HashSet::new(),
+            }
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    pub fn session(&self, _terminal_view_id: EntityId) -> Option<&CLIAgentSession> {
+        None
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     pub fn session(&self, terminal_view_id: EntityId) -> Option<&CLIAgentSession> {
         self.sessions.get(&terminal_view_id)
     }
 
     /// Returns `true` if the rich input editor is currently open for this terminal.
+    #[cfg(feature = "oss_release")]
+    pub fn is_input_open(&self, _terminal_view_id: EntityId) -> bool {
+        false
+    }
+
+    /// Returns `true` if the rich input editor is currently open for this terminal.
+    #[cfg(not(feature = "oss_release"))]
     pub fn is_input_open(&self, terminal_view_id: EntityId) -> bool {
         self.sessions
             .get(&terminal_view_id)
@@ -314,6 +353,34 @@ impl CLIAgentSessionsModel {
     /// context when available (e.g. from a `SessionStart` event). Passing
     /// `None` for all three is fine — happens when the plugin is installed
     /// mid-session and there is no start event to extract context from.
+    #[cfg(feature = "oss_release")]
+    #[allow(clippy::too_many_arguments)]
+    pub fn register_listener(
+        &mut self,
+        _terminal_view_id: EntityId,
+        _agent: CLIAgent,
+        _cwd: Option<String>,
+        _project: Option<String>,
+        _session_id: Option<String>,
+        _plugin_version: Option<String>,
+        _remote_host: Option<String>,
+        _should_auto_toggle_input: bool,
+        _listener: ModelHandle<CLIAgentSessionListener>,
+        _ctx: &mut ModelContext<Self>,
+    ) {
+    }
+
+    /// Registers a plugin-backed listener on the session for this terminal.
+    ///
+    /// If a session for the same agent already exists (e.g. created earlier by
+    /// command detection), it is upgraded with the listener and plugin context.
+    /// Otherwise a new session is created.
+    ///
+    /// The optional `cwd` / `project` / `session_id` fields supply initial
+    /// context when available (e.g. from a `SessionStart` event). Passing
+    /// `None` for all three is fine — happens when the plugin is installed
+    /// mid-session and there is no start event to extract context from.
+    #[cfg(not(feature = "oss_release"))]
     #[allow(clippy::too_many_arguments)]
     pub fn register_listener(
         &mut self,
@@ -369,6 +436,10 @@ impl CLIAgentSessionsModel {
         );
     }
 
+    #[cfg(feature = "oss_release")]
+    pub fn remove_session(&mut self, _terminal_view_id: EntityId, _ctx: &mut ModelContext<Self>) {}
+
+    #[cfg(not(feature = "oss_release"))]
     pub fn remove_session(&mut self, terminal_view_id: EntityId, ctx: &mut ModelContext<Self>) {
         if let Some(session) = self.sessions.remove(&terminal_view_id) {
             ctx.emit(CLIAgentSessionsModelEvent::Ended {
@@ -379,6 +450,17 @@ impl CLIAgentSessionsModel {
     }
 
     /// Updates the session's status and context from a parsed CLI agent event.
+    #[cfg(feature = "oss_release")]
+    pub fn update_from_event(
+        &mut self,
+        _terminal_view_id: EntityId,
+        _event: &CLIAgentEvent,
+        _ctx: &mut ModelContext<Self>,
+    ) {
+    }
+
+    /// Updates the session's status and context from a parsed CLI agent event.
+    #[cfg(not(feature = "oss_release"))]
     pub fn update_from_event(
         &mut self,
         terminal_view_id: EntityId,
@@ -413,6 +495,19 @@ impl CLIAgentSessionsModel {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    pub fn open_input(
+        &mut self,
+        _terminal_view_id: EntityId,
+        _entrypoint: CLIAgentInputEntrypoint,
+        _previous_input_config: InputConfig,
+        _previous_was_lock_set_with_empty_buffer: bool,
+        _should_auto_toggle_input: bool,
+        _ctx: &mut ModelContext<Self>,
+    ) {
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     pub fn open_input(
         &mut self,
         terminal_view_id: EntityId,
@@ -442,6 +537,16 @@ impl CLIAgentSessionsModel {
         });
     }
 
+    #[cfg(feature = "oss_release")]
+    pub fn close_input(
+        &mut self,
+        _terminal_view_id: EntityId,
+        _should_auto_toggle_input: bool,
+        _ctx: &mut ModelContext<Self>,
+    ) {
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     pub fn close_input(
         &mut self,
         terminal_view_id: EntityId,
@@ -466,6 +571,16 @@ impl CLIAgentSessionsModel {
         });
     }
 
+    #[cfg(feature = "oss_release")]
+    pub fn set_session(
+        &mut self,
+        _terminal_view_id: EntityId,
+        _session: CLIAgentSession,
+        _ctx: &mut ModelContext<Self>,
+    ) {
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     pub fn set_session(
         &mut self,
         terminal_view_id: EntityId,
@@ -491,13 +606,24 @@ impl CLIAgentSessionsModel {
 
     /// Records that an auto plugin operation (install or update) failed for the given agent/host.
     /// `remote_host` is `None` for local sessions, `Some("user@hostname")` for remote.
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "oss_release"))]
+    pub fn record_plugin_auto_failure(&mut self, _agent: CLIAgent, _remote_host: Option<String>) {}
+
+    /// Records that an auto plugin operation (install or update) failed for the given agent/host.
+    /// `remote_host` is `None` for local sessions, `Some("user@hostname")` for remote.
+    #[cfg(all(not(target_family = "wasm"), not(feature = "oss_release")))]
     pub fn record_plugin_auto_failure(&mut self, agent: CLIAgent, remote_host: Option<String>) {
         self.plugin_auto_failures.insert((agent, remote_host));
     }
 
     /// Saves draft text from the rich input composer for the given terminal.
     /// Stores `None` for empty or whitespace-only text.
+    #[cfg(feature = "oss_release")]
+    pub fn set_draft(&mut self, _terminal_view_id: EntityId, _text: String) {}
+
+    /// Saves draft text from the rich input composer for the given terminal.
+    /// Stores `None` for empty or whitespace-only text.
+    #[cfg(not(feature = "oss_release"))]
     pub fn set_draft(&mut self, terminal_view_id: EntityId, text: String) {
         if let Some(session) = self.sessions.get_mut(&terminal_view_id) {
             session.draft_text = if text.trim().is_empty() {
@@ -509,6 +635,11 @@ impl CLIAgentSessionsModel {
     }
 
     /// Clears any saved draft text for the given terminal.
+    #[cfg(feature = "oss_release")]
+    pub fn clear_draft(&mut self, _terminal_view_id: EntityId) {}
+
+    /// Clears any saved draft text for the given terminal.
+    #[cfg(not(feature = "oss_release"))]
     pub fn clear_draft(&mut self, terminal_view_id: EntityId) {
         if let Some(session) = self.sessions.get_mut(&terminal_view_id) {
             session.draft_text = None;
@@ -516,6 +647,13 @@ impl CLIAgentSessionsModel {
     }
 
     /// Returns and clears the draft text for the given terminal, if any.
+    #[cfg(feature = "oss_release")]
+    pub fn take_draft(&mut self, _terminal_view_id: EntityId) -> Option<String> {
+        None
+    }
+
+    /// Returns and clears the draft text for the given terminal, if any.
+    #[cfg(not(feature = "oss_release"))]
     pub fn take_draft(&mut self, terminal_view_id: EntityId) -> Option<String> {
         self.sessions
             .get_mut(&terminal_view_id)
@@ -523,6 +661,13 @@ impl CLIAgentSessionsModel {
     }
 
     /// Whether an auto plugin operation has previously failed for this agent on this host.
+    #[cfg(feature = "oss_release")]
+    pub fn has_plugin_auto_failed(&self, _agent: CLIAgent, _remote_host: &Option<String>) -> bool {
+        false
+    }
+
+    /// Whether an auto plugin operation has previously failed for this agent on this host.
+    #[cfg(not(feature = "oss_release"))]
     pub fn has_plugin_auto_failed(&self, agent: CLIAgent, remote_host: &Option<String>) -> bool {
         self.plugin_auto_failures
             .contains(&(agent, remote_host.clone()))

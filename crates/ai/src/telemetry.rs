@@ -1,7 +1,9 @@
 use std::time::Duration;
 
 use serde::Serialize;
-use serde_json::{json, Value};
+#[cfg(not(feature = "oss_release"))]
+use serde_json::json;
+use serde_json::Value;
 use strum_macros::{EnumDiscriminants, EnumIter};
 use warp_core::{
     features::FeatureFlag,
@@ -55,18 +57,42 @@ pub enum CodebaseContextSyncType {
 }
 
 impl TelemetryEvent for AITelemetryEvent {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         AITelemetryEventDiscriminants::from(self).name()
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         AITelemetryEventDiscriminants::from(self).description()
     }
 
+    #[cfg(feature = "oss_release")]
+    fn enablement_state(&self) -> EnablementState {
+        EnablementState::Always
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn enablement_state(&self) -> EnablementState {
         AITelemetryEventDiscriminants::from(self).enablement_state()
     }
 
+    #[cfg(feature = "oss_release")]
+    fn payload(&self) -> Option<Value> {
+        None
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn payload(&self) -> Option<Value> {
         match self {
             Self::MerkleTreeSnapshotRebuildSuccess { duration } => Some(json!({
@@ -113,6 +139,12 @@ impl TelemetryEvent for AITelemetryEvent {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn contains_ugc(&self) -> bool {
+        false
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn contains_ugc(&self) -> bool {
         match self {
             Self::MerkleTreeSnapshotRebuildSuccess { .. }
@@ -126,12 +158,24 @@ impl TelemetryEvent for AITelemetryEvent {
         }
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
         warp_core::telemetry::enum_events::<Self>()
+    }
+
+    #[cfg(feature = "oss_release")]
+    fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
+        std::iter::empty()
     }
 }
 
 impl TelemetryEventDesc for AITelemetryEventDiscriminants {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         match self {
             Self::MerkleTreeSnapshotRebuildSuccess => {
@@ -147,6 +191,12 @@ impl TelemetryEventDesc for AITelemetryEventDiscriminants {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         match self {
             Self::MerkleTreeSnapshotRebuildSuccess => {

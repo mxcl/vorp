@@ -33,7 +33,6 @@ use warp_core::ui::Icon;
 
 pub mod manager;
 pub mod templatable_manager;
-#[cfg(not(target_family = "wasm"))]
 pub use templatable_manager::McpIntegration;
 pub use templatable_manager::TemplatableMCPServerManager;
 
@@ -158,7 +157,7 @@ mod tests {
 }
 
 pub mod gallery;
-pub use gallery::MCPGalleryManager;
+pub use gallery::{MCPGalleryManager, MCPGalleryTemplate};
 use warpui::{AppContext, SingletonEntity as _};
 pub mod templatable;
 pub use templatable::JsonTemplate;
@@ -170,9 +169,9 @@ pub use templatable_installation::TemplatableMCPServerInstallation;
 pub use templatable_installation::{VariableType, VariableValue};
 pub mod parsing;
 pub use parsing::ParsedTemplatableMCPServerResult;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
 pub mod http_client;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
 pub mod reconnecting_peer;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

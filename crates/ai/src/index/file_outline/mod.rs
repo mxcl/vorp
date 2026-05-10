@@ -1,15 +1,19 @@
 #![cfg_attr(target_arch = "wasm32", allow(dead_code))]
 
 cfg_if::cfg_if! {
-    if #[cfg(not(target_arch = "wasm32"))] {
+    if #[cfg(feature = "local_fs")] {
         mod native;
         pub use native::build_outline;
     }
 }
 
+#[cfg(feature = "local_fs")]
 use crate::index::{Entry, FileId};
+#[cfg(feature = "local_fs")]
 use ignore::gitignore::Gitignore;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
+#[cfg(feature = "local_fs")]
+use std::collections::VecDeque;
 use std::path::PathBuf;
 
 use itertools::Itertools;
@@ -23,6 +27,7 @@ pub struct FileSymbols {
 
 /// Builds an "outline" of all files and directories under a path.
 #[derive(Debug)]
+#[cfg(feature = "local_fs")]
 pub struct Outline {
     /// Tree representation of the outlined directory.
     root: Entry,
@@ -34,11 +39,16 @@ pub struct Outline {
     gitignores: Vec<Gitignore>,
 }
 
+#[derive(Debug)]
+#[cfg(not(feature = "local_fs"))]
+pub struct Outline;
+
 impl Outline {
     /// Format the outline into a list of text representation with FileContexts.
     ///
     /// If `partial_path_segments` is `Some()`, only returns the symbols of files where at least
     /// one of the segments is contained in the full file path.  [] for partial_paths returns all files.
+    #[cfg(feature = "local_fs")]
     pub fn to_file_symbols(&self, partial_path_segments: Option<&Vec<String>>) -> Vec<FileSymbols> {
         let mut queue = VecDeque::from([&self.root]);
         let mut repo_map = Vec::new();
@@ -84,6 +94,15 @@ impl Outline {
         repo_map
     }
 
+    #[cfg(not(feature = "local_fs"))]
+    pub fn to_file_symbols(
+        &self,
+        _partial_path_segments: Option<&Vec<String>>,
+    ) -> Vec<FileSymbols> {
+        Vec::new()
+    }
+
+    #[cfg(feature = "local_fs")]
     pub fn to_symbols_by_file(
         &self,
         partial_path_segments: Option<&Vec<String>>,
@@ -122,10 +141,25 @@ impl Outline {
         file_to_symbols
     }
 
+    #[cfg(not(feature = "local_fs"))]
+    pub fn to_symbols_by_file(
+        &self,
+        _partial_path_segments: Option<&Vec<String>>,
+    ) -> HashMap<PathBuf, FileOutline> {
+        HashMap::new()
+    }
+
+    #[cfg(feature = "local_fs")]
     pub fn file_count(&self) -> usize {
         self.file_id_to_outline.len()
     }
 
+    #[cfg(not(feature = "local_fs"))]
+    pub fn file_count(&self) -> usize {
+        0
+    }
+
+    #[cfg(feature = "local_fs")]
     pub fn gitignores(&self) -> Vec<Gitignore> {
         self.gitignores.clone()
     }

@@ -1,6 +1,10 @@
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod claude;
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod codex;
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod gemini;
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod opencode;
 
 use std::cmp::Ordering;
@@ -11,13 +15,18 @@ use std::path::PathBuf;
 
 use async_trait::async_trait;
 
+#[cfg(not(feature = "oss_release"))]
 use crate::features::FeatureFlag;
 use crate::terminal::model::session::LocalCommandExecutor;
 use crate::terminal::shell::ShellType;
 use crate::terminal::CLIAgent;
+#[cfg(not(feature = "oss_release"))]
 use claude::ClaudeCodePluginManager;
+#[cfg(not(feature = "oss_release"))]
 use codex::CodexPluginManager;
+#[cfg(not(feature = "oss_release"))]
 use gemini::GeminiPluginManager;
+#[cfg(not(feature = "oss_release"))]
 use opencode::OpenCodePluginManager;
 
 /// Distinguishes whether the plugin instructions modal should show install or update steps.
@@ -226,46 +235,55 @@ pub(crate) fn plugin_manager_for_with_shell(
     shell_type: Option<ShellType>,
     path_env_var: Option<String>,
 ) -> Option<Box<dyn CliAgentPluginManager>> {
-    match agent {
-        CLIAgent::Claude => Some(Box::new(ClaudeCodePluginManager::new(
-            shell_path,
-            shell_type,
-            path_env_var,
-        ))),
-        CLIAgent::OpenCode
-            if FeatureFlag::OpenCodeNotifications.is_enabled()
-                && FeatureFlag::HOANotifications.is_enabled() =>
-        {
-            Some(Box::new(OpenCodePluginManager))
-        }
-        CLIAgent::Codex
-            if FeatureFlag::CodexNotifications.is_enabled()
-                && FeatureFlag::HOANotifications.is_enabled() =>
-        {
-            Some(Box::new(CodexPluginManager))
-        }
-        CLIAgent::Gemini
-            if FeatureFlag::GeminiNotifications.is_enabled()
-                && FeatureFlag::HOANotifications.is_enabled() =>
-        {
-            Some(Box::new(GeminiPluginManager::new(
+    #[cfg(feature = "oss_release")]
+    {
+        let _ = (agent, shell_path, shell_type, path_env_var);
+        None
+    }
+
+    #[cfg(not(feature = "oss_release"))]
+    {
+        match agent {
+            CLIAgent::Claude => Some(Box::new(ClaudeCodePluginManager::new(
                 shell_path,
                 shell_type,
                 path_env_var,
-            )))
+            ))),
+            CLIAgent::OpenCode
+                if FeatureFlag::OpenCodeNotifications.is_enabled()
+                    && FeatureFlag::HOANotifications.is_enabled() =>
+            {
+                Some(Box::new(OpenCodePluginManager))
+            }
+            CLIAgent::Codex
+                if FeatureFlag::CodexNotifications.is_enabled()
+                    && FeatureFlag::HOANotifications.is_enabled() =>
+            {
+                Some(Box::new(CodexPluginManager))
+            }
+            CLIAgent::Gemini
+                if FeatureFlag::GeminiNotifications.is_enabled()
+                    && FeatureFlag::HOANotifications.is_enabled() =>
+            {
+                Some(Box::new(GeminiPluginManager::new(
+                    shell_path,
+                    shell_type,
+                    path_env_var,
+                )))
+            }
+            CLIAgent::OpenCode
+            | CLIAgent::Codex
+            | CLIAgent::Gemini
+            | CLIAgent::Amp
+            | CLIAgent::Droid
+            | CLIAgent::Copilot
+            | CLIAgent::Pi
+            | CLIAgent::Auggie
+            | CLIAgent::CursorCli
+            | CLIAgent::Goose
+            | CLIAgent::Vibe
+            | CLIAgent::Unknown => None,
         }
-        CLIAgent::OpenCode
-        | CLIAgent::Codex
-        | CLIAgent::Gemini
-        | CLIAgent::Amp
-        | CLIAgent::Droid
-        | CLIAgent::Copilot
-        | CLIAgent::Pi
-        | CLIAgent::Auggie
-        | CLIAgent::CursorCli
-        | CLIAgent::Goose
-        | CLIAgent::Vibe
-        | CLIAgent::Unknown => None,
     }
 }
 

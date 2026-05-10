@@ -13,6 +13,10 @@ pub mod hoa_onboarding;
 mod home;
 mod lightbox_view;
 mod native_modal;
+#[cfg(not(feature = "oss_release"))]
+mod one_time_modal_model;
+#[cfg(feature = "oss_release")]
+#[path = "one_time_modal_model_oss.rs"]
 mod one_time_modal_model;
 mod registry;
 pub mod rewind_confirmation_dialog;
@@ -111,25 +115,36 @@ pub fn init(app: &mut AppContext) {
     rewind_confirmation_dialog::init(app);
     delete_conversation_confirmation_dialog::init(app);
     crate::tab_configs::remove_confirmation_dialog::init(app);
+    #[cfg(not(feature = "oss_release"))]
     hoa_onboarding::init(app);
     tab_configs::session_config_modal::init(app);
+    #[cfg(not(feature = "oss_release"))]
     view::launch_modal::oz_launch::init(app);
+    #[cfg(not(feature = "oss_release"))]
     view::openwarp_launch_modal::init(app);
+    #[cfg(not(feature = "oss_release"))]
     view::cloud_agent_capacity_modal::init(app);
+    #[cfg(not(feature = "oss_release"))]
     view::codex_modal::init(app);
+    #[cfg(not(feature = "oss_release"))]
     view::free_tier_limit_hit_modal::init(app);
     view::global_search::view::GlobalSearchView::init(app);
     view::right_panel::RightPanelView::init(app);
+    #[cfg(not(feature = "oss_release"))]
     header_toolbar_editor::init(app);
+    #[cfg(not(feature = "oss_release"))]
     view::conversation_list::view::register_conversation_list_view_bindings(app);
 
     settings_view::init_actions_from_parent_view(app, &id!("Workspace"), |settings_action| {
         WorkspaceAction::DispatchToSettingsTab(settings_action)
     });
     global_actions::init_global_actions(app);
+    #[cfg(not(feature = "oss_release"))]
     notebooks::init(app);
+    #[cfg(not(feature = "oss_release"))]
     code::init(app);
     sync_inputs::init(app);
+    #[cfg(not(feature = "oss_release"))]
     lsp::init(app);
 
     app.register_fixed_bindings([FixedBinding::empty(
@@ -229,12 +244,14 @@ pub fn init(app: &mut AppContext) {
                     WorkspaceAction::ResetOpenWarpLaunchModalState,
                 )
                 .with_context_predicate(id!("Workspace")),
+                #[cfg(not(feature = "oss_release"))]
                 EditableBinding::new(
                     "workspace:install_opencode_warp_plugin",
                     "[Debug] Install OpenCode Warp plugin",
                     WorkspaceAction::InstallOpenCodeWarpPlugin,
                 )
                 .with_context_predicate(id!("Workspace")),
+                #[cfg(not(feature = "oss_release"))]
                 EditableBinding::new(
                     "workspace:use_local_opencode_warp_plugin",
                     "[Debug] Use local OpenCode Warp plugin (testing only)",
@@ -691,6 +708,7 @@ pub fn init(app: &mut AppContext) {
         .with_context_predicate(id!("Workspace") & !id!("Workspace_PaneDragging"))
         .with_custom_action(CustomAction::NewTerminalTab)
         .with_enabled(|| ContextFlag::CreateNewSession.is_enabled()),
+        #[cfg(not(feature = "oss_release"))]
         EditableBinding::new(
             NEW_AGENT_TAB_BINDING_NAME,
             BindingDescription::new("New Agent Tab"),
@@ -701,6 +719,7 @@ pub fn init(app: &mut AppContext) {
         .with_context_predicate(
             id!("Workspace") & id!(flags::IS_ANY_AI_ENABLED) & !id!("Workspace_PaneDragging"),
         ),
+        #[cfg(not(feature = "oss_release"))]
         EditableBinding::new(
             NEW_AMBIENT_AGENT_TAB_BINDING_NAME,
             BindingDescription::new("New Cloud Agent Tab"),
@@ -715,6 +734,7 @@ pub fn init(app: &mut AppContext) {
                 && FeatureFlag::AgentView.is_enabled()
                 && FeatureFlag::CloudMode.is_enabled()
         }),
+        #[cfg(not(feature = "oss_release"))]
         EditableBinding::new(
             "workspace:toggle_left_panel",
             BindingDescription::new("Open Left Panel"),
@@ -723,6 +743,7 @@ pub fn init(app: &mut AppContext) {
         .with_context_predicate(id!("Workspace"))
         .with_custom_action(CustomAction::ToggleWarpDrive)
         .with_enabled(|| !crate::terminal_only::is_enabled()),
+        #[cfg(not(feature = "oss_release"))]
         EditableBinding::new(
             TOGGLE_RIGHT_PANEL_BINDING_NAME,
             BindingDescription::new("Toggle code review")
@@ -743,6 +764,7 @@ pub fn init(app: &mut AppContext) {
         .with_group(bindings::BindingGroup::Navigation.as_str())
         .with_enabled(|| FeatureFlag::VerticalTabs.is_enabled())
         .with_key_binding(cmd_or_ctrl_shift("b")),
+        #[cfg(not(feature = "oss_release"))]
         EditableBinding::new(
             LEFT_PANEL_AGENT_CONVERSATIONS_BINDING_NAME,
             BindingDescription::new("Left Panel: Agent conversations"),
@@ -802,6 +824,7 @@ pub fn init(app: &mut AppContext) {
             WorkspaceAction::ToggleWarpDrive,
         )
         .with_context_predicate(id!("Workspace") & id!(flags::ENABLE_WARP_DRIVE)),
+        #[cfg(not(feature = "oss_release"))]
         EditableBinding::new(
             TOGGLE_CONVERSATION_LIST_VIEW_BINDING_NAME,
             BindingDescription::new("Toggle Agent conversation list view").with_custom_description(
@@ -1147,33 +1170,36 @@ pub fn init(app: &mut AppContext) {
         ]);
     }
 
-    // We use the same binding name for the AI Assistant and block list AI to preserve custom
-    // keybindings between them.
-    app.register_editable_bindings([
-        EditableBinding::new(
-            "workspace:toggle_ai_assistant",
-            *NEW_AGENT_PANE_LABEL,
-            WorkspaceAction::NewPaneInAgentMode {
-                entrypoint: AgentModeEntrypoint::NewPaneBinding,
-                zero_state_prompt_suggestion_type: None,
-            },
-        )
-        .with_enabled(|| FeatureFlag::AgentMode.is_enabled())
-        .with_context_predicate(id!("Workspace") & id!(flags::IS_ANY_AI_ENABLED))
-        .with_group(bindings::BindingGroup::WarpAi.as_str())
-        .with_custom_action(CustomAction::NewAgentModePane),
-        EditableBinding::new(
-            "workspace:toggle_ai_assistant",
-            "Toggle Warp AI",
-            WorkspaceAction::ToggleAIAssistant,
-        )
-        .with_enabled(|| !FeatureFlag::AgentMode.is_enabled())
-        .with_context_predicate(id!("Workspace") & id!(flags::IS_ANY_AI_ENABLED))
-        .with_group(bindings::BindingGroup::WarpAi.as_str())
-        // We use the same custom action as AM so that we don't have
-        // two mac menu items for AM vs Warp AI since they are mutually exclusive.
-        .with_custom_action(CustomAction::NewAgentModePane),
-    ]);
+    #[cfg(not(feature = "oss_release"))]
+    {
+        // We use the same binding name for the AI Assistant and block list AI to preserve custom
+        // keybindings between them.
+        app.register_editable_bindings([
+            EditableBinding::new(
+                "workspace:toggle_ai_assistant",
+                *NEW_AGENT_PANE_LABEL,
+                WorkspaceAction::NewPaneInAgentMode {
+                    entrypoint: AgentModeEntrypoint::NewPaneBinding,
+                    zero_state_prompt_suggestion_type: None,
+                },
+            )
+            .with_enabled(|| FeatureFlag::AgentMode.is_enabled())
+            .with_context_predicate(id!("Workspace") & id!(flags::IS_ANY_AI_ENABLED))
+            .with_group(bindings::BindingGroup::WarpAi.as_str())
+            .with_custom_action(CustomAction::NewAgentModePane),
+            EditableBinding::new(
+                "workspace:toggle_ai_assistant",
+                "Toggle Warp AI",
+                WorkspaceAction::ToggleAIAssistant,
+            )
+            .with_enabled(|| !FeatureFlag::AgentMode.is_enabled())
+            .with_context_predicate(id!("Workspace") & id!(flags::IS_ANY_AI_ENABLED))
+            .with_group(bindings::BindingGroup::WarpAi.as_str())
+            // We use the same custom action as AM so that we don't have
+            // two mac menu items for AM vs Warp AI since they are mutually exclusive.
+            .with_custom_action(CustomAction::NewAgentModePane),
+        ]);
+    }
 
     app.register_editable_bindings([
         EditableBinding::new(
@@ -1205,6 +1231,7 @@ pub fn init(app: &mut AppContext) {
         .with_group(bindings::BindingGroup::EnvVarCollection.as_str())
         .with_custom_action(CustomAction::NewPersonalEnvVars)
         .with_context_predicate(id!("Workspace") & id!(flags::ENABLE_WARP_DRIVE)),
+        #[cfg(not(feature = "oss_release"))]
         EditableBinding::new(
             "workspace:create_personal_ai_prompt",
             BindingDescription::new("Create a new personal prompt")
@@ -1216,6 +1243,7 @@ pub fn init(app: &mut AppContext) {
         .with_context_predicate(
             id!("Workspace") & id!(flags::ENABLE_WARP_DRIVE) & id!(flags::IS_ANY_AI_ENABLED),
         ),
+        #[cfg(not(feature = "oss_release"))]
         EditableBinding::new(
             "workspace:create_team_ai_prompt",
             BindingDescription::new("Create a new team prompt")
@@ -1292,6 +1320,7 @@ pub fn init(app: &mut AppContext) {
         .with_custom_action(CustomAction::OpenRepository)
         .with_enabled(|| !crate::terminal_only::is_enabled())
         .with_group(bindings::BindingGroup::Folders.as_str()),
+        #[cfg(not(feature = "oss_release"))]
         EditableBinding::new(
             "workspace:open_ai_fact_collection",
             BindingDescription::new("Open AI Rules")
@@ -1304,6 +1333,7 @@ pub fn init(app: &mut AppContext) {
         .with_group(bindings::BindingGroup::WarpAi.as_str()),
     ]);
 
+    #[cfg(not(feature = "oss_release"))]
     app.register_editable_bindings([EditableBinding::new(
         "workspace:open_mcp_servers",
         BindingDescription::new("Open MCP Servers")
@@ -1319,6 +1349,7 @@ pub fn init(app: &mut AppContext) {
     .with_context_predicate(id!("Workspace") & id!(flags::IS_ANY_AI_ENABLED))
     .with_group(bindings::BindingGroup::WarpAi.as_str())]);
 
+    #[cfg(not(feature = "oss_release"))]
     app.register_editable_bindings([EditableBinding::new(
         "workspace:jump_to_latest_toast",
         "Jump to latest agent task",
@@ -1438,6 +1469,7 @@ fn add_open_setting_pages_as_editable_binding(app: &mut AppContext) {
         .with_group(bindings::BindingGroup::Settings.as_str())
         .with_context_predicate(id!("Workspace"))
         .with_enabled(|| !crate::terminal_only::is_enabled()),
+        #[cfg(not(feature = "oss_release"))]
         EditableBinding::new(
             "workspace:show_ai_settings_page",
             BindingDescription::new("Open Settings: AI"),
@@ -1446,6 +1478,7 @@ fn add_open_setting_pages_as_editable_binding(app: &mut AppContext) {
         .with_enabled(|| FeatureFlag::AgentMode.is_enabled() && !crate::terminal_only::is_enabled())
         .with_group(bindings::BindingGroup::Settings.as_str())
         .with_context_predicate(id!("Workspace")),
+        #[cfg(not(feature = "oss_release"))]
         EditableBinding::new(
             "workspace:show_settings_billing_and_usage_page",
             BindingDescription::new("Open Settings: Billing and usage"),
@@ -1453,6 +1486,7 @@ fn add_open_setting_pages_as_editable_binding(app: &mut AppContext) {
         )
         .with_group(bindings::BindingGroup::Settings.as_str())
         .with_context_predicate(id!("Workspace")),
+        #[cfg(not(feature = "oss_release"))]
         EditableBinding::new(
             "workspace:show_settings_code_page",
             BindingDescription::new("Open Settings: Code"),
@@ -1461,6 +1495,7 @@ fn add_open_setting_pages_as_editable_binding(app: &mut AppContext) {
         .with_group(bindings::BindingGroup::Settings.as_str())
         .with_context_predicate(id!("Workspace"))
         .with_enabled(|| !crate::terminal_only::is_enabled()),
+        #[cfg(not(feature = "oss_release"))]
         EditableBinding::new(
             "workspace:show_settings_referrals_page",
             BindingDescription::new("Open Settings: Referrals"),
@@ -1468,6 +1503,7 @@ fn add_open_setting_pages_as_editable_binding(app: &mut AppContext) {
         )
         .with_group(bindings::BindingGroup::Settings.as_str())
         .with_context_predicate(id!("Workspace")),
+        #[cfg(not(feature = "oss_release"))]
         EditableBinding::new(
             "workspace:show_settings_environments_page",
             BindingDescription::new("Open Settings: Environments"),
@@ -1476,6 +1512,7 @@ fn add_open_setting_pages_as_editable_binding(app: &mut AppContext) {
         .with_group(bindings::BindingGroup::Settings.as_str())
         .with_context_predicate(id!("Workspace"))
         .with_enabled(|| !crate::terminal_only::is_enabled()),
+        #[cfg(not(feature = "oss_release"))]
         EditableBinding::new(
             "workspace:show_mcp_servers_settings_page",
             BindingDescription::new("Open Settings: MCP Servers"),

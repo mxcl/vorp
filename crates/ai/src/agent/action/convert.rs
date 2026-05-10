@@ -17,6 +17,7 @@ use crate::{
         convert::ToolToAIAgentActionError,
         FileLocations,
     },
+    computer_use,
     diff_validation::{ParsedDiff, V4AHunk},
     document::AIDocumentId,
     skills::SkillReference,

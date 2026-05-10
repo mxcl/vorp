@@ -1,17 +1,23 @@
+use std::fmt;
+#[cfg(feature = "oauth_client")]
 use std::future::Future;
+#[cfg(feature = "oauth_client")]
 use std::pin::Pin;
 use std::time::Duration;
-use std::{fmt, future};
 
 #[cfg(not(target_family = "wasm"))]
 use async_compat::{Compat, CompatExt};
+#[cfg(feature = "eventsource")]
 use async_stream::stream;
 use bytes::Bytes;
+#[cfg(feature = "eventsource")]
+use futures::future;
 use futures::{Stream, StreamExt};
 use http::HeaderValue;
 use http::header::HeaderName;
 pub use http::{HeaderMap, StatusCode, header::AUTHORIZATION};
 use reqwest::IntoUrl;
+#[cfg(feature = "eventsource")]
 use reqwest_eventsource::RequestBuilderExt;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -42,6 +48,50 @@ pub mod headers {
     /// Custom Warp header indicating the client role. We don't use the User-Agent header
     /// because it can't be set from WASM.
     pub(crate) const WARP_CLIENT_ID: &str = "X-Warp-Client-ID";
+}
+
+#[cfg(feature = "eventsource")]
+pub mod eventsource {
+    pub use reqwest_eventsource::{Error, Event};
+}
+
+#[cfg(not(feature = "eventsource"))]
+pub mod eventsource {
+    use std::fmt;
+
+    #[derive(Debug)]
+    pub enum Event {
+        Open,
+        Message(MessageEvent),
+    }
+
+    #[derive(Debug)]
+    pub struct MessageEvent {
+        pub data: String,
+    }
+
+    #[derive(Debug)]
+    pub enum Error {
+        InvalidStatusCode(http::StatusCode, reqwest::Response),
+        Transport(reqwest::Error),
+        StreamEnded,
+        Other(String),
+    }
+
+    impl std::error::Error for Error {}
+
+    impl fmt::Display for Error {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                Self::InvalidStatusCode(status, _) => {
+                    write!(f, "invalid eventsource status code: {status}")
+                }
+                Self::Transport(err) => write!(f, "eventsource transport error: {err}"),
+                Self::StreamEnded => write!(f, "eventsource stream ended"),
+                Self::Other(message) => f.write_str(message),
+            }
+        }
+    }
 }
 
 /// The environment variable containing extra HTTP headers to attach to requests.
@@ -81,12 +131,12 @@ cfg_if::cfg_if! {
         // single-threaded (and we don't leverage WebWorkers for async execution in WoW).
         pub type EventSourceStream = futures::stream::LocalBoxStream<
             'static,
-            Result<reqwest_eventsource::Event, reqwest_eventsource::Error>,
+            Result<eventsource::Event, eventsource::Error>,
         >;
     } else {
         pub type EventSourceStream = futures::stream::BoxStream<
             'static,
-            Result<reqwest_eventsource::Event, reqwest_eventsource::Error>,
+            Result<eventsource::Event, eventsource::Error>,
         >;
     }
 }
@@ -413,70 +463,84 @@ impl<'a> RequestBuilder<'a> {
     /// Sends the request to the endpoint, which is assumed to be a streaming server-sent-events
     /// endpoint, and returns a corresponding `EventSource`.
     pub fn eventsource(self) -> EventSourceStream {
-        cfg_if::cfg_if! {
-            if #[cfg(target_family = "wasm")] {
-                let mut stream = self
-                    .wrapped
-                    .eventsource()
-                    .expect("Request type for SSE endpoint must be cloneable.");
+        #[cfg(feature = "eventsource")]
+        {
+            cfg_if::cfg_if! {
+                if #[cfg(target_family = "wasm")] {
+                    let mut stream = self
+                        .wrapped
+                        .eventsource()
+                        .expect("Request type for SSE endpoint must be cloneable.");
 
-                let stream = stream! {
-                    while let Some(event) = stream.next().await {
-                        match event {
-                            Ok(event) => {
-                                yield Ok(event);
-                            }
-                            Err(err) => {
-                                yield Err(err);
+                    let stream = stream! {
+                        while let Some(event) = stream.next().await {
+                            match event {
+                                Ok(event) => {
+                                    yield Ok(event);
+                                }
+                                Err(err) => {
+                                    yield Err(err);
 
-                                // Close the stream if an error occurs.
-                                stream.close();
-                            }
-                        }
-                    }
-                };
-            } else {
-                let mut stream = self
-                    .wrapped
-                    .eventsource()
-                    .expect("Request type for SSE endpoint must be cloneable.");
-
-                let stream = stream! {
-                    // Wrap the stream with async-compat since reqwest requires Tokio.
-                    while let Some(event) = stream.next().compat().await {
-                        match event {
-                            Ok(event) => {
-                                yield Ok(event);
-                            }
-                            Err(err) => {
-                                yield Err(err);
-
-                                // Close the stream if an error occurs.
-                                stream.close();
+                                    // Close the stream if an error occurs.
+                                    stream.close();
+                                }
                             }
                         }
-                    }
-                };
+                    };
+                } else {
+                    let mut stream = self
+                        .wrapped
+                        .eventsource()
+                        .expect("Request type for SSE endpoint must be cloneable.");
+
+                    let stream = stream! {
+                        // Wrap the stream with async-compat since reqwest requires Tokio.
+                        while let Some(event) = stream.next().compat().await {
+                            match event {
+                                Ok(event) => {
+                                    yield Ok(event);
+                                }
+                                Err(err) => {
+                                    yield Err(err);
+
+                                    // Close the stream if an error occurs.
+                                    stream.close();
+                                }
+                            }
+                        }
+                    };
+                }
+            }
+            let stream = stream.take_while(|event| {
+                if let Err(eventsource::Error::StreamEnded) = event {
+                    return future::ready(false);
+                }
+                future::ready(true)
+            });
+
+            // Wrap the stream in one that holds onto a prevent_sleep guard, if one is required here.
+            let stream = prevent_sleep::Stream::wrap(
+                stream,
+                self.prevent_sleep_reason.map(prevent_sleep::prevent_sleep),
+            );
+
+            cfg_if::cfg_if! {
+                if #[cfg(target_family = "wasm")] {
+                    stream.boxed_local()
+                } else {
+                    stream.boxed()
+                }
             }
         }
-        let stream = stream.take_while(|event| {
-            if let Err(reqwest_eventsource::Error::StreamEnded) = event {
-                return future::ready(false);
-            }
-            future::ready(true)
-        });
 
-        // Wrap the stream in one that holds onto a prevent_sleep guard, if one is required here.
-        let stream = prevent_sleep::Stream::wrap(
-            stream,
-            self.prevent_sleep_reason.map(prevent_sleep::prevent_sleep),
-        );
-
-        cfg_if::cfg_if! {
-            if #[cfg(target_family = "wasm")] {
-                stream.boxed_local()
-            } else {
-                stream.boxed()
+        #[cfg(not(feature = "eventsource"))]
+        {
+            cfg_if::cfg_if! {
+                if #[cfg(target_family = "wasm")] {
+                    futures::stream::empty().boxed_local()
+                } else {
+                    futures::stream::empty().boxed()
+                }
             }
         }
     }
@@ -652,6 +716,7 @@ impl Response {
 
 /// Adapter to use our HTTP client wrapper with [`oauth2`]. This is modeled on the [`reqwest`]
 /// implementation of [`oauth2::AsyncHttpClient`].
+#[cfg(feature = "oauth_client")]
 impl<'c> oauth2::AsyncHttpClient<'c> for Client {
     type Error = oauth2::HttpClientError<reqwest::Error>;
 

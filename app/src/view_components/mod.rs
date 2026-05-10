@@ -1,6 +1,10 @@
 //! This module is meant to house the app's reusable Views
 
 pub mod action_button;
+#[cfg(not(feature = "oss_release"))]
+mod agent_toast;
+#[cfg(feature = "oss_release")]
+#[path = "agent_toast_oss.rs"]
 mod agent_toast;
 pub mod alert;
 pub mod callout_bubble;

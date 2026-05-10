@@ -29,10 +29,8 @@ lazy_static! {
             "# find \"foo\" in files",
             QueryFilter::NaturalLanguage
         ),
-        (
-            "notebooks: deploy production server",
-            QueryFilter::Notebooks
-        ),
+        #[cfg(not(feature = "oss_release"))]
+        ("notebooks: deploy production server", QueryFilter::Notebooks),
     ]);
 }
 
@@ -300,7 +298,9 @@ fn valid_query_filters(app: &AppContext) -> Vec<QueryFilter> {
     }
 
     if WarpDriveSettings::is_warp_drive_enabled(app) {
-        filters.extend([QueryFilter::Workflows, QueryFilter::Notebooks]);
+        filters.push(QueryFilter::Workflows);
+        #[cfg(not(feature = "oss_release"))]
+        filters.push(QueryFilter::Notebooks);
 
         filters.push(QueryFilter::EnvironmentVariables);
     }

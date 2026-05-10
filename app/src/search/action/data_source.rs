@@ -20,21 +20,15 @@ pub struct CommandBindingDataSource {
 }
 
 impl CommandBindingDataSource {
-    #[cfg(not(target_family = "wasm"))]
     pub fn new(binding_source: ModelHandle<BindingSource>, ctx: &mut ModelContext<Self>) -> Self {
+        #[cfg(all(not(target_family = "wasm"), feature = "use_tantivy_search"))]
         if warp_core::features::FeatureFlag::UseTantivySearch.is_enabled() {
-            Self::new_full_text(binding_source, ctx)
-        } else {
-            Self::new_fuzzy(binding_source, ctx)
+            return Self::new_full_text(binding_source, ctx);
         }
-    }
-
-    #[cfg(target_family = "wasm")]
-    pub fn new(binding_source: ModelHandle<BindingSource>, ctx: &mut ModelContext<Self>) -> Self {
         Self::new_fuzzy(binding_source, ctx)
     }
 
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "use_tantivy_search"))]
     fn new_full_text(
         binding_source: ModelHandle<BindingSource>,
         ctx: &mut ModelContext<Self>,
@@ -181,7 +175,7 @@ impl ActionSearcher for FuzzyActionSearcher {
     }
 }
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "use_tantivy_search"))]
 mod full_text_searcher {
     use crate::define_search_schema;
     use crate::search::action::{

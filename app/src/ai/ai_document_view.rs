@@ -103,7 +103,8 @@ use warp_util::path::LineAndColumnArg;
 // Import keybinding constants from code view to ensure consistency
 use crate::code::view::{SAVE_FILE_BINDING_DESCRIPTION, SAVE_FILE_BINDING_NAME};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
+#[cfg_attr(not(feature = "oss_release"), derive(Debug))]
 pub enum AIDocumentAction {
     Close,
     SelectVersion(AIDocumentVersion),
@@ -116,6 +117,13 @@ pub enum AIDocumentAction {
     CopyPlanId,
     ShowInWarpDrive,
     AttachToActiveSession,
+}
+
+#[cfg(feature = "oss_release")]
+impl std::fmt::Debug for AIDocumentAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("AIDocumentAction")
+    }
 }
 
 #[derive(Debug, Clone)]

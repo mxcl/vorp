@@ -8,7 +8,6 @@
 use std::sync::Arc;
 
 use futures::stream::AbortHandle;
-use input_classifier::util::{is_agent_follow_up_input, is_one_off_natural_language_word};
 use instant::Instant;
 use parking_lot::FairMutex;
 use serde::{Deserialize, Serialize};
@@ -17,26 +16,30 @@ use settings::Setting as _;
 use warp_core::features::FeatureFlag;
 use warpui::{AppContext, Entity, EntityId, ModelContext, ModelHandle, SingletonEntity};
 
-pub use input_classifier::InputType;
+pub use crate::input_classifier::InputType;
 
 use super::agent_view::{AgentViewController, AgentViewControllerEvent, AgentViewEntryOrigin};
 use super::context_model::BlocklistAIContextModel;
+use crate::PrivacySettings;
+#[cfg(not(feature = "oss_release"))]
 use crate::terminal::cli_agent_sessions::{
     CLIAgentInputState, CLIAgentSessionsModel, CLIAgentSessionsModelEvent,
 };
-use crate::PrivacySettings;
 use warp_completer::completer::CompletionContext;
 
 use crate::{
-    input_classifier::InputClassifierModel,
+    TelemetryEvent,
+    input_classifier::{
+        Context, InputClassifierModel,
+        util::{is_agent_follow_up_input, is_one_off_natural_language_word},
+    },
     report_if_error, send_telemetry_from_ctx,
     settings::{AISettings, AISettingsChangedEvent, InputBoxType, InputSettings},
     terminal::{
+        History, TerminalModel,
         input::decorations::ParsedTokensSnapshot,
         model::{rich_content::RichContentType, session::SessionId},
-        History, TerminalModel,
     },
-    TelemetryEvent,
 };
 
 use super::telemetry_banner::should_collect_ai_ugc_telemetry;
@@ -168,35 +171,38 @@ impl BlocklistAIInputModel {
         terminal_view_id: EntityId,
         ctx: &mut ModelContext<Self>,
     ) -> Self {
-        // Reactively restore input config when CLI agent rich input closes.
-        ctx.subscribe_to_model(
-            &CLIAgentSessionsModel::handle(ctx),
-            move |me, event, ctx| {
-                let CLIAgentSessionsModelEvent::InputSessionChanged {
-                    terminal_view_id: event_view_id,
-                    previous_input_state,
-                    ..
-                } = event
-                else {
-                    return;
-                };
-                if *event_view_id != terminal_view_id {
-                    return;
-                }
-                if let CLIAgentInputState::Open {
-                    previous_input_config,
-                    previous_was_lock_set_with_empty_buffer,
-                    ..
-                } = previous_input_state
-                {
-                    me.restore_input_config(
-                        *previous_input_config,
-                        *previous_was_lock_set_with_empty_buffer,
-                        ctx,
-                    );
-                }
-            },
-        );
+        #[cfg(not(feature = "oss_release"))]
+        {
+            // Reactively restore input config when CLI agent rich input closes.
+            ctx.subscribe_to_model(
+                &CLIAgentSessionsModel::handle(ctx),
+                move |me, event, ctx| {
+                    let CLIAgentSessionsModelEvent::InputSessionChanged {
+                        terminal_view_id: event_view_id,
+                        previous_input_state,
+                        ..
+                    } = event
+                    else {
+                        return;
+                    };
+                    if *event_view_id != terminal_view_id {
+                        return;
+                    }
+                    if let CLIAgentInputState::Open {
+                        previous_input_config,
+                        previous_was_lock_set_with_empty_buffer,
+                        ..
+                    } = previous_input_state
+                    {
+                        me.restore_input_config(
+                            *previous_input_config,
+                            *previous_was_lock_set_with_empty_buffer,
+                            ctx,
+                        );
+                    }
+                },
+            );
+        }
 
         ctx.subscribe_to_model(&AISettings::handle(ctx), move |me, event, ctx| {
             match event {
@@ -406,6 +412,16 @@ impl BlocklistAIInputModel {
         self.set_input_config_internal(current_config.with_input_type(input_type), ctx);
     }
 
+    #[cfg(feature = "oss_release")]
+    fn is_cli_agent_input_open(&self, _ctx: &AppContext) -> bool {
+        false
+    }
+
+    #[cfg(not(feature = "oss_release"))]
+    fn is_cli_agent_input_open(&self, ctx: &AppContext) -> bool {
+        CLIAgentSessionsModel::as_ref(ctx).is_input_open(self.terminal_view_id)
+    }
+
     /// Does not disable autodetection.
     fn set_input_config_internal(
         &mut self,
@@ -422,7 +438,7 @@ impl BlocklistAIInputModel {
             && !self.agent_view_controller.as_ref(ctx).is_active()
             && new_config.input_type.is_ai()
             && new_config.is_locked
-            && !CLIAgentSessionsModel::as_ref(ctx).is_input_open(self.terminal_view_id)
+            && !self.is_cli_agent_input_open(ctx)
         {
             return false;
         }
@@ -442,9 +458,11 @@ impl BlocklistAIInputModel {
         if new_config.input_type.is_ai() {
             AISettings::handle(ctx).update(ctx, |settings, ctx| {
                 let new_num_times = *settings.entered_agent_mode_num_times + 1;
-                report_if_error!(settings
-                    .entered_agent_mode_num_times
-                    .set_value(new_num_times, ctx));
+                report_if_error!(
+                    settings
+                        .entered_agent_mode_num_times
+                        .set_value(new_num_times, ctx)
+                );
             });
         }
 
@@ -735,7 +753,7 @@ impl BlocklistAIInputModel {
 
                     futures_lite::future::yield_now().await;
 
-                    let context = input_classifier::Context {
+                    let context = Context {
                         current_input_type,
                         is_agent_follow_up,
                     };

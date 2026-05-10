@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use parking_lot::FairMutex;
+#[cfg(not(feature = "oss_release"))]
 use pathfinder_color::ColorU;
+#[cfg(not(feature = "oss_release"))]
 use warp_core::ui::theme::WarpTheme;
 use warpui::elements::{Container, Element};
 use warpui::keymap::Keystroke;
@@ -15,17 +17,21 @@ use super::message_bar::{
 use crate::ai::blocklist::{
     BlocklistAIContextEvent, BlocklistAIContextModel, BlocklistAIInputModel,
 };
+#[cfg(not(feature = "oss_release"))]
 use crate::appearance::Appearance;
+#[cfg(not(feature = "oss_release"))]
 use crate::search::slash_command_menu::static_commands::commands;
 use crate::terminal::input::inline_history::{AcceptHistoryItem, HistoryTab};
 use crate::terminal::input::inline_menu::{InlineMenuModel, InlineMenuModelEvent};
+#[cfg(not(feature = "oss_release"))]
 use crate::terminal::input::message_bar::MessageTransformer;
-use crate::terminal::input::suggestions_mode_model::{
-    InputSuggestionsModeEvent, InputSuggestionsModeModel,
-};
+use crate::terminal::input::suggestions_mode_model::InputSuggestionsModeModel;
+#[cfg(not(feature = "oss_release"))]
 use crate::terminal::input::SET_INPUT_MODE_TERMINAL_ACTION_NAME;
 use crate::terminal::model::TerminalModel;
+#[cfg(not(feature = "oss_release"))]
 use crate::terminal::view::init::SELECT_PREVIOUS_BLOCK_ACTION_NAME;
+#[cfg(not(feature = "oss_release"))]
 use crate::util::bindings::keybinding_name_to_keystroke;
 
 /// Renders contextual hint text at the bottom of the terminal input when `FeatureFlag::AgentView`
@@ -64,8 +70,7 @@ impl TerminalInputMessageBar {
                 ctx.notify();
             }
         });
-        ctx.subscribe_to_model(&suggestions_mode_model, |_, _, event, ctx| {
-            let InputSuggestionsModeEvent::ModeChanged { .. } = event;
+        ctx.subscribe_to_model(&suggestions_mode_model, |_, _, _, ctx| {
             ctx.notify();
         });
         ctx.subscribe_to_model(&inline_history_model, |_, _, event, ctx| {
@@ -106,44 +111,56 @@ impl View for TerminalInputMessageBar {
                 .finish();
         }
 
-        let terminal_model = self.terminal_model.lock();
-        let current_buffer = self.input_buffer_model.as_ref(app).current_value();
-        let context_model = self.context_model.as_ref(app);
-        let input_model = self.ai_input_model.as_ref(app);
-
-        let args = TerminalMessageArgs {
-            current_input: current_buffer,
-            terminal_model: &terminal_model,
-            context_model,
-            input_model,
-            app,
-        };
-
-        let mut message = ErroredBlockMessageProducer
-            .produce_message(args)
-            .or_else(|| AgentMessageProducer.produce_message(args))
-            .or_else(|| PlanMessageProducer.produce_message(args))
-            .or_else(|| ContinueConversationMessageProducer.produce_message(args))
-            .or_else(|| DefaultMessageProducer.produce_message(args))
-            .unwrap_or_default();
-
-        let transformers: [Box<dyn MessageTransformer<TerminalMessageArgs<'_>>>; 3] = [
-            Box::new(AttachedBlocksMessageTransformer),
-            Box::new(AttachedTextSelectionMessageTransformer),
-            Box::new(AutodetectedPromptMessageTransformer),
-        ];
-
-        for transformer in transformers {
-            transformer.transform_message(&mut message, args);
+        #[cfg(feature = "oss_release")]
+        {
+            Container::new(render_terminal_message(Message::default(), app))
+                .with_padding_bottom(8.)
+                .with_padding_right(8.)
+                .finish()
         }
 
-        Container::new(render_terminal_message(message, app))
-            .with_padding_bottom(8.)
-            .with_padding_right(8.)
-            .finish()
+        #[cfg(not(feature = "oss_release"))]
+        {
+            let terminal_model = self.terminal_model.lock();
+            let current_buffer = self.input_buffer_model.as_ref(app).current_value();
+            let context_model = self.context_model.as_ref(app);
+            let input_model = self.ai_input_model.as_ref(app);
+
+            let args = TerminalMessageArgs {
+                current_input: current_buffer,
+                terminal_model: &terminal_model,
+                context_model,
+                input_model,
+                app,
+            };
+
+            let mut message = ErroredBlockMessageProducer
+                .produce_message(args)
+                .or_else(|| AgentMessageProducer.produce_message(args))
+                .or_else(|| PlanMessageProducer.produce_message(args))
+                .or_else(|| ContinueConversationMessageProducer.produce_message(args))
+                .or_else(|| DefaultMessageProducer.produce_message(args))
+                .unwrap_or_default();
+
+            let transformers: [Box<dyn MessageTransformer<TerminalMessageArgs<'_>>>; 3] = [
+                Box::new(AttachedBlocksMessageTransformer),
+                Box::new(AttachedTextSelectionMessageTransformer),
+                Box::new(AutodetectedPromptMessageTransformer),
+            ];
+
+            for transformer in transformers {
+                transformer.transform_message(&mut message, args);
+            }
+
+            Container::new(render_terminal_message(message, app))
+                .with_padding_bottom(8.)
+                .with_padding_right(8.)
+                .finish()
+        }
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 #[derive(Copy, Clone)]
 pub struct TerminalMessageArgs<'a> {
     current_input: &'a str,
@@ -153,6 +170,7 @@ pub struct TerminalMessageArgs<'a> {
     app: &'a AppContext,
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl<'a> TerminalMessageArgs<'a> {
     fn is_input_ai_detected(&self) -> bool {
         !self.current_input.is_empty()
@@ -161,7 +179,9 @@ impl<'a> TerminalMessageArgs<'a> {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 struct ErroredBlockMessageProducer;
+#[cfg(not(feature = "oss_release"))]
 impl MessageProvider<TerminalMessageArgs<'_>> for ErroredBlockMessageProducer {
     fn produce_message(&self, args: TerminalMessageArgs<'_>) -> Option<Message> {
         let block = args.terminal_model.block_list().last_non_hidden_block()?;
@@ -183,7 +203,9 @@ impl MessageProvider<TerminalMessageArgs<'_>> for ErroredBlockMessageProducer {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 struct AgentMessageProducer;
+#[cfg(not(feature = "oss_release"))]
 impl MessageProvider<TerminalMessageArgs<'_>> for AgentMessageProducer {
     fn produce_message(&self, args: TerminalMessageArgs<'_>) -> Option<Message> {
         let TerminalMessageArgs {
@@ -211,7 +233,9 @@ impl MessageProvider<TerminalMessageArgs<'_>> for AgentMessageProducer {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 struct PlanMessageProducer;
+#[cfg(not(feature = "oss_release"))]
 impl MessageProvider<TerminalMessageArgs<'_>> for PlanMessageProducer {
     fn produce_message(&self, args: TerminalMessageArgs<'_>) -> Option<Message> {
         let TerminalMessageArgs {
@@ -242,7 +266,9 @@ impl MessageProvider<TerminalMessageArgs<'_>> for PlanMessageProducer {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 struct ContinueConversationMessageProducer;
+#[cfg(not(feature = "oss_release"))]
 impl MessageProvider<TerminalMessageArgs<'_>> for ContinueConversationMessageProducer {
     fn produce_message(&self, args: TerminalMessageArgs<'_>) -> Option<Message> {
         let TerminalMessageArgs {
@@ -262,6 +288,7 @@ impl MessageProvider<TerminalMessageArgs<'_>> for ContinueConversationMessagePro
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 mod internal {
     use crate::terminal::{
         model::blocks::{BlockHeight, BlockHeightItem, BlockHeightSummary, RichContentItem},
@@ -324,7 +351,9 @@ mod internal {
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 struct DefaultMessageProducer;
+#[cfg(not(feature = "oss_release"))]
 impl MessageProvider<TerminalMessageArgs<'_>> for DefaultMessageProducer {
     fn produce_message(&self, args: TerminalMessageArgs<'_>) -> Option<Message> {
         let is_input_ai_detected = args.is_input_ai_detected();
@@ -379,7 +408,9 @@ impl MessageProvider<Option<&AcceptHistoryItem>> for InlineHistoryMessageProduce
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 struct AutodetectedPromptMessageTransformer;
+#[cfg(not(feature = "oss_release"))]
 impl MessageTransformer<TerminalMessageArgs<'_>> for AutodetectedPromptMessageTransformer {
     fn transform_message(&self, message: &mut Message, args: TerminalMessageArgs<'_>) -> bool {
         if !args.is_input_ai_detected()
@@ -412,7 +443,9 @@ impl MessageTransformer<TerminalMessageArgs<'_>> for AutodetectedPromptMessageTr
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 struct AttachedBlocksMessageTransformer;
+#[cfg(not(feature = "oss_release"))]
 impl MessageTransformer<TerminalMessageArgs<'_>> for AttachedBlocksMessageTransformer {
     fn transform_message(&self, message: &mut Message, args: TerminalMessageArgs<'_>) -> bool {
         let context_block_ids = args.context_model.pending_context_block_ids();
@@ -447,7 +480,9 @@ impl MessageTransformer<TerminalMessageArgs<'_>> for AttachedBlocksMessageTransf
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 struct AttachedTextSelectionMessageTransformer;
+#[cfg(not(feature = "oss_release"))]
 impl MessageTransformer<TerminalMessageArgs<'_>> for AttachedTextSelectionMessageTransformer {
     fn transform_message(&self, message: &mut Message, args: TerminalMessageArgs<'_>) -> bool {
         if args.context_model.pending_context_selected_text().is_none()
@@ -460,6 +495,7 @@ impl MessageTransformer<TerminalMessageArgs<'_>> for AttachedTextSelectionMessag
     }
 }
 
+#[cfg(not(feature = "oss_release"))]
 fn message_magenta(theme: &WarpTheme) -> ColorU {
     let mut color = theme.ansi_fg_magenta();
     color.a = (255. * 0.65) as u8;

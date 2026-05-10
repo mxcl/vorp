@@ -1,9 +1,14 @@
+#[cfg(feature = "oss_release")]
+use super::Input;
+#[cfg(not(feature = "oss_release"))]
 use super::{
-    common::{add_input_suggestions_overlays, wrap_input_with_terminal_padding_and_focus_handler},
-    Input, InputAction, InputDropTargetData, CLI_AGENT_RICH_INPUT_EDITOR_BOTTOM_PADDING,
-    CLI_AGENT_RICH_INPUT_EDITOR_MAX_HEIGHT, CLI_AGENT_RICH_INPUT_EDITOR_TOP_PADDING,
+    CLI_AGENT_RICH_INPUT_EDITOR_BOTTOM_PADDING, CLI_AGENT_RICH_INPUT_EDITOR_MAX_HEIGHT,
+    CLI_AGENT_RICH_INPUT_EDITOR_TOP_PADDING, Input, InputAction, InputDropTargetData,
     TERMINAL_VIEW_PADDING_LEFT,
+    common::{add_input_suggestions_overlays, wrap_input_with_terminal_padding_and_focus_handler},
 };
+
+#[cfg(not(feature = "oss_release"))]
 use crate::{
     appearance::Appearance,
     context_chips::spacing,
@@ -11,21 +16,34 @@ use crate::{
     features::FeatureFlag,
     terminal::{cli_agent_sessions::CLIAgentSessionsModel, view::TerminalAction},
 };
+#[cfg(not(feature = "oss_release"))]
 use warp_core::ui::{
-    color::{contrast::MinimumAllowedContrast, ContrastingColor},
+    color::{ContrastingColor, contrast::MinimumAllowedContrast},
     theme::color::internal_colors,
 };
+#[cfg(not(feature = "oss_release"))]
 use warpui::{
+    AppContext, SingletonEntity as _, ViewContext,
     elements::{
         Border, Clipped, ConstrainedBox, Container, DispatchEventResult, DropTarget, Element,
         EventHandler, Flex, Hoverable, ParentElement, SavePosition, Stack,
     },
     presenter::ChildView,
-    AppContext, SingletonEntity as _, ViewContext,
+};
+#[cfg(feature = "oss_release")]
+use warpui::{
+    AppContext, ViewContext,
+    elements::{Element, Empty},
 };
 
 impl Input {
+    #[cfg(feature = "oss_release")]
+    pub(super) fn render_cli_agent_input(&self, _app: &AppContext) -> Box<dyn Element> {
+        Empty::new().finish()
+    }
+
     /// Renders the CLI rich input (editor + CLI agent footer).
+    #[cfg(not(feature = "oss_release"))]
     pub(super) fn render_cli_agent_input(&self, app: &AppContext) -> Box<dyn Element> {
         let appearance = Appearance::as_ref(app);
         let menu_positioning = self.menu_positioning(app);
@@ -154,6 +172,10 @@ impl Input {
     /// This mirrors the contrast-adjustment pattern used for the use-agent
     /// toolbar button text (see `AgentFooterButtonTheme::text_color`) and the
     /// CLI agent brand icon in `AgentInputFooter::render_cli_mode_footer`.
+    #[cfg(feature = "oss_release")]
+    pub(super) fn update_cli_agent_editor_text_colors(&mut self, _ctx: &mut ViewContext<Self>) {}
+
+    #[cfg(not(feature = "oss_release"))]
     pub(super) fn update_cli_agent_editor_text_colors(&mut self, ctx: &mut ViewContext<Self>) {
         let appearance = Appearance::as_ref(ctx);
         let default_colors = TextColors::from_appearance(appearance);

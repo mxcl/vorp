@@ -726,6 +726,7 @@ impl BlocklistAIContextModel {
         ctx: &mut ModelContext<Self>,
     ) {
         self.set_pending_query_state(PendingQueryState::Existing { conversation_id }, ctx);
+        #[cfg(not(feature = "oss_release"))]
         if FeatureFlag::AgentView.is_enabled() {
             if let Err(e) = self.agent_view_controller.update(ctx, |controller, ctx| {
                 controller.try_enter_agent_view(Some(conversation_id), origin, ctx)
@@ -744,6 +745,7 @@ impl BlocklistAIContextModel {
     ) {
         self.set_pending_query_state(PendingQueryState::default(), ctx);
 
+        #[cfg(not(feature = "oss_release"))]
         if FeatureFlag::AgentView.is_enabled() {
             if let Err(e) = self.agent_view_controller.update(ctx, |controller, ctx| {
                 controller.try_enter_agent_view(None, origin, ctx)
@@ -763,11 +765,21 @@ impl BlocklistAIContextModel {
         origin: AgentViewEntryOrigin,
         ctx: &mut ModelContext<Self>,
     ) -> Result<AIConversationId, EnterAgentViewError> {
-        let conversation_id = self.agent_view_controller.update(ctx, |controller, ctx| {
-            controller.try_enter_agent_view(None, origin, ctx)
-        })?;
-        self.set_pending_query_state(PendingQueryState::default(), ctx);
-        Ok(conversation_id)
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = origin;
+            let _ = ctx;
+            return Err(EnterAgentViewError::Unavailable);
+        }
+
+        #[cfg(not(feature = "oss_release"))]
+        {
+            let conversation_id = self.agent_view_controller.update(ctx, |controller, ctx| {
+                controller.try_enter_agent_view(None, origin, ctx)
+            })?;
+            self.set_pending_query_state(PendingQueryState::default(), ctx);
+            Ok(conversation_id)
+        }
     }
 
     /// Sets the value of `pending_query_state`, emitting an event if it changed.

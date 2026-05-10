@@ -127,6 +127,12 @@ pub enum AgentManagementTelemetryEvent {
 }
 
 impl TelemetryEvent for AgentManagementTelemetryEvent {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         AgentManagementTelemetryEventDiscriminants::from(self).name()
     }
@@ -215,6 +221,12 @@ impl TelemetryEvent for AgentManagementTelemetryEvent {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         AgentManagementTelemetryEventDiscriminants::from(self).description()
     }
@@ -227,12 +239,24 @@ impl TelemetryEvent for AgentManagementTelemetryEvent {
         false
     }
 
+    #[cfg(feature = "oss_release")]
+    fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
+        std::iter::empty()
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
         warp_core::telemetry::enum_events::<Self>()
     }
 }
 
 impl TelemetryEventDesc for AgentManagementTelemetryEventDiscriminants {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         match self {
             Self::ViewToggled => "AgentManagement.ViewToggled",
@@ -267,6 +291,12 @@ impl TelemetryEventDesc for AgentManagementTelemetryEventDiscriminants {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         match self {
             Self::ViewToggled => "User toggled the agent management view open or closed",

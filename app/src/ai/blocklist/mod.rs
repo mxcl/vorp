@@ -9,6 +9,10 @@ mod controller;
 pub(crate) mod handoff;
 pub(crate) mod orchestration_event_streamer;
 pub(crate) mod orchestration_events;
+#[cfg(not(feature = "oss_release"))]
+mod passive_suggestions;
+#[cfg(feature = "oss_release")]
+#[path = "passive_suggestions_oss.rs"]
 mod passive_suggestions;
 pub(crate) mod task_status_sync_model;
 pub(super) use controller::RequestInput;
@@ -18,14 +22,42 @@ mod input_model;
 mod permissions;
 mod persistence;
 pub mod prompt;
+#[cfg(not(feature = "oss_release"))]
 pub mod suggested_agent_mode_workflow_modal;
+#[cfg(feature = "oss_release")]
+#[path = "suggested_agent_mode_workflow_modal_oss.rs"]
+pub mod suggested_agent_mode_workflow_modal;
+#[cfg(not(feature = "oss_release"))]
 pub mod suggested_rule_modal;
+#[cfg(feature = "oss_release")]
+#[path = "suggested_rule_modal_oss.rs"]
+pub mod suggested_rule_modal;
+#[cfg(not(feature = "oss_release"))]
 mod suggestion_chip_view;
+#[cfg(feature = "oss_release")]
+#[path = "suggestion_chip_view_oss.rs"]
+mod suggestion_chip_view;
+#[cfg(not(feature = "oss_release"))]
 pub mod summarization_cancel_dialog;
+#[cfg(feature = "oss_release")]
+#[path = "summarization_cancel_dialog_oss.rs"]
+pub mod summarization_cancel_dialog;
+#[cfg(not(feature = "oss_release"))]
+pub(crate) mod telemetry;
+#[cfg(feature = "oss_release")]
+#[path = "telemetry_oss.rs"]
 pub(crate) mod telemetry;
 pub mod usage;
 
+#[cfg(not(feature = "oss_release"))]
 pub(crate) mod codebase_index_speedbump_banner;
+#[cfg(feature = "oss_release")]
+#[path = "codebase_index_speedbump_banner_oss.rs"]
+pub(crate) mod codebase_index_speedbump_banner;
+#[cfg(not(feature = "oss_release"))]
+pub(crate) mod telemetry_banner;
+#[cfg(feature = "oss_release")]
+#[path = "telemetry_banner_oss.rs"]
 pub(crate) mod telemetry_banner;
 pub(super) mod view_util;
 

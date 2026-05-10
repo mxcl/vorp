@@ -46,13 +46,15 @@ pub fn is_using_api_key_for_provider(provider: &LLMProvider, app: &AppContext) -
 /// but was migrated to store a full [`ModelsByFeature`].
 pub const MODELS_BY_FEATURE_CACHE_KEY: &str = "AvailableLLMs";
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(not(feature = "oss_release"), derive(Serialize, Deserialize))]
 pub struct LLMUsageMetadata {
     pub request_multiplier: usize,
     pub credit_multiplier: Option<f32>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(not(feature = "oss_release"), derive(Serialize, Deserialize))]
 pub enum DisableReason {
     AdminDisabled,
     OutOfRequests,
@@ -93,14 +95,16 @@ impl DisableReason {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(not(feature = "oss_release"), derive(Serialize, Deserialize))]
 pub struct LLMSpec {
     pub cost: f32,
     pub quality: f32,
     pub speed: f32,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(not(feature = "oss_release"), derive(Serialize, Deserialize))]
 pub enum LLMProvider {
     OpenAI,
     Anthropic,
@@ -132,26 +136,29 @@ pub enum LLMModelHost {
 }
 
 /// Configuration for routing an LLM to a specific host.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(not(feature = "oss_release"), derive(Serialize, Deserialize))]
 pub struct RoutingHostConfig {
     pub enabled: bool,
     pub model_routing_host: LLMModelHost,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(not(feature = "oss_release"), derive(Serialize, Deserialize))]
 pub struct LLMContextWindow {
-    #[serde(default)]
+    #[cfg_attr(not(feature = "oss_release"), serde(default))]
     pub is_configurable: bool,
-    #[serde(default)]
+    #[cfg_attr(not(feature = "oss_release"), serde(default))]
     pub min: u32,
-    #[serde(default)]
+    #[cfg_attr(not(feature = "oss_release"), serde(default))]
     pub max: u32,
-    #[serde(default)]
+    #[cfg_attr(not(feature = "oss_release"), serde(default))]
     pub default_max: u32,
 }
 
 /// Metadata about an LLM.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(not(feature = "oss_release"), derive(Serialize))]
 pub struct LLMInfo {
     pub display_name: String,
     pub base_model_name: String,
@@ -168,6 +175,7 @@ pub struct LLMInfo {
     pub context_window: LLMContextWindow,
 }
 
+#[cfg(not(feature = "oss_release"))]
 impl<'de> Deserialize<'de> for LLMInfo {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -320,13 +328,14 @@ impl LLMInfo {
 }
 
 /// The set of LLMs available for a feature.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(not(feature = "oss_release"), derive(Serialize, Deserialize))]
 pub struct AvailableLLMs {
     /// The Warp "default" LLM.
     default_id: LLMId,
     choices: Vec<LLMInfo>,
 
-    #[serde(default)]
+    #[cfg_attr(not(feature = "oss_release"), serde(default))]
     preferred_codex_model_id: Option<LLMId>,
 }
 
@@ -406,17 +415,18 @@ impl AvailableLLMs {
 ///
 /// NOTE: This used to include a `planning` field; this was removed after planning via subagent was
 /// deprecated.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(not(feature = "oss_release"), derive(Serialize, Deserialize))]
 pub struct ModelsByFeature {
     pub agent_mode: AvailableLLMs,
     pub coding: AvailableLLMs,
     /// The set of LLMs available for CLI agent.
     /// This field is optional during deserialization, as older clients might not have this field.
-    #[serde(default)]
+    #[cfg_attr(not(feature = "oss_release"), serde(default))]
     pub cli_agent: Option<AvailableLLMs>,
     /// The set of LLMs available for computer use agent.
     /// This field is optional during deserialization, as older clients might not have this field.
-    #[serde(default)]
+    #[cfg_attr(not(feature = "oss_release"), serde(default))]
     pub computer_use: Option<AvailableLLMs>,
 }
 
@@ -906,6 +916,14 @@ impl LLMPreferences {
 
     /// Fetches the latest set of models from the server for the currently logged in user, and updates the model.
     pub fn refresh_authed_models(&self, ctx: &mut ModelContext<Self>) {
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = ctx;
+            return;
+        }
+
+        #[cfg(not(feature = "oss_release"))]
+        {
         // Don't try to fetch auth'd models if the user is not logged in yet.
         if !AuthStateProvider::as_ref(ctx).get().is_logged_in() {
             return;
@@ -925,10 +943,19 @@ impl LLMPreferences {
                 }
             },
         );
+        }
     }
 
     /// No auth required (i.e. to populate the pre-login onboarding picker).
     fn refresh_public_models(&self, ctx: &mut ModelContext<Self>) {
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = ctx;
+            return;
+        }
+
+        #[cfg(not(feature = "oss_release"))]
+        {
         let ai_api_client = ServerApiProvider::as_ref(ctx).get_ai_client();
         ctx.spawn(
             async move { ai_api_client.get_free_available_models(None).await },
@@ -943,6 +970,7 @@ impl LLMPreferences {
                 }
             },
         );
+        }
     }
 
     pub fn refresh_available_models(&self, ctx: &mut ModelContext<Self>) {
@@ -964,6 +992,15 @@ impl LLMPreferences {
     }
 
     fn on_server_update(&mut self, update: ModelsByFeature, ctx: &mut ModelContext<Self>) {
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = update;
+            let _ = ctx;
+            return;
+        }
+
+        #[cfg(not(feature = "oss_release"))]
+        {
         let has_existing_persisted_config = get_cached_models(ctx).is_some();
 
         let old = std::mem::replace(&mut self.models_by_feature, update);
@@ -1001,6 +1038,7 @@ impl LLMPreferences {
         }
 
         ctx.emit(LLMPreferencesEvent::UpdatedAvailableLLMs);
+        }
     }
 
     /// Clear any model selections where the model is no longer supported
@@ -1130,6 +1168,14 @@ fn get_new_agent_mode_choices(
 
 /// Gets the last cached LLM metadata.
 fn get_cached_models(app: &mut AppContext) -> Option<ModelsByFeature> {
+    #[cfg(feature = "oss_release")]
+    {
+        let _ = app;
+        return None;
+    }
+
+    #[cfg(not(feature = "oss_release"))]
+    {
     let value = app
         .private_user_preferences()
         .read_value(MODELS_BY_FEATURE_CACHE_KEY)
@@ -1154,6 +1200,7 @@ fn get_cached_models(app: &mut AppContext) -> Option<ModelsByFeature> {
                 }
             }
         }
+    }
     }
 }
 

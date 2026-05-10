@@ -94,6 +94,7 @@ fn maximize_warp_items(ctx: &mut ViewContext<ResourceCenterMainView>) -> Vec<Fea
         ctx,
     ));
 
+    #[cfg(not(feature = "oss_release"))]
     maximize_warp_items.push(FeatureItem::new(
         "AI command search",
         "Generate shell commands with natural language.",

@@ -3,7 +3,7 @@ use std::path::Path;
 use string_offset::ByteOffset;
 
 mod naive;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(feature = "local_fs")]
 mod semantic;
 
 /// Number of lines per chunk when chunking naively. While there's no guarantee
@@ -97,13 +97,13 @@ pub fn chunk_code<'a>(code: &'a str, path: &'a Path) -> Vec<Fragment<'a>> {
 
 /// Attempts to chunk code semantically, returning [`None`] if the code
 /// could not be chunked for any reason.
-#[cfg(not(target_family = "wasm"))]
+#[cfg(feature = "local_fs")]
 fn try_chunk_code_semantically<'a>(code: &'a str, path: &'a Path) -> Option<Vec<Fragment<'a>>> {
     let language = languages::language_by_filename(path)?;
     semantic::chunk_code(code, path, MAX_BYTES_PER_CHUNK, &language.grammar).ok()
 }
 
-#[cfg(target_family = "wasm")]
+#[cfg(not(feature = "local_fs"))]
 fn try_chunk_code_semantically<'a>(_code: &'a str, _path: &'a Path) -> Option<Vec<Fragment<'a>>> {
     None
 }

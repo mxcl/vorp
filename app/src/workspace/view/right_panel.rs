@@ -384,6 +384,7 @@ impl RightPanelView {
         });
 
         // Recompute terminal availability when CLI agent sessions start or end.
+        #[cfg(not(feature = "oss_release"))]
         ctx.subscribe_to_model(&CLIAgentSessionsModel::handle(ctx), |me, _, _, ctx| {
             me.recompute_terminal_availability(ctx);
         });

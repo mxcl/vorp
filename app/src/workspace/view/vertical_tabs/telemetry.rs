@@ -101,6 +101,12 @@ pub enum VerticalTabsTelemetryEvent {
 }
 
 impl TelemetryEvent for VerticalTabsTelemetryEvent {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         VerticalTabsTelemetryEventDiscriminants::from(self).name()
     }
@@ -120,6 +126,12 @@ impl TelemetryEvent for VerticalTabsTelemetryEvent {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         VerticalTabsTelemetryEventDiscriminants::from(self).description()
     }
@@ -132,12 +144,24 @@ impl TelemetryEvent for VerticalTabsTelemetryEvent {
         false
     }
 
+    #[cfg(not(feature = "oss_release"))]
     fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
         warp_core::telemetry::enum_events::<Self>()
+    }
+
+    #[cfg(feature = "oss_release")]
+    fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
+        std::iter::empty()
     }
 }
 
 impl TelemetryEventDesc for VerticalTabsTelemetryEventDiscriminants {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         match self {
             Self::DisplayOptionChanged => "VerticalTabs.DisplayOptionChanged",
@@ -146,6 +170,12 @@ impl TelemetryEventDesc for VerticalTabsTelemetryEventDiscriminants {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         match self {
             Self::DisplayOptionChanged => {

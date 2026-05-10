@@ -485,6 +485,7 @@ impl TeamUpdateManager {
                     });
                 }
 
+                #[cfg(not(feature = "oss_release"))]
                 if let Some(feature_model_choices) = user_workspaces_access.feature_model_choices {
                     LLMPreferences::handle(ctx).update(ctx, |llm_preferences, ctx| {
                         llm_preferences

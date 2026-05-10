@@ -701,13 +701,15 @@ pub trait SettingSection {
 
 #[macro_export]
 macro_rules! define_settings_group {
-    ($group:ident, settings: [$($var:ident: $setting:ident $({ type: $value_type:ty, default: $default:expr, supported_platforms: $supported_platforms:expr, sync_to_cloud: $sync_to_cloud:expr, private: $private:expr $(, storage_key: $storage_key:literal)? $(, toml_path: $toml_path:literal)? $(, max_table_depth: $mtd:literal)? $(, description: $desc:literal)? $(, feature_flag: $flag:path)? $(,)? })? $(,)? )*]) => {
+    ($group:ident, settings: [$($(#[$attr:meta])* $var:ident: $setting:ident $({ type: $value_type:ty, default: $default:expr, supported_platforms: $supported_platforms:expr, sync_to_cloud: $sync_to_cloud:expr, private: $private:expr $(, storage_key: $storage_key:literal)? $(, toml_path: $toml_path:literal)? $(, max_table_depth: $mtd:literal)? $(, description: $desc:literal)? $(, feature_flag: $flag:path)? $(,)? })? $(,)? )*]) => {
         $(
+            $(#[$attr])*
             $crate::macros::maybe_define_setting!($setting, group: $group $(, { type: $value_type, default: $default, supported_platforms: $supported_platforms, sync_to_cloud: $sync_to_cloud, private: $private $(, storage_key: $storage_key)? $(, toml_path: $toml_path)? $(, max_table_depth: $mtd)? $(, description: $desc)? $(, feature_flag: $flag)? })?);
         )*
 
         pub struct $group {
             $(
+                $(#[$attr])*
                 pub $var: $setting,
             )*
         }
@@ -718,6 +720,7 @@ macro_rules! define_settings_group {
                 use $crate::Setting;
                 Self {
                     $(
+                        $(#[$attr])*
                         $var: <$setting>::new_from_storage(ctx),
                     )*
                 }
@@ -729,6 +732,7 @@ macro_rules! define_settings_group {
                 use $crate::Setting;
                 Self {
                     $(
+                        $(#[$attr])*
                         $var: <$setting>::new(None),
                     )*
                 }
@@ -742,6 +746,7 @@ macro_rules! define_settings_group {
 
                 // Wire up settings event update functions for all settings
                 $(
+                    $(#[$attr])*
                     $crate::macros::register_settings_events!(
                         $group,
                         $var,
@@ -760,6 +765,7 @@ macro_rules! define_settings_group {
             fn is_supported_on_current_platform(&self) -> bool {
                 use $crate::Setting;
                 $(
+                    $(#[$attr])*
                     if self.$var.is_supported_on_current_platform() {
                         return true;
                     }
@@ -772,11 +778,12 @@ macro_rules! define_settings_group {
             use $crate::ChangeEventReason;
             #[derive(Debug)]
             #[allow(clippy::enum_variant_names)]
-            pub enum EventName {
-                $(
-                    $setting {
-                        #[allow(dead_code)]
-                        change_event_reason: ChangeEventReason,
+                pub enum EventName {
+                    $(
+                        $(#[$attr])*
+                        $setting {
+                            #[allow(dead_code)]
+                            change_event_reason: ChangeEventReason,
                     },
                 )*
             }
@@ -817,17 +824,15 @@ macro_rules! generate_settings_event_fn {
             #[allow(non_snake_case)]
             fn fn_name(
                 settings_group: warpui::ModelHandle<$group>,
-                ctx: &mut (
-                         impl warpui::GetSingletonModelHandle
-                         + warpui::AddSingletonModel
-                         + warpui::UpdateModel
-                     ),
+                ctx: &mut (impl warpui::GetSingletonModelHandle
+                          + warpui::AddSingletonModel
+                          + warpui::UpdateModel),
             ) {
                 use anyhow::anyhow;
                 use serde_json;
                 use warpui::SingletonEntity;
-                use $crate::Setting as _;
                 use $crate::manager::{SettingsEvent, SettingsManager};
+                use $crate::Setting as _;
                 SettingsManager::handle(ctx).update(ctx, |manager, ctx| {
                     // Propagate per settings change events through the SettingsManager
                     ctx.subscribe_to_model(&settings_group, |_manager, _, ctx| {

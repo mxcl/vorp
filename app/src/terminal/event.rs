@@ -23,7 +23,7 @@ use super::model::block::BlockId;
 use super::model::session::{SessionId, SessionInfo};
 use super::model::terminal_model::{BlockIndex, ExitReason, TmuxInstallationState};
 
-pub use remote_server::setup::RemoteServerSetupState;
+pub use crate::remote_server::setup::RemoteServerSetupState;
 
 #[derive(Clone)]
 /// Events sent to the main thread by the terminal model & event loop.

@@ -801,6 +801,7 @@ impl WelcomePalette {
             CommandPaletteItemAction::NavigateToConversation { .. } => {
                 // This code is dead, so no need to support this case
             }
+            #[cfg(not(feature = "oss_release"))]
             CommandPaletteItemAction::OpenNotebook { id } => {
                 self.dispatch_typed_action_on_view(&WorkspaceAction::OpenNotebook { id: *id }, ctx);
                 self.close(ctx, Some(result_action.result_type()));

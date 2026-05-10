@@ -115,6 +115,12 @@ pub(super) enum CliTelemetryEvent {
 }
 
 impl TelemetryEvent for CliTelemetryEvent {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         CliTelemetryEventDiscriminants::from(self).name()
     }
@@ -191,6 +197,12 @@ impl TelemetryEvent for CliTelemetryEvent {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         CliTelemetryEventDiscriminants::from(self).description()
     }
@@ -203,12 +215,24 @@ impl TelemetryEvent for CliTelemetryEvent {
         false
     }
 
+    #[cfg(feature = "oss_release")]
+    fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
+        std::iter::empty()
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
         warp_core::telemetry::enum_events::<Self>()
     }
 }
 
 impl TelemetryEventDesc for CliTelemetryEventDiscriminants {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         match self {
             CliTelemetryEventDiscriminants::AgentRun => "CLI.Execute.Agent.Run",
@@ -277,6 +301,12 @@ impl TelemetryEventDesc for CliTelemetryEventDiscriminants {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         match self {
             CliTelemetryEventDiscriminants::AgentRun => "Ran an agent from the Warp CLI",

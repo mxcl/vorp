@@ -1,11 +1,15 @@
 use super::ServerApi;
+#[cfg(not(feature = "oss_release"))]
 use crate::server::graphql::{get_request_context, get_user_facing_error_message};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+#[cfg(not(feature = "oss_release"))]
 use cynic::{MutationBuilder, QueryBuilder};
 #[cfg(test)]
 use mockall::{automock, predicate::*};
+#[cfg(not(feature = "oss_release"))]
 use warp_core::channel::ChannelState;
+#[cfg(not(feature = "oss_release"))]
 use warp_graphql::{
     mutations::send_referral_invite_emails::{
         SendReferralInviteEmails, SendReferralInviteEmailsResult, SendReferralInviteEmailsVariables,
@@ -38,6 +42,7 @@ pub trait ReferralsClient: 'static + Send + Sync {
 
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(not(feature = "oss_release"))]
 impl ReferralsClient for ServerApi {
     async fn get_referral_info(&self) -> Result<ReferralInfo> {
         let variables = GetReferralInfoVariables {
@@ -89,5 +94,25 @@ impl ReferralsClient for ServerApi {
                 "unknown error while sending referral invite emails"
             )),
         }
+    }
+}
+
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg(feature = "oss_release")]
+impl ReferralsClient for ServerApi {
+    async fn get_referral_info(&self) -> Result<ReferralInfo> {
+        Ok(ReferralInfo {
+            url: String::new(),
+            code: String::new(),
+            number_claimed: 0,
+            is_referred: false,
+        })
+    }
+
+    async fn send_invite(&self, _emails: Vec<String>) -> Result<Vec<String>> {
+        Err(anyhow!(
+            "Referral server APIs are not available in this build"
+        ))
     }
 }

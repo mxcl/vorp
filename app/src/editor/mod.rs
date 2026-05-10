@@ -3,6 +3,8 @@ pub mod autosuggestion_ignore_view;
 mod soft_wrap;
 mod view;
 
+#[cfg(feature = "oss_release")]
+pub use crate::warp_editor_shim::editor::NavigationKey;
 /// Consumers of the editor should only interface with the view.
 /// They should _not_ be able to interface with the internal
 /// details of the editor (e.g. the [`Buffer`]).

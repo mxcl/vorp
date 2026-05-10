@@ -1,5 +1,9 @@
 mod apply_diff_model;
 mod diff_application;
+#[cfg(not(feature = "oss_release"))]
+mod telemetry;
+#[cfg(feature = "oss_release")]
+#[path = "request_file_edits/telemetry_oss.rs"]
 mod telemetry;
 
 use warp_util::file::FileSaveError;

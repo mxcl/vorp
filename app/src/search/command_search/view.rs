@@ -53,12 +53,14 @@ use crate::{
     workspaces::user_workspaces::UserWorkspaces,
 };
 
+#[cfg(not(feature = "oss_release"))]
+use super::notebooks::notebooks_data_source;
+#[cfg(not(feature = "oss_release"))]
+use super::warp_ai::WarpAIDataSource;
 use super::{
     ai_queries::AIQueriesDataSource,
     env_var_collections::EnvVarCollectionDataSource,
     history::history_data_source_for_session,
-    notebooks::notebooks_data_source,
-    warp_ai::WarpAIDataSource,
     workflows::{cloud_workflows_data_source, WorkflowsDataSource},
     zero_state::{CommandSearchZeroStateEvent, CommandSearchZeroStateView},
 };
@@ -234,6 +236,7 @@ impl CommandSearchView {
             // Add data sources in lowest->highest priority order.  If results from two
             // data sources produce the same ranking score, the data source added first
             // will show up higher in the list (i.e.: further away from the input).
+            #[cfg(not(feature = "oss_release"))]
             if AISettings::as_ref(ctx).is_any_ai_enabled(ctx) {
                 mixer.add_sync_source(
                     WarpAIDataSource::new(self.ai_client.clone(), None),
@@ -273,6 +276,7 @@ impl CommandSearchView {
                     ctx,
                 );
 
+                #[cfg(not(feature = "oss_release"))]
                 mixer.add_async_source(
                     notebooks_data_source(),
                     HashSet::from([QueryFilter::Notebooks]),
@@ -507,11 +511,12 @@ impl CommandSearchView {
 
                 AcceptHistory(_)
                 | AcceptWorkflow(_)
-                | AcceptNotebook(_)
                 | OpenWarpAI
                 | AcceptEnvVarCollection(_)
                 | TranslateUsingWarpAI
                 | AcceptAIQuery(_) => false,
+                #[cfg(not(feature = "oss_release"))]
+                AcceptNotebook(_) => false,
             };
 
             let (a11y_content, a11y_help_content) = if was_immediately_executed {

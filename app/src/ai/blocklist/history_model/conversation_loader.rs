@@ -136,29 +136,37 @@ pub async fn load_conversation_from_server(
                     }
                 }
                 AIAgentHarness::ClaudeCode | AIAgentHarness::Gemini | AIAgentHarness::Codex => {
-                    if !FeatureFlag::AgentHarness.is_enabled() {
-                        log::warn!("Ignoring non-Oz conversation {conversation_id}: AgentHarness flag is disabled");
+                    #[cfg(feature = "oss_release")]
+                    {
                         return None;
                     }
-                    // Fetch snapshot data for third-party harness conversations.
-                    match server_api
-                        .get_block_snapshot(server_conversation_token)
-                        .await
+
+                    #[cfg(not(feature = "oss_release"))]
                     {
-                        Ok(block) => {
-                            log::info!("Loaded CLI agent block snapshot for {conversation_id}");
-                            Some(CloudConversationData::CLIAgent(Box::new(
-                                CLIAgentConversation {
-                                    metadata: server_metadata,
-                                    block,
-                                },
-                            )))
+                        if !FeatureFlag::AgentHarness.is_enabled() {
+                            log::warn!("Ignoring non-Oz conversation {conversation_id}: AgentHarness flag is disabled");
+                            return None;
                         }
-                        Err(e) => {
-                            log::warn!(
-                                "Failed to fetch block snapshot for {conversation_id}: {e:#}"
-                            );
-                            None
+                        // Fetch snapshot data for third-party harness conversations.
+                        match server_api
+                            .get_block_snapshot(server_conversation_token)
+                            .await
+                        {
+                            Ok(block) => {
+                                log::info!("Loaded CLI agent block snapshot for {conversation_id}");
+                                Some(CloudConversationData::CLIAgent(Box::new(
+                                    CLIAgentConversation {
+                                        metadata: server_metadata,
+                                        block,
+                                    },
+                                )))
+                            }
+                            Err(e) => {
+                                log::warn!(
+                                    "Failed to fetch block snapshot for {conversation_id}: {e:#}"
+                                );
+                                None
+                            }
                         }
                     }
                 }

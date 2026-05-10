@@ -1,3 +1,4 @@
+use crate::server::timestamp::ServerTimestamp;
 use chrono::{DateTime, Utc};
 use derivative::Derivative;
 use http::StatusCode;
@@ -7,7 +8,6 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use warp_graphql::scalars::time::ServerTimestamp;
 use warpui::{r#async::FutureId, Entity, ModelContext, RequestState, RetryOption, SingletonEntity};
 
 use lazy_static::lazy_static;
@@ -19,10 +19,11 @@ use super::{
     server_api::{auth::UserAuthenticationError, object::ObjectClient},
 };
 
+#[cfg(not(feature = "oss_release"))]
+use crate::ai::cloud_agent_config::CloudAgentConfigModel;
 use crate::ai::mcp::templatable::CloudTemplatableMCPServerModel;
 use crate::server::cloud_objects::update_manager::InitiatedBy;
 use crate::{
-    ai::cloud_agent_config::CloudAgentConfigModel,
     ai::cloud_environments::CloudAmbientAgentEnvironmentModel,
     ai::{
         ambient_agents::scheduled::CloudScheduledAmbientAgentModel,
@@ -230,6 +231,7 @@ pub enum QueueItem {
         id: SyncId,
         revision: Option<Revision>,
     },
+    #[cfg(not(feature = "oss_release"))]
     UpdateCloudAgentConfig {
         model: Arc<CloudAgentConfigModel>,
         id: SyncId,
@@ -459,6 +461,7 @@ impl SyncQueue {
             QueueItem::UpdateWorkflowEnum { id, .. } => self.get_update_dependencies(id),
             QueueItem::UpdateCloudEnvironment { id, .. } => self.get_update_dependencies(id),
             QueueItem::UpdateScheduledAmbientAgent { id, .. } => self.get_update_dependencies(id),
+            #[cfg(not(feature = "oss_release"))]
             QueueItem::UpdateCloudAgentConfig { id, .. } => self.get_update_dependencies(id),
 
             // Update workflow requests should depend on existing requests to that object, as well as
@@ -563,6 +566,7 @@ impl SyncQueue {
                 QueueItem::UpdateTemplatableMCPServer { id, .. } => id.uid() == item_id,
                 QueueItem::UpdateCloudEnvironment { id, .. } => id.uid() == item_id,
                 QueueItem::UpdateScheduledAmbientAgent { id, .. } => id.uid() == item_id,
+                #[cfg(not(feature = "oss_release"))]
                 QueueItem::UpdateCloudAgentConfig { id, .. } => id.uid() == item_id,
                 // We don't depend on object actions, since they don't affect an object's own content or metadata
                 QueueItem::RecordObjectAction { .. } => false,
@@ -860,6 +864,7 @@ impl SyncQueue {
                         ctx,
                     );
                 }
+                #[cfg(not(feature = "oss_release"))]
                 QueueItem::UpdateCloudAgentConfig {
                     model,
                     id,
@@ -1276,9 +1281,14 @@ impl SyncQueue {
                                 .await
                             }
                             // CloudAgentConfig is not created from the client
+                            #[cfg(not(feature = "oss_release"))]
                             JsonObjectType::CloudAgentConfig => Err(anyhow::anyhow!(
                                 "CloudAgentConfig creation not supported from client"
                             )),
+                            #[cfg(feature = "oss_release")]
+                            JsonObjectType::CloudAgentConfig => {
+                                Err(anyhow::anyhow!("Unsupported object type"))
+                            }
                         },
                     }
                 }
@@ -1855,6 +1865,7 @@ impl SyncQueue {
                 QueueItem::UpdateScheduledAmbientAgent { id, .. } => {
                     self.handle_update_failure_response(id, item_id, ctx);
                 }
+                #[cfg(not(feature = "oss_release"))]
                 QueueItem::UpdateCloudAgentConfig { id, .. } => {
                     self.handle_update_failure_response(id, item_id, ctx);
                 }

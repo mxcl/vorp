@@ -1,6 +1,7 @@
 use super::{ActionExecution, AnyActionExecution, ExecuteActionInput, PreprocessActionInput};
 #[cfg(not(target_family = "wasm"))]
 use crate::ai::mcp::TemplatableMCPServerManager;
+use crate::rmcp;
 use crate::terminal::model::session::active_session::ActiveSession;
 use futures::{future::BoxFuture, FutureExt};
 use warpui::{Entity, EntityId, ModelContext, ModelHandle};
@@ -41,7 +42,12 @@ impl ReadMCPResourceExecutor {
             false
         }
 
-        #[cfg(not(target_family = "wasm"))]
+        #[cfg(all(not(target_family = "wasm"), not(feature = "mcp_runtime")))]
+        {
+            false
+        }
+
+        #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
         {
             let ExecuteActionInput {
                 action:
@@ -83,7 +89,16 @@ impl ReadMCPResourceExecutor {
             ActionExecution::<()>::InvalidAction
         }
 
-        #[cfg(not(target_family = "wasm"))]
+        #[cfg(all(not(target_family = "wasm"), not(feature = "mcp_runtime")))]
+        {
+            ActionExecution::<()>::Sync(AIAgentActionResultType::ReadMCPResource(
+                ReadMCPResourceResult::Error(
+                    "MCP runtime is not available in this build".to_owned(),
+                ),
+            ))
+        }
+
+        #[cfg(all(not(target_family = "wasm"), feature = "mcp_runtime"))]
         {
             let ExecuteActionInput { action, .. } = input;
             let AIAgentAction {

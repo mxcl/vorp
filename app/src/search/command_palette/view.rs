@@ -100,6 +100,7 @@ pub enum Event {
     /// Invoke the env vars identified by `id`.
     InvokeEnvironmentVariables { id: SyncId },
     /// Open a notebook identified by `id`.
+    #[cfg(not(feature = "oss_release"))]
     OpenNotebook { id: SyncId },
     /// View the relevant object in the Warp Drive sidebar.
     ViewInWarpDrive { id: CloudObjectTypeAndId },
@@ -885,6 +886,7 @@ impl View {
             CommandPaletteItemAction::InvokeEnvironmentVariables { id } => {
                 ctx.emit(Event::InvokeEnvironmentVariables { id })
             }
+            #[cfg(not(feature = "oss_release"))]
             CommandPaletteItemAction::OpenNotebook { id } => ctx.emit(Event::OpenNotebook { id }),
             CommandPaletteItemAction::ViewInWarpDrive { id } => {
                 ctx.emit(Event::ViewInWarpDrive { id })
@@ -950,46 +952,50 @@ impl View {
                 );
             }
             CommandPaletteItemAction::NewConversation => {
-                let window_id = match self.binding_source.as_ref(ctx) {
-                    BindingSource::View { window_id, .. } => *window_id,
-                    BindingSource::None => return,
-                };
+                #[cfg(not(feature = "oss_release"))]
+                {
+                    let window_id = match self.binding_source.as_ref(ctx) {
+                        BindingSource::View { window_id, .. } => *window_id,
+                        BindingSource::None => return,
+                    };
 
-                let (terminal_view_id, can_start_new_conversation) = {
-                    let terminal_view_id =
-                        active_terminal_in_window(window_id, ctx, |terminal_view, _| {
-                            terminal_view.id()
+                    let (terminal_view_id, can_start_new_conversation) = {
+                        let terminal_view_id =
+                            active_terminal_in_window(window_id, ctx, |terminal_view, _| {
+                                terminal_view.id()
+                            });
+
+                        let should_block =
+                            active_terminal_in_window(window_id, ctx, |terminal_view, ctx| {
+                                !terminal_view
+                                    .ai_context_model()
+                                    .as_ref(ctx)
+                                    .can_start_new_conversation()
+                            })
+                            .unwrap_or(false);
+
+                        (terminal_view_id, should_block)
+                    };
+
+                    if can_start_new_conversation {
+                        ToastStack::handle(ctx).update(ctx, |toast_stack, ctx| {
+                            toast_stack.add_ephemeral_toast(
+                                DismissibleToast::error(
+                                    "Cannot start a new conversation while agent is monitoring a command."
+                                        .to_string(),
+                                ),
+                                window_id,
+                                ctx,
+                            );
                         });
+                        return;
+                    }
 
-                    let should_block =
-                        active_terminal_in_window(window_id, ctx, |terminal_view, ctx| {
-                            !terminal_view
-                                .ai_context_model()
-                                .as_ref(ctx)
-                                .can_start_new_conversation()
-                        })
-                        .unwrap_or(false);
-
-                    (terminal_view_id, should_block)
-                };
-
-                if can_start_new_conversation {
-                    ToastStack::handle(ctx).update(ctx, |toast_stack, ctx| {
-                        toast_stack.add_ephemeral_toast(
-                            DismissibleToast::error(
-                                "Cannot start a new conversation while agent is monitoring a command.".to_string(),
-                            ),
-                            window_id,
-                            ctx,
-                        );
-                    });
-                    return;
-                }
-
-                if let Some(terminal_view_id) = terminal_view_id {
-                    ctx.dispatch_typed_action(&WorkspaceAction::StartNewConversation {
-                        terminal_view_id,
-                    });
+                    if let Some(terminal_view_id) = terminal_view_id {
+                        ctx.dispatch_typed_action(&WorkspaceAction::StartNewConversation {
+                            terminal_view_id,
+                        });
+                    }
                 }
             }
             CommandPaletteItemAction::NoOp => {

@@ -95,7 +95,8 @@ impl VerticalTabsPaneContextMenuTarget {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[cfg_attr(not(feature = "oss_release"), derive(Debug))]
 pub enum WorkspaceAction {
     ActivateTab(usize),
     ActivatePrevTab,
@@ -429,6 +430,7 @@ pub enum WorkspaceAction {
         full_path: PathBuf,
         line_and_column: Option<LineAndColumnArg>,
     },
+    #[cfg(not(feature = "oss_release"))]
     OpenNotebook {
         id: SyncId,
     },
@@ -565,10 +567,10 @@ pub enum WorkspaceAction {
     #[cfg(debug_assertions)]
     ResetOpenWarpLaunchModalState,
     /// Install the opencode-warp plugin from GitHub into the global opencode config.
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, not(feature = "oss_release")))]
     InstallOpenCodeWarpPlugin,
     /// Use a local checkout of the opencode-warp plugin (for testing/development).
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, not(feature = "oss_release")))]
     UseLocalOpenCodeWarpPlugin,
     /// Take a process sample of the app (equivalent to Activity Monitor > Sample Process).
     #[cfg(target_os = "macos")]
@@ -674,6 +676,13 @@ pub enum WorkspaceAction {
     OpenNetworkLogPane,
 }
 
+#[cfg(feature = "oss_release")]
+impl std::fmt::Debug for WorkspaceAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("WorkspaceAction")
+    }
+}
+
 impl From<&WorkspaceAction> for LoginGatedFeature {
     fn from(val: &WorkspaceAction) -> LoginGatedFeature {
         use WorkspaceAction::*;
@@ -768,7 +777,6 @@ impl WorkspaceAction {
                 | StartNewConversation { .. }
                 | JumpToLatestToast
                 | OpenFileInNewTab { .. }
-                | OpenNotebook { .. }
                 | RunWorkflow { .. }
                 | RestoreOrNavigateToConversation { .. }
                 | ForkAIConversation { .. }
@@ -864,6 +872,8 @@ impl WorkspaceAction {
         match self {
             #[cfg(not(target_family = "wasm"))]
             ContinueConversationLocally { .. } => true,
+            #[cfg(not(feature = "oss_release"))]
+            OpenNotebook { .. } => true,
             ActivateTab(_)
             | ActivateTabByNumber(_)
             | ActivatePrevTab
@@ -904,7 +914,6 @@ impl WorkspaceAction {
             | NewTabInAgentMode { .. }
             | NewPaneInAgentMode { .. }
             | FixInAgentMode { .. }
-            | OpenNotebook { .. }
             | RunWorkflow { .. }
             | OpenFileInNewTab { .. }
             | RestoreOrNavigateToConversation { .. }
@@ -1105,9 +1114,9 @@ impl WorkspaceAction {
             | OpenOzLaunchModal
             | ResetOzLaunchModalState
             | OpenOpenWarpLaunchModal
-            | ResetOpenWarpLaunchModalState
-            | InstallOpenCodeWarpPlugin
-            | UseLocalOpenCodeWarpPlugin => false,
+            | ResetOpenWarpLaunchModalState => false,
+            #[cfg(all(debug_assertions, not(feature = "oss_release")))]
+            InstallOpenCodeWarpPlugin | UseLocalOpenCodeWarpPlugin => false,
             #[cfg(not(target_family = "wasm"))]
             ViewLogs => false,
             #[cfg(target_os = "macos")]

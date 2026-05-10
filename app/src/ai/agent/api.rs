@@ -5,6 +5,7 @@ mod r#impl;
 
 pub use ai::agent::convert::ConvertToAPITypeError;
 use ai::api_keys::ApiKeyManager;
+use ai::computer_use;
 pub use convert_from::{
     user_inputs_from_messages, ConversionParams, ConvertAPIMessageToClientOutputMessage,
     MaybeAIAgentOutputMessage, MessageToAIAgentOutputMessageError,

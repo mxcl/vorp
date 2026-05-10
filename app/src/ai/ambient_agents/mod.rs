@@ -11,6 +11,10 @@ pub mod github_auth_notifier;
 pub mod scheduled;
 pub mod spawn;
 pub mod task;
+#[cfg(not(feature = "oss_release"))]
+pub mod telemetry;
+#[cfg(feature = "oss_release")]
+#[path = "telemetry_oss.rs"]
 pub mod telemetry;
 
 pub use task::{

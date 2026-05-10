@@ -104,6 +104,8 @@ use warpui::{
     AppContext, Entity, EntityId, ModelHandle, SingletonEntity, TypedActionView, View, ViewContext,
     ViewHandle,
 };
+#[cfg(feature = "oss_release")]
+use warpui::elements::Empty;
 
 #[cfg(feature = "local_fs")]
 pub(crate) use self::environment_selector::sort_environments_by_recency;
@@ -2028,114 +2030,123 @@ impl View for AgentInputFooter {
     }
 
     fn render(&self, app: &warpui::AppContext) -> Box<dyn warpui::Element> {
-        if self.should_render_cloud_mode_v2(app) {
-            return self.render_cloud_mode_v2_footer(app);
-        }
-        // When a CLI agent session is active, render the CLI agent toolbar instead.
-        if self.is_cli_agent_session_active(app) {
-            return self.render_cli_mode_footer(app);
+        #[cfg(feature = "oss_release")]
+        {
+            let _ = app;
+            Empty::new().finish()
         }
 
-        let session_settings = SessionSettings::as_ref(app);
-        let left_items = session_settings.agent_footer_chip_selection.left_items();
-        let right_items = session_settings.agent_footer_chip_selection.right_items();
-
-        let mut left_buttons = Wrap::row()
-            .with_main_axis_size(MainAxisSize::Min)
-            .with_cross_axis_alignment(CrossAxisAlignment::Center)
-            .with_main_axis_alignment(MainAxisAlignment::Start)
-            .with_run_spacing(4.)
-            .with_spacing(4.);
-
-        let is_ambient_agent = FeatureFlag::CloudMode.is_enabled()
-            && self
-                .ambient_agent_view_model
-                .as_ref()
-                .is_some_and(|ambient_agent_model| {
-                    ambient_agent_model.as_ref(app).is_ambient_agent()
-                });
-        if is_ambient_agent {
-            if let Some(environment_selector) = self.environment_selector.as_ref() {
-                left_buttons =
-                    left_buttons.with_child(ChildView::new(environment_selector).finish());
+        #[cfg(not(feature = "oss_release"))]
+        {
+            if self.should_render_cloud_mode_v2(app) {
+                return self.render_cloud_mode_v2_footer(app);
             }
-        }
-
-        let terminal_model = self.terminal_model.lock();
-        let shared_status = terminal_model.shared_session_status();
-
-        for item in &left_items {
-            if let Some(element) = self.render_toolbar_item(item, shared_status, app) {
-                left_buttons.add_child(element);
+            // When a CLI agent session is active, render the CLI agent toolbar instead.
+            if self.is_cli_agent_session_active(app) {
+                return self.render_cli_mode_footer(app);
             }
-        }
 
-        let mut right_buttons = Flex::row()
-            .with_cross_axis_alignment(CrossAxisAlignment::Center)
-            .with_main_axis_size(MainAxisSize::Min)
-            .with_spacing(4.);
+            let session_settings = SessionSettings::as_ref(app);
+            let left_items = session_settings.agent_footer_chip_selection.left_items();
+            let right_items = session_settings.agent_footer_chip_selection.right_items();
 
-        let has_prompt_alert = !self.prompt_alert.as_ref(app).is_no_alert();
-        if has_prompt_alert {
-            right_buttons.add_child(
-                Shrinkable::new(
-                    1.,
-                    Clipped::new(ChildView::new(&self.prompt_alert).finish()).finish(),
-                )
-                .finish(),
-            );
-        } else {
-            for item in &right_items {
-                if let Some(element) = self.render_toolbar_item(item, shared_status, app) {
-                    right_buttons.add_child(element);
+            let mut left_buttons = Wrap::row()
+                .with_main_axis_size(MainAxisSize::Min)
+                .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                .with_main_axis_alignment(MainAxisAlignment::Start)
+                .with_run_spacing(4.)
+                .with_spacing(4.);
+
+            let is_ambient_agent = FeatureFlag::CloudMode.is_enabled()
+                && self
+                    .ambient_agent_view_model
+                    .as_ref()
+                    .is_some_and(|ambient_agent_model| {
+                        ambient_agent_model.as_ref(app).is_ambient_agent()
+                    });
+            if is_ambient_agent {
+                if let Some(environment_selector) = self.environment_selector.as_ref() {
+                    left_buttons =
+                        left_buttons.with_child(ChildView::new(environment_selector).finish());
                 }
             }
-        }
 
-        let content = Wrap::row()
-            .with_main_axis_size(MainAxisSize::Max)
-            .with_main_axis_alignment(MainAxisAlignment::SpaceBetween)
-            .with_cross_axis_alignment(CrossAxisAlignment::Center)
-            .with_child(WrapFill::new(0., left_buttons.finish()).finish())
-            .with_child(WrapFill::new(0., right_buttons.finish()).finish())
-            .with_run_spacing(context_chips::spacing::UDI_ROW_RUN_SPACING)
-            .finish();
-        let content = EventHandler::new(content)
-            .on_right_mouse_down(|ctx, _, position| {
-                ctx.dispatch_typed_action(AgentInputFooterAction::ShowContextMenu { position });
-                DispatchEventResult::StopPropagation
-            })
-            .finish();
+            let terminal_model = self.terminal_model.lock();
+            let shared_status = terminal_model.shared_session_status();
 
-        let mut container = Container::new(content).with_padding_bottom(8.0);
-        if !has_prompt_alert {
-            container = container.with_padding_right(16.);
-        }
+            for item in &left_items {
+                if let Some(element) = self.render_toolbar_item(item, shared_status, app) {
+                    left_buttons.add_child(element);
+                }
+            }
 
-        // If the model chip has switched to show the ftu model options
-        // (and this is the first time this has happened)
-        // we show a little callout explaining the change.
-        let showing_ftu_model_picker = FeatureFlag::InlineMenuHeaders.is_enabled()
-            && terminal_model
-                .block_list()
-                .active_block()
-                .is_agent_in_control_or_tagged_in();
-        if showing_ftu_model_picker && self.render_ftu_callout {
-            let mut stack = Stack::new();
-            stack.add_child(container.finish());
-            stack.add_positioned_overlay_child(
-                render_ftu_callout(&self.ftu_callout_close_button, app),
-                OffsetPositioning::offset_from_save_position_element(
-                    "profile_model_selector_model_button",
-                    vec2f(8., -8.),
-                    PositionedElementOffsetBounds::WindowByPosition,
-                    PositionedElementAnchor::TopRight,
-                    ChildAnchor::BottomRight,
-                ),
-            );
-            stack.finish()
-        } else {
-            container.finish()
+            let mut right_buttons = Flex::row()
+                .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                .with_main_axis_size(MainAxisSize::Min)
+                .with_spacing(4.);
+
+            let has_prompt_alert = !self.prompt_alert.as_ref(app).is_no_alert();
+            if has_prompt_alert {
+                right_buttons.add_child(
+                    Shrinkable::new(
+                        1.,
+                        Clipped::new(ChildView::new(&self.prompt_alert).finish()).finish(),
+                    )
+                    .finish(),
+                );
+            } else {
+                for item in &right_items {
+                    if let Some(element) = self.render_toolbar_item(item, shared_status, app) {
+                        right_buttons.add_child(element);
+                    }
+                }
+            }
+
+            let content = Wrap::row()
+                .with_main_axis_size(MainAxisSize::Max)
+                .with_main_axis_alignment(MainAxisAlignment::SpaceBetween)
+                .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                .with_child(WrapFill::new(0., left_buttons.finish()).finish())
+                .with_child(WrapFill::new(0., right_buttons.finish()).finish())
+                .with_run_spacing(context_chips::spacing::UDI_ROW_RUN_SPACING)
+                .finish();
+            let content = EventHandler::new(content)
+                .on_right_mouse_down(|ctx, _, position| {
+                    ctx.dispatch_typed_action(AgentInputFooterAction::ShowContextMenu { position });
+                    DispatchEventResult::StopPropagation
+                })
+                .finish();
+
+            let mut container = Container::new(content).with_padding_bottom(8.0);
+            if !has_prompt_alert {
+                container = container.with_padding_right(16.);
+            }
+
+            // If the model chip has switched to show the ftu model options
+            // (and this is the first time this has happened)
+            // we show a little callout explaining the change.
+            let showing_ftu_model_picker = FeatureFlag::InlineMenuHeaders.is_enabled()
+                && terminal_model
+                    .block_list()
+                    .active_block()
+                    .is_agent_in_control_or_tagged_in();
+            if showing_ftu_model_picker && self.render_ftu_callout {
+                let mut stack = Stack::new();
+                stack.add_child(container.finish());
+                stack.add_positioned_overlay_child(
+                    render_ftu_callout(&self.ftu_callout_close_button, app),
+                    OffsetPositioning::offset_from_save_position_element(
+                        "profile_model_selector_model_button",
+                        vec2f(8., -8.),
+                        PositionedElementOffsetBounds::WindowByPosition,
+                        PositionedElementAnchor::TopRight,
+                        ChildAnchor::BottomRight,
+                    ),
+                );
+                stack.finish()
+            } else {
+                container.finish()
+            }
         }
     }
 }

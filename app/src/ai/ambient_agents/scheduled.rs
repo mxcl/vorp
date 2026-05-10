@@ -5,6 +5,7 @@ use std::future::Future;
 
 use super::AgentConfigSnapshot;
 
+use crate::server::server_api::ai::ScheduledAgentHistory;
 use crate::{
     cloud_object::{
         model::{
@@ -27,7 +28,6 @@ use crate::{
 };
 use futures::channel::oneshot;
 use futures::FutureExt;
-use warp_graphql::queries::get_scheduled_agent_history::ScheduledAgentHistory;
 use warpui::{AppContext, Entity, ModelContext, SingletonEntity};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

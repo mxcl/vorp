@@ -1,5 +1,6 @@
 mod data_source;
 mod env_var_collection_search_item;
+#[cfg(not(feature = "oss_release"))]
 mod notebook_search_item;
 mod workflow_search_item;
 

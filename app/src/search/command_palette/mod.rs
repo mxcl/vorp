@@ -1,3 +1,7 @@
+#[cfg(not(feature = "oss_release"))]
+pub mod conversations;
+#[cfg(feature = "oss_release")]
+#[path = "conversations_oss.rs"]
 pub mod conversations;
 mod data_sources;
 mod files;

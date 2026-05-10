@@ -4,13 +4,13 @@ use super::{
 };
 use crate::code::editor_management::CodeSource;
 use crate::features::FeatureFlag;
+use crate::mermaid_to_svg::is_mermaid_diagram;
 use ai::gfm_table::{format_gfm_table, maybe_collect_gfm_table_lines};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use markdown_parser::{
     parse_image_run_line, parse_markdown_with_gfm_tables, FormattedImage, FormattedTextLine,
 };
-use mermaid_to_svg::is_mermaid_diagram;
 use regex::Regex;
 use std::{collections::HashMap, path::PathBuf};
 use warp_util::path::LineAndColumnArg;

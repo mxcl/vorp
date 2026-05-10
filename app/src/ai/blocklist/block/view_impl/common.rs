@@ -110,10 +110,9 @@ use crate::{
     },
     workspace::WorkspaceAction,
 };
-use crate::{
-    search::slash_command_menu::static_commands::commands,
-    settings::{FontSettings, InputSettings},
-};
+#[cfg(not(feature = "oss_release"))]
+use crate::search::slash_command_menu::static_commands::commands;
+use crate::settings::{FontSettings, InputSettings};
 use warp_core::channel::ChannelState;
 use warp_editor::content::{
     edit::resolve_asset_source_relative_to_directory, mermaid_diagram::mermaid_asset_source,
@@ -3422,10 +3421,19 @@ pub struct UserQueryProps<'a> {
     pub font_properties: &'a Properties,
 }
 pub(crate) fn user_query_mode_prefix_highlight_len(mode: UserQueryMode) -> Option<usize> {
+    #[cfg(feature = "oss_release")]
+    {
+        let _ = mode;
+        None
+    }
+
+    #[cfg(not(feature = "oss_release"))]
+    {
     match mode {
         UserQueryMode::Normal => None,
         UserQueryMode::Plan => Some(commands::PLAN.name.len()),
         UserQueryMode::Orchestrate => Some(commands::ORCHESTRATE.name.len()),
+    }
     }
 }
 
@@ -3433,6 +3441,14 @@ pub(super) fn query_prefix_highlight_len(
     input: &AIAgentInput,
     displayed_query: &str,
 ) -> Option<usize> {
+    #[cfg(feature = "oss_release")]
+    {
+        let _ = (input, displayed_query);
+        None
+    }
+
+    #[cfg(not(feature = "oss_release"))]
+    {
     if let AIAgentInput::UserQuery {
         user_query_mode, ..
     } = input
@@ -3469,6 +3485,7 @@ pub(super) fn query_prefix_highlight_len(
             | AIAgentInput::PassiveSuggestionResult { .. }
             | AIAgentInput::OrchestrationConfigUpdate { .. } => None,
         }
+    }
     }
 }
 

@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-use ai::LLMId;
 use anyhow::Result;
 use onboarding::slides::OnboardingModelInfo;
+use onboarding::LLMId;
 use onboarding::{
     AgentOnboardingEvent, AgentOnboardingView, MockTelemetryContextProvider, SelectedSettings,
 };

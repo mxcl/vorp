@@ -48,6 +48,12 @@ pub enum SkillTelemetryEvent {
 }
 
 impl TelemetryEvent for SkillTelemetryEvent {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         SkillTelemetryEventDiscriminants::from(self).name()
     }
@@ -79,6 +85,12 @@ impl TelemetryEvent for SkillTelemetryEvent {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         SkillTelemetryEventDiscriminants::from(self).description()
     }
@@ -93,12 +105,24 @@ impl TelemetryEvent for SkillTelemetryEvent {
         true
     }
 
+    #[cfg(feature = "oss_release")]
+    fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
+        std::iter::empty()
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn event_descs() -> impl Iterator<Item = Box<dyn TelemetryEventDesc>> {
         warp_core::telemetry::enum_events::<Self>()
     }
 }
 
 impl TelemetryEventDesc for SkillTelemetryEventDiscriminants {
+    #[cfg(feature = "oss_release")]
+    fn name(&self) -> &'static str {
+        "TelemetryDisabled"
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn name(&self) -> &'static str {
         match self {
             Self::Read => "Skill.Read",
@@ -106,6 +130,12 @@ impl TelemetryEventDesc for SkillTelemetryEventDiscriminants {
         }
     }
 
+    #[cfg(feature = "oss_release")]
+    fn description(&self) -> &'static str {
+        ""
+    }
+
+    #[cfg(not(feature = "oss_release"))]
     fn description(&self) -> &'static str {
         match self {
             Self::Read => "A skill was read via the ReadSkill tool call",
