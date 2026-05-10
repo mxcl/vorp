@@ -1327,7 +1327,6 @@ pub(crate) fn initialize_app(
     let server_api_provider = ctx
         .add_singleton_model(|ctx| ServerApiProvider::new(auth_state.clone(), agent_source, ctx));
     let server_api = server_api_provider.as_ref(ctx).get();
-    #[cfg(not(feature = "oss_release"))]
     let ai_client = server_api_provider.as_ref(ctx).get_ai_client();
 
     ctx.add_singleton_model(|_ctx| AuthStateProvider::new(auth_state.clone()));
@@ -1452,7 +1451,6 @@ pub(crate) fn initialize_app(
     // be initialized after it.
     ctx.add_singleton_model(|ctx| ServerExperiments::new_from_cache(experiments, ctx));
 
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| AIRequestUsageModel::new(ai_client, ctx));
 
     ctx.add_singleton_model(|ctx| {
