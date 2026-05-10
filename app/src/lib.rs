@@ -349,7 +349,6 @@ use workflows::manager::WorkflowManager;
 
 use crate::ai::ambient_agents::github_auth_notifier::GitHubAuthNotifier;
 use crate::ai::document::ai_document_model::AIDocumentModel;
-#[cfg(not(feature = "oss_release"))]
 use crate::ai::facts::manager::AIFactManager;
 use crate::ai::harness_availability::HarnessAvailabilityModel;
 use crate::ai::llms::LLMPreferences;
@@ -372,10 +371,9 @@ use crate::drive::export::ExportManager;
 use crate::env_vars::manager::EnvVarCollectionManager;
 use crate::gpu_state::GPUState;
 use crate::network::NetworkStatus;
+use crate::notebooks::manager::NotebookManager;
 #[cfg(not(feature = "oss_release"))]
-use crate::notebooks::{
-    editor::keys::NotebookKeybindings, manager::NotebookManager, CloudNotebook,
-};
+use crate::notebooks::{editor::keys::NotebookKeybindings, CloudNotebook};
 use crate::palette::PaletteMode;
 use crate::persistence::PersistenceWriter;
 use crate::projects::ProjectManagementModel;
@@ -1512,9 +1510,7 @@ pub(crate) fn initialize_app(
     App::record_last_active_timestamp();
 
     ctx.add_singleton_model(|_| SettingsPaneManager::new());
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| AIFactManager::new());
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| ExecutionProfileEditorManager::default());
     ctx.add_singleton_model(|_| NetworkLogPaneManager::default());
     ctx.add_singleton_model(|_| pricing::PricingInfoModel::new());
@@ -1836,6 +1832,8 @@ pub(crate) fn initialize_app(
         })
         .cloned()
         .collect::<Vec<_>>();
+    #[cfg(feature = "oss_release")]
+    let notebooks = Vec::new();
 
     let mut all_queue_items = Vec::new();
     let objects_with_pending_changes = cloud_objects
@@ -1878,26 +1876,18 @@ pub(crate) fn initialize_app(
         )
     });
 
-    #[cfg(not(feature = "oss_release"))]
     {
         let conversations = &multi_agent_conversations;
         ctx.add_singleton_model(move |_| BlocklistAIHistoryModel::new(ai_queries, conversations));
     }
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(move |_| RestoredAgentConversations::new(multi_agent_conversations));
     ctx.add_singleton_model(|_| CLIAgentSessionsModel::new());
     // ActiveAgentViewsModel is used to track active agent conversations and notify listeners when they change.
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| ActiveAgentViewsModel::new());
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(AgentNotificationsModel::new);
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(BlocklistAIPermissions::new);
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(ai::blocklist::orchestration_events::OrchestrationEventService::new);
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(ai::blocklist::task_status_sync_model::TaskStatusSyncModel::new);
-    #[cfg(not(feature = "oss_release"))]
     if warp_core::features::FeatureFlag::OrchestrationV2.is_enabled() {
         ctx.add_singleton_model(
             ai::blocklist::orchestration_event_streamer::OrchestrationEventStreamer::new,
@@ -1952,7 +1942,6 @@ pub(crate) fn initialize_app(
     // LogManager must be registered before any subsystem (e.g. MCP, LSP) that creates file-based loggers.
     ctx.add_singleton_model(|_| simple_logger::manager::LogManager::new());
 
-    #[cfg(not(feature = "oss_release"))]
     {
         let running_mcp_servers = app_state
             .as_ref()
@@ -1987,23 +1976,17 @@ pub(crate) fn initialize_app(
     ctx.add_singleton_model(CloudViewModel::new);
 
     // AIDocumentModel subscribes to UpdateManager so that it can be notified when notebooks are created on the server.
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(AIDocumentModel::new);
 
     // AgentConversationsModel subscribes to UpdateManager for RTC task updates.
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(AgentConversationsModel::new);
 
     // ByoLlmAuthBannerSessionState tracks dismissal of the BYO LLM auth banner (e.g., AWS Bedrock login).
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(ByoLlmAuthBannerSessionState::new);
 
     ctx.add_singleton_model(ExportManager::new);
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| NotebookManager::new(notebooks, ctx));
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| CodeManager::default());
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| OpenedFilesModel::new());
     #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(NotebookKeybindings::new);
@@ -2046,9 +2029,7 @@ pub(crate) fn initialize_app(
 
     ctx.add_singleton_model(LocalWorkflows::new);
 
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(LLMPreferences::new);
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(HarnessAvailabilityModel::new);
 
     #[cfg(not(feature = "oss_release"))]
@@ -2071,12 +2052,10 @@ pub(crate) fn initialize_app(
         FeatureFlag::SSHTmuxWrapper.set_user_preference(is_ssh_tmux_wrapper_enabled);
     }
 
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| AIExecutionProfilesModel::new(launch_mode, ctx));
 
     ctx.add_singleton_model(DefaultTerminal::new);
 
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
         let indices_to_restore = if UserWorkspaces::as_ref(ctx).is_codebase_context_enabled(ctx)
             && launch_mode.supports_indexing()
@@ -2098,11 +2077,9 @@ pub(crate) fn initialize_app(
         )
     });
 
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
         ProjectContextModel::new_from_persisted(persisted_project_rules, ctx)
     });
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
         PersistedWorkspace::new(
             persisted_workspaces,
