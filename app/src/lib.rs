@@ -1711,6 +1711,12 @@ pub(crate) fn initialize_app(
 
     ctx.add_singleton_model(CustomSecretRegexUpdater::new);
 
+    {
+        let conversations = &multi_agent_conversations;
+        ctx.add_singleton_model(move |_| BlocklistAIHistoryModel::new(ai_queries, conversations));
+    }
+    ctx.add_singleton_model(move |_| RestoredAgentConversations::new(multi_agent_conversations));
+
     // Register the `TelemetryCollection` singleton model.
     let server_api_clone = server_api.clone();
     ctx.add_singleton_model(|ctx| {
@@ -1872,11 +1878,6 @@ pub(crate) fn initialize_app(
         )
     });
 
-    {
-        let conversations = &multi_agent_conversations;
-        ctx.add_singleton_model(move |_| BlocklistAIHistoryModel::new(ai_queries, conversations));
-    }
-    ctx.add_singleton_model(move |_| RestoredAgentConversations::new(multi_agent_conversations));
     ctx.add_singleton_model(|_| CLIAgentSessionsModel::new());
     // ActiveAgentViewsModel is used to track active agent conversations and notify listeners when they change.
     ctx.add_singleton_model(|_| ActiveAgentViewsModel::new());
