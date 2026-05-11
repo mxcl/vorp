@@ -1514,7 +1514,6 @@ pub(crate) fn initialize_app(
     ctx.add_singleton_model(|_| ExecutionProfileEditorManager::default());
     ctx.add_singleton_model(|_| NetworkLogPaneManager::default());
     ctx.add_singleton_model(|_| pricing::PricingInfoModel::new());
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
         // Not using the *Provider types isn't ideal, but it's worth it for the ability to move managed secrets to a separate crate.
         ManagedSecretManager::new(
@@ -1699,7 +1698,6 @@ pub(crate) fn initialize_app(
         });
     }
 
-    #[cfg(not(feature = "oss_release"))]
     {
         use code_review::git_status_update::GitStatusUpdateModel;
         ctx.add_singleton_model(|_| GitStatusUpdateModel::new());
@@ -1789,7 +1787,6 @@ pub(crate) fn initialize_app(
 
     ctx.add_singleton_model(|_| RelaunchModel::new());
     ctx.add_singleton_model(|_| ChangelogModel::new(server_api.clone()));
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| GitHubAuthNotifier::new());
     ctx.add_singleton_model(|_| NetworkStatus::new());
     ctx.add_singleton_model(|_| SystemStats::new());
@@ -1799,7 +1796,6 @@ pub(crate) fn initialize_app(
     ctx.add_singleton_model(|_| VimRegisters::new());
     ctx.add_singleton_model(UndoCloseStack::new);
     ctx.add_singleton_model(|_| ToastStack);
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|_| GlobalCodeReviewModel);
     ctx.add_singleton_model(workspace::OneTimeModalModel::new);
     ctx.add_singleton_model(
@@ -1894,7 +1890,6 @@ pub(crate) fn initialize_app(
         );
     }
 
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(RepoOutlines::new);
     #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
@@ -2032,7 +2027,6 @@ pub(crate) fn initialize_app(
     ctx.add_singleton_model(LLMPreferences::new);
     ctx.add_singleton_model(HarnessAvailabilityModel::new);
 
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(|ctx| {
         ai::agent_tips::AITipModel::<ai::AgentTip>::new_for_agent_tips(ctx)
     });
@@ -2090,7 +2084,6 @@ pub(crate) fn initialize_app(
     });
     ctx.add_singleton_model(move |_| persistence_writer);
 
-    #[cfg(not(feature = "oss_release"))]
     ctx.add_singleton_model(input_classifier::InputClassifierModel::new);
 
     ctx.add_singleton_model(move |_| IgnoredSuggestionsModel::new(persisted_ignored_suggestions));
