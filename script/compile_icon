@@ -36,6 +36,7 @@ echo "Compiling .icon bundle for $CHANNEL channel"
 
 BUNDLED_RESOURCES_DIR="$APP_BUNDLE_PATH/Contents/Resources"
 PARTIAL_INFO_PLIST="$(dirname "$APP_BUNDLE_PATH")/partial-icon-info.plist"
+ICON_FALLBACK_SOURCE="$ICON_BUNDLE_PATH/Assets/Imagegen.png"
 
 # Compile the .icon bundle using actool
 xcrun actool \
@@ -51,6 +52,21 @@ if [[ ! -f "$BUNDLED_RESOURCES_DIR/Assets.car" ]]; then
     XCODE_VERSION=$(xcodebuild -version 2>/dev/null | head -1 || echo "unknown")
     echo "Warning: actool did not produce Assets.car which is required for the latest App icon format." >&2
     echo "(Note that XCode version <26 does not support .icon bundles. Your version: $XCODE_VERSION)." >&2
+fi
+
+if [[ -f "$ICON_FALLBACK_SOURCE" ]]; then
+    ICONSET_DIR="$(mktemp -d)"
+    ICONSET_PATH="$ICONSET_DIR/AppIcon.iconset"
+    mkdir -p "$ICONSET_PATH"
+
+    for SIZE in 16 32 128 256 512; do
+        sips -z "$SIZE" "$SIZE" "$ICON_FALLBACK_SOURCE" --out "$ICONSET_PATH/icon_${SIZE}x${SIZE}.png" >/dev/null
+        DOUBLE_SIZE=$((SIZE * 2))
+        sips -z "$DOUBLE_SIZE" "$DOUBLE_SIZE" "$ICON_FALLBACK_SOURCE" --out "$ICONSET_PATH/icon_${SIZE}x${SIZE}@2x.png" >/dev/null
+    done
+
+    iconutil --convert icns --output "$BUNDLED_RESOURCES_DIR/AppIcon.icns" "$ICONSET_PATH"
+    rm -rf "$ICONSET_DIR"
 fi
 
 # Update Info.plist to reference AppIcon instead of the old .icns
