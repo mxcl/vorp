@@ -37,6 +37,10 @@ echo "Compiling .icon bundle for $CHANNEL channel"
 BUNDLED_RESOURCES_DIR="$APP_BUNDLE_PATH/Contents/Resources"
 PARTIAL_INFO_PLIST="$(dirname "$APP_BUNDLE_PATH")/partial-icon-info.plist"
 ICON_FALLBACK_SOURCE="$ICON_BUNDLE_PATH/Assets/Imagegen.png"
+APP_NAME=$(basename "$APP_BUNDLE_PATH" .app)
+OLD_ICON_FILE=$(plutil -extract CFBundleIconFile raw "$APP_BUNDLE_PATH/Contents/Info.plist" 2>/dev/null || true)
+FALLBACK_ICON_NAME="${OLD_ICON_FILE:-$APP_NAME}"
+FALLBACK_ICON_NAME="${FALLBACK_ICON_NAME%.icns}"
 
 # Compile the .icon bundle using actool
 xcrun actool \
@@ -65,19 +69,15 @@ if [[ -f "$ICON_FALLBACK_SOURCE" ]]; then
         sips -z "$DOUBLE_SIZE" "$DOUBLE_SIZE" "$ICON_FALLBACK_SOURCE" --out "$ICONSET_PATH/icon_${SIZE}x${SIZE}@2x.png" >/dev/null
     done
 
-    iconutil --convert icns --output "$BUNDLED_RESOURCES_DIR/AppIcon.icns" "$ICONSET_PATH"
+    iconutil --convert icns --output "$BUNDLED_RESOURCES_DIR/$FALLBACK_ICON_NAME.icns" "$ICONSET_PATH"
     rm -rf "$ICONSET_DIR"
 fi
 
-# Update Info.plist to reference the standard AppIcon.icns fallback.
-OLD_ICON_FILE=$(plutil -extract CFBundleIconFile raw "$APP_BUNDLE_PATH/Contents/Info.plist" 2>/dev/null || true)
-plutil -replace CFBundleIconFile -string "AppIcon" "$APP_BUNDLE_PATH/Contents/Info.plist"
+# Update Info.plist to reference the standard .icns fallback.
+plutil -replace CFBundleIconFile -string "$FALLBACK_ICON_NAME" "$APP_BUNDLE_PATH/Contents/Info.plist"
 plutil -remove CFBundleIconName "$APP_BUNDLE_PATH/Contents/Info.plist" 2>/dev/null || true
-
-# Get the app name from the bundle
-APP_NAME=$(basename "$APP_BUNDLE_PATH" .app)
 for legacy_icon_name in "$OLD_ICON_FILE" "$APP_NAME"; do
-    [[ -n "$legacy_icon_name" && "$legacy_icon_name" != "AppIcon" ]] || continue
+    [[ -n "$legacy_icon_name" && "${legacy_icon_name%.icns}" != "$FALLBACK_ICON_NAME" ]] || continue
 
     legacy_icon_path="$BUNDLED_RESOURCES_DIR/${legacy_icon_name%.icns}.icns"
     if [[ -f "$legacy_icon_path" ]]; then
