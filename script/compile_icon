@@ -69,11 +69,10 @@ if [[ -f "$ICON_FALLBACK_SOURCE" ]]; then
     rm -rf "$ICONSET_DIR"
 fi
 
-# Update Info.plist to reference AppIcon instead of the old .icns
+# Update Info.plist to reference the standard AppIcon.icns fallback.
 OLD_ICON_FILE=$(plutil -extract CFBundleIconFile raw "$APP_BUNDLE_PATH/Contents/Info.plist" 2>/dev/null || true)
 plutil -replace CFBundleIconFile -string "AppIcon" "$APP_BUNDLE_PATH/Contents/Info.plist"
-plutil -insert CFBundleIconName -string "AppIcon" "$APP_BUNDLE_PATH/Contents/Info.plist" 2>/dev/null || \
-  plutil -replace CFBundleIconName -string "AppIcon" "$APP_BUNDLE_PATH/Contents/Info.plist"
+plutil -remove CFBundleIconName "$APP_BUNDLE_PATH/Contents/Info.plist" 2>/dev/null || true
 
 # Get the app name from the bundle
 APP_NAME=$(basename "$APP_BUNDLE_PATH" .app)
