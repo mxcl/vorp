@@ -54,11 +54,20 @@ if [[ ! -f "$BUNDLED_RESOURCES_DIR/Assets.car" ]]; then
 fi
 
 # Update Info.plist to reference AppIcon instead of the old .icns
+OLD_ICON_FILE=$(plutil -extract CFBundleIconFile raw "$APP_BUNDLE_PATH/Contents/Info.plist" 2>/dev/null || true)
 plutil -replace CFBundleIconFile -string "AppIcon" "$APP_BUNDLE_PATH/Contents/Info.plist"
 plutil -insert CFBundleIconName -string "AppIcon" "$APP_BUNDLE_PATH/Contents/Info.plist" 2>/dev/null || \
   plutil -replace CFBundleIconName -string "AppIcon" "$APP_BUNDLE_PATH/Contents/Info.plist"
 
 # Get the app name from the bundle
 APP_NAME=$(basename "$APP_BUNDLE_PATH" .app)
+for legacy_icon_name in "$OLD_ICON_FILE" "$APP_NAME"; do
+    [[ -n "$legacy_icon_name" && "$legacy_icon_name" != "AppIcon" ]] || continue
+
+    legacy_icon_path="$BUNDLED_RESOURCES_DIR/${legacy_icon_name%.icns}.icns"
+    if [[ -f "$legacy_icon_path" ]]; then
+        rm "$legacy_icon_path"
+    fi
+done
 
 echo "Icon compiled successfully."
